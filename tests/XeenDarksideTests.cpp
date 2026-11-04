@@ -1316,6 +1316,29 @@ void mixedTravel(Inputs &in,const GameInstallation &installation,const XeenSaveS
  auto bad=flip;bad.records.back()=row(start,3,7,{200,1,1});Live rejected(in,s,&bad);std::string reason;
  rejected.flow->reportManual=[&](const auto &r){if(const auto *e=std::get_if<XeenEventExecutionError>(&r))reason=e->message;};
  rejected.act(InteractionAction{false});rejected.settle();check(reason.find("not supported yet")!=std::string::npos && rejected.w.pendingLoadSide()==Side::Darkside,"Refused transition published pending side");rejected.unchanged(s);
+ // A late refusal after a cross-side Continue discards the entire source and
+ // destination candidate, including an already displayed XP sparkle.
+ {
+  const XeenCamera target{{Side::Clouds,28},10,11,D::North};
+  auto before=at(in,at(in,s,target),start);
+  XeenEventFile departure{start.mapId,"cross-side refusal source",true,{
+   row(start,0,12,{0,0,16,1,0,0,0}),row(start,1,59,{0}),row(start,2,31,{28,10,11})}};
+  XeenEventFile arrival{target.mapId,"cross-side refusal destination",true,{
+   row(target,0,1,{0}),row(target,1,12,{0,0,107,32})}};
+  Live f(in,before,&departure,&arrival);unsigned failures=0,destinationWaits=0;
+  f.flow->reportManual=[&](const auto &r) {
+   if(const auto *error=std::get_if<XeenEventExecutionError>(&r)){(void)error;++failures;}
+   if(const auto *pending=std::get_if<XeenEventExecutionSuspended>(&r))
+    if(pending->request.source.mapId==target.mapId)++destinationWaits;
+  };
+  for(unsigned attempt=0;attempt<2;++attempt) {
+   f.act(InteractionAction{false});f.settle();
+   check(failures==attempt+1 && destinationWaits==attempt+1,"Cross-side refusal did not repeat at its destination");
+   f.unchanged(before);
+   const auto bytes=XeenSaveFormat::encode(f.snapshot());Live restored(in,XeenSaveFormat::decode(bytes),&departure,&arrival);
+   check(XeenSaveFormat::encode(restored.snapshot())==bytes,"Cross-side refusal save did not round trip");
+  }
+ }
  // The next real same-map reload uses P and resets it on the destination side.
  Live reload(in,s,&flip);reload.act(InteractionAction{false});reload.settle();XeenEventDispatchTestAccess::reload(*reload.flow);
  check(reload.c.mapId==XeenMapIdentity(29) && reload.w.pendingLoadSide()==Side::Clouds,"Reload ignored pending side");
@@ -1806,6 +1829,20 @@ void presentationFailures(Inputs &in,const XeenSaveSnapshot &source) {
   check(XeenSaveFormat::encode(restored.snapshot())==bytes,"Abandoned fall did not restore exactly");
  }
  {
+  // The movement-triggered terrain fall also remains detached through later images.
+  const auto before=at(in,source,edge);Live later(in,before);unsigned failures=0;
+  const auto draw=later.flow->drawDialogSprite;
+  later.flow->drawDialogSprite=[&,draw](auto &frame,const char *name,unsigned image,int x,int y) {
+   const auto current=XeenEventDispatchTestAccess::fallImage(*later.flow);
+   if(current && *current>=4){++failures;throw std::out_of_range("Injected later terrain fall image failure");}
+   draw(frame,name,image,x,y);
+  };
+  later.act(NavigationAction::TurnLeft);quietAfter(later,"Later terrain fall image failure blocked input");
+  check(failures==1,"Later terrain fall image failure was not reached exactly once");unharmed(later,before,edge);
+  const auto bytes=XeenSaveFormat::encode(later.snapshot());Live restored(in,XeenSaveFormat::decode(bytes));
+  check(XeenSaveFormat::encode(restored.snapshot())==bytes,"Later terrain fall failure save did not round trip");
+ }
+ {
   // Original map 8 @503 FallToMap: an out-of-range request in its pending presentation.
   const auto row=[](unsigned x,unsigned y,unsigned line,unsigned opcode,std::vector<std::uint8_t> p={}) {
    XeenEventRecord e;e.x=x;e.y=y;e.line=line;e.direction=4;e.opcode=opcode;e.parameters=std::move(p);e.lengthField=5+e.parameters.size();return e;
@@ -1821,6 +1858,26 @@ void presentationFailures(Inputs &in,const XeenSaveSnapshot &source) {
   };
   live.act(InteractionAction{});quietAfter(live,"Permanent scripted fall failure blocked input");
   check(failures==1,"Permanent scripted fall failure was retried");unharmed(live,s,from);
+ }
+ {
+  // Fail a later impact image after several frames have already been displayed.
+  const auto row=[](unsigned x,unsigned y,unsigned line,unsigned opcode,std::vector<std::uint8_t> p={}) {
+   XeenEventRecord e;e.x=x;e.y=y;e.line=line;e.direction=4;e.opcode=opcode;e.parameters=std::move(p);e.lengthField=5+e.parameters.size();return e;
+  };
+  const auto file=in.events.load(dark(8));const auto found=std::find_if(file.records.begin(),file.records.end(),[](const auto &e){return e.fileOffset==503;});
+  check(found!=file.records.end() && found->opcode==52,"Map 8 later fall witness differs");
+  XeenEventFile script{dark(8),"original map 8 scripted fall",true,{*found,row(14,14,0,25,{found->x,found->y,found->line})}};
+  const XeenCamera from{dark(8),14,14,D::West};const auto before=at(in,at(in,source,{dark(40),3,3,D::West}),from);
+  Live later(in,before,&script);unsigned failures=0;const auto draw=later.flow->drawDialogSprite;
+  later.flow->drawDialogSprite=[&,draw](auto &frame,const char *name,unsigned image,int x,int y) {
+   const auto current=XeenEventDispatchTestAccess::fallImage(*later.flow);
+   if(current && *current>=4){++failures;throw std::out_of_range("Injected later fall image failure");}
+   draw(frame,name,image,x,y);
+  };
+  later.act(InteractionAction{false});quietAfter(later,"Later fall image failure blocked input");
+  check(failures==1,"Later fall image failure was not reached exactly once");unharmed(later,before,from);
+  const auto bytes=XeenSaveFormat::encode(later.snapshot());Live restored(in,XeenSaveFormat::decode(bytes),&script);
+  check(XeenSaveFormat::encode(restored.snapshot())==bytes,"Later fall failure save did not round trip");
  }
  {
   // A runtime failure that persists for several updates is retried, then the fall

@@ -14,6 +14,7 @@ namespace mmodern {
 struct XeenEventDispatchTestAccess {
  static bool death(const XeenEventFlow &f){return f._death.has_value();}
  static bool won(const XeenEventFlow &f){return f._encounter->_retiredCombatResult.phase==XeenCombatPhase::Victory;}
+ static unsigned candidateXp(const XeenEventFlow &f,unsigned owner){return f._transition->party.roster.combatInputs(owner)->experience;}
  static bool owed(const XeenEventFlow &f){return f._explorationPass || f._encounter->_regionalAutomatic || f._encounter->_postCombatCalls;}
  static void whoWill(XeenEventFlow &f){auto value=f._world.treasureStaging().value();value.whoWill=3;f._world.treasureStaging().publish(value);f._encounter->retainJourney();}
  static void treasure(XeenEventFlow &f){auto value=f._world.treasureStaging().value();value.gold=123;f._world.treasureStaging().publish(value);f._encounter->retainJourney();}
@@ -599,6 +600,46 @@ void postCombatCalls() {
     d.tick();}
    check(caller4 && (visible?t.f.world->treasureStaging().value().gold>=123:t.f.world->treasureStaging().value().gold==0),"caller 4 completes with the correct staged treasure");
    t.f.flow->reportManual=report;
+  });
+ }
+ // The skipped Event finishes before contact (the approved DOS-order
+ // deviation); after a real victory its caller can refuse without retaining
+ // the caller's displayed XP grant or undoing the fight.
+ {
+  JourneyCase t;t.keepMonsters=true;quietMonsters(t.f.saved);
+  t.script={record(9,11,0,12,{0,0,16,1,0,0,0}),record(9,11,1,12,{0,0,20,199}),
+   record(9,11,2,12,{0,0,107,32})};
+  for(auto owner:t.f.saved.activeRosterIds){auto &c=t.f.saved.characters[owner];c.currentHp=1000;c.permanentLevel=100;
+   t.f.saved.journey->supplements[owner].inputs.might={200,0};t.f.saved.journey->supplements[owner].inputs.accuracy={200,0};}
+  auto services=t.services();t.run(services,[&](Driver &d) {
+   XeenEventDispatchTestAccess::flags(*t.f.flow,false,true);
+   d.shown=XeenEventDispatchTestAccess::engagedDraw(*t.f.flow);d.present();d.send(InteractionAction{false});
+   for(unsigned n=0;!t.f.flow->encounter()->combat();++n) {
+    check(n<100,"Combat-interrupted Event did not reach combat");
+    const auto input=d.handler.inputContext(d.shown.presentation());if(input.readyForAction && input.dialog && input.dialog->anyKey)d.send(AcknowledgeAction{});d.tick();
+   }
+   const auto owner=t.f.party->party.activeRosterIds().front();std::optional<unsigned> beforeXp;unsigned errors=0;
+   const auto previous=t.f.flow->reportManual;
+   t.f.flow->reportManual=[&](const auto &result) {
+    if(const auto *pending=std::get_if<XeenEventExecutionSuspended>(&result))
+     if(pending->request.kind==XeenPresentationKind::PortraitEffect) {
+      check(XeenEventDispatchTestAccess::won(*t.f.flow),"Caller ran before combat victory");
+      beforeXp=t.f.party->roster.combatInputs(owner)->experience;
+      check(XeenEventDispatchTestAccess::candidateXp(*t.f.flow,owner)==*beforeXp+1,"Caller XP escaped before its sparkle");
+     }
+    if(std::holds_alternative<XeenEventExecutionError>(result))++errors;
+    if(previous)previous(result);
+   };
+   for(unsigned n=0;!t.f.flow->canSave();++n) {
+    check(n<1500,"Refused post-combat caller did not settle");auto *combat=t.f.flow->encounter()->combat();
+    if(combat && combat->phase()==XeenCombatPhase::PlayerReady)d.send(AttackAction{});
+    else if(!combat){const auto input=d.handler.inputContext(d.shown.presentation());if(input.readyForAction && input.dialog && input.dialog->anyKey)d.send(AcknowledgeAction{});}
+    d.tick();
+   }
+   if(!beforeXp || errors<1 || t.f.party->roster.combatInputs(owner)->experience!=*beforeXp || t.f.flags->isSet(199))
+    throw std::runtime_error("Post-combat refusal: pending="+std::to_string(bool(beforeXp))+" errors="+std::to_string(errors)+" xp="+std::to_string(t.f.party->roster.combatInputs(owner)->experience)+" base="+std::to_string(beforeXp.value_or(0))+" flag="+std::to_string(t.f.flags->isSet(199)));
+   const auto bytes=XeenSaveFormat::encode(t.f.capture());
+   check(XeenSaveFormat::encode(XeenSaveFormat::decode(bytes))==bytes,"Post-combat refusal save did not round trip");
   });
  }
  // Part 0: callers precede the surviving input suffix. A lethal caller leaves

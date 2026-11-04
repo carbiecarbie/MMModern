@@ -49,9 +49,11 @@ void continuations(){
 	state=pending(reordered.resume(state,SelectedCharacter{1}));
 	reordered.f.initial.party=XeenParty::fromRosterIds({1,0,1});
 	state=pending(reordered.resume(state));check(state.reward.receipt.entries[0].owner==0,"preferred index did not resolve current membership");
+	// This direct interpreter fixture is the Event candidate; Journey publishes
+	// none of these immediate writes if its enclosing Event later refuses.
 	Execution immediate;state=immediate.seed({pause(),record(1,1,1,12,{0,0,21,99}),record(1,1,2,12,{0,0,104,2}),record(1,1,3,0xff)});
 	const auto failed=std::get<XeenEventExecutionError>(immediate.resume(state));
-	check(failed.rewards.discarded==2&&immediate.f.initial.questItems.at(17)==1&&immediate.f.initial.questFlags.isSet(2),"pre-delivery error rolled back prior immediate grants");
+	check(failed.rewards.discarded==2&&immediate.f.initial.questItems.at(17)==1&&immediate.f.initial.questFlags.isSet(2),"pre-delivery error changed its candidate grants");
 }
 XeenEventExecutionStepResult begin(Execution &e,std::vector<XeenEventRecord> records) {
 	e.f.scripts[1]=std::move(records);
@@ -139,7 +141,7 @@ void production(){
 			if(outcome==3)for(auto id:e.f.initial.party.activeRosterIds())e.f.initial.roster.at(id).currentSp=-1;
 			s=pending(e.resume(s));check(s.reward.receipt.lost==0 && s.reward.receipt.delivered==1,"Live category replacement and unrestricted dead fallback");
 		}
-		check(e.f.initial.questItems.at(17)==0 && !e.f.initial.questFlags.isSet(2),"failed/lost exchange refunded quest");
+		check(e.f.initial.questItems.at(17)==0 && !e.f.initial.questFlags.isSet(2),"candidate execution unexpectedly refunded quest");
 	}
 }
 void publication(){

@@ -1,4 +1,5 @@
 #include "games/xeen/XeenEventValues.h"
+#include "games/xeen/XeenEventTrigger.h"
 #include "XeenTestInstallation.h"
 #include "formats/xeen/XeenVoc.h"
 #include "XeenTrainingTestSupport.h"
@@ -25,9 +26,23 @@ struct XeenCityEventTestAccess {
   };
  }
  static IndexedFrame frameForFault(){return IndexedFrame{320,200,save_test::Bytes(64000)};}
+ static IndexedFrame failNpc(XeenEventFlow &flow) {
+  flow._dispatching=true;
+  try {auto result=flow.journeyEventWork([]{throw std::out_of_range("Injected NPC wait failure");});flow._dispatching=false;return result;}
+  catch(...){flow._dispatching=false;throw;}
+ }
  static std::uint64_t portraitDeadline(const XeenEventFlow &flow){return PresentationClock::ceilMilliseconds(flow._portraitSequence->deadline);}
  static std::uint64_t npcDeadline(const XeenEventFlow &flow){return PresentationClock::ceilMilliseconds(flow._npcSequence->deadline);}
  static bool handoff(const XeenEventFlow &flow){return flow._handoffPending;}
+ static bool pendingNpc(const XeenEventFlow &flow){return flow.pendingNpc();}
+ static IndexedFrame busyNpcFrame(XeenEventFlow &flow,std::uint64_t now) {
+  if(!flow._npcSequence)throw std::logic_error("NPC sequence is absent");
+  auto &npc=*flow._npcSequence;npc.speechEnd=PresentationClock::fromMilliseconds(now+10000);
+  npc.deadline=0;npc.acquired=true;npc.composed=false;npc.choice.reset();
+  flow._dispatching=true;
+  try {auto result=flow.journeyEventWork([&]{(void)flow.advanceNpcSequence(PresentationClock::fromMilliseconds(now));});flow._dispatching=false;return result;}
+  catch(...){flow._dispatching=false;throw;}
+ }
  static unsigned portraitFrame(const XeenEventFlow &flow){return flow._portraitSequence?flow._portraitSequence->frame:4;}
  static bool portrait(const XeenEventFlow &flow){return bool(flow._portraitSequence);}
  static auto portraitStage(const XeenEventFlow &flow){return flow._portraitSequence->effect.stage;}
@@ -39,8 +54,8 @@ using namespace training_test;
 namespace {
 std::string stage="rules";
 struct Fixture : training_test::Fixture {
- Fixture(Inputs &in,const XeenSaveSnapshot &source,bool animated=false,const XeenEventFile *city=nullptr):
-  training_test::Fixture(in,source,animated,city,{},{},[&in](auto &f,auto portrait,auto phase){in.assets.drawNpc(f,portrait,phase);}) {
+ Fixture(Inputs &in,const XeenSaveSnapshot &source,bool animated=false,const XeenEventFile *city=nullptr,XeenWorld::MapLoader mapFixture={}):
+  training_test::Fixture(in,source,animated,city,std::move(mapFixture),{},[&in](auto &f,auto portrait,auto phase){in.assets.drawNpc(f,portrait,phase);}) {
   flow->loadRestDream=[&in]{return in.assets.restDreamImage();};
   // These mechanics fixtures intentionally leave shop samples unavailable;
   // original Rest sequences use their original driver-count durations.
@@ -158,6 +173,187 @@ void portraitRewards(Inputs &in) {
   for(unsigned id=0;id<30;++id)check(f.w.scenePresentation().portraits[id].spellDeadline==effects[id].spellDeadline,"Repeated acknowledgment restarted sparkle");
   for(unsigned n=0;n<4;++n){f.now+=110;f.flow->beginCycle(++f.cycle);if(auto image=f.flow->updatePresentation())f.present(*image);}
   check(!f.w.scenePresentation().feedbackActive() && frames==(g.sparkle?15u:0u),"Reward did not draw the original four sparkle frames exactly through completion");
+ }
+}
+void wholeEventRefusal(Inputs &in) {
+ stage="M111 whole Event refusal";
+ // Fault 5 is a missing mirror selection; fault 6 is an absent destination.
+ for(unsigned fault=0;fault<7;++fault) {
+  const bool receiptFailure=fault==1;
+  auto source=at(in,20,20);
+  XeenEventFile city{28,"maze0028.evt",true,{
+   record(0,0x14,{100,5,0,0,0}), // Random gold and a Journey draw.
+   record(1,0x2c,{70,37}),       // Ordinary item in Event treasure.
+   record(2,0x0c,{0,0,21,99}),   // Quest item and its receipt entry.
+   record(3,0x0c,{0,0,104,2}),   // Quest flag.
+   record(4,0x0c,{0,0,103,23}),  // World flag.
+   record(5,0x0c,{0,0,20,199}),  // Game flag.
+   record(6,0x0c,{0,0,76,1}),    // A day of Event time.
+   record(7,0x0c,{0,0,16,1,0,0,0}), // Visible XP sparkle.
+   record(8,fault==0?0x0c:fault==1?0x12:fault==2?0x05:fault==3?48:fault==4?0x20:0x07,
+    fault==0?std::vector<std::uint8_t>{0,0,107,32}:fault==1?std::vector<std::uint8_t>{}:
+    fault==2?std::vector<std::uint8_t>{0,0,0,1,0}:fault==3?std::vector<std::uint8_t>{1}:
+    fault<=5?std::vector<std::uint8_t>{0,0}:std::vector<std::uint8_t>{99,1,1})}};
+  unsigned missingLoads=0;
+  const auto loader=[&](auto id){if(id==XeenMapIdentity(99)){++missingLoads;throw std::runtime_error("Absent fixture DAT");}return in.maps.loadGeometryMap(in.assets,id);};
+  Fixture f(in,source,false,&city,loader);const auto before=XeenSaveFormat::encode(f.snapshot());
+  unsigned failures=0,receipts=0,sparkles=0;std::string errorMessage;
+  f.flow->reportManual=[&](const auto &result) {
+   if(const auto *error=std::get_if<XeenEventExecutionError>(&result)) { errorMessage=error->message+" count="+std::to_string(error->instructionCount);++failures; }
+   if(const auto *pending=std::get_if<XeenEventExecutionSuspended>(&result)) {
+    if(pending->request.kind==XeenPresentationKind::PortraitEffect)++sparkles;
+    const auto kind=pending->request.kind;
+    if((receiptFailure && kind==XeenPresentationKind::RewardReceipt && pending->state.reward.phase==XeenRewardPhase::Receipt) ||
+       (fault==2 && kind==XeenPresentationKind::NpcAcknowledgment) ||
+       (fault==3 && kind==XeenPresentationKind::NumericChoice) ||
+       (fault==4 && kind==XeenPresentationKind::CharacterSelection)) {
+     ++receipts;throw std::out_of_range("Injected permanent Event presentation failure");
+    }
+   }
+  };
+  for(unsigned attempt=0;attempt<2;++attempt) {
+   f.act(InteractionAction{false});settle(f);
+   check(f.flow->canSave() && XeenSaveFormat::encode(f.snapshot())==before,
+    "Refused Event retained party, flags, time, treasure, position or RNG");
+   if(sparkles!=attempt+1 || (fault==6?missingLoads<attempt+1:((fault>=1 && fault<=4)?receipts:failures)!=attempt+1))
+    throw std::runtime_error("Refusal fixture: sparkles="+std::to_string(sparkles)+" receipts="+std::to_string(receipts)+" failures="+std::to_string(failures)+" error="+errorMessage);
+   if(fault==5)check(errorMessage.find("Mirror teleport requires a ConfirmWord selection")!=std::string::npos,"Mirror case did not report its execution error");
+   if(fault==6)check(f.flow->encounter()->journeyRefusal().find("not supported yet")!=std::string::npos,"Unavailable destination gave no refusal notice");
+   const auto bytes=XeenSaveFormat::encode(f.snapshot());Fixture restored(in,XeenSaveFormat::decode(bytes),false,&city,loader);
+   check(XeenSaveFormat::encode(restored.snapshot())==bytes,"Save after Event refusal did not round trip");
+  }
+ }
+}
+void automaticEventRefusal(Inputs &in) {
+ stage="M111 automatic Event refusal";
+ auto source=at(in,20,19);
+ for(auto &map:source.maps)if(map.monsters)for(auto &actor:map.monsters->slots) {
+  actor.x=actor.y=-128;actor.lifecycle=XeenActorLifecycle::Defeated;actor.accounted=true;
+ }
+ unsigned missingLoads=0;
+ const auto loader=[&](auto id) {
+  if(id==XeenMapIdentity(99)){++missingLoads;throw std::runtime_error("Absent fixture DAT");}
+  auto map=in.maps.loadGeometryMap(in.assets,id);
+  if(!map.geometry.isOutdoors()) {
+   map.geometry.surfaceTypes[0]=0;
+   for(auto &cell:map.geometry.cells){cell.rawWord=0;cell.geometry=XeenIndoorWalls{};cell.rawAttributes=1;cell.surfaceIndex=0;cell.flags=0;}
+   map.geometry.cells[3*16+4].rawAttributes=0;
+   if(id==XeenMapIdentity(111))map.geometry.cells[4*16+4].rawAttributes|=kXeenAutomaticEventFlag;
+  }
+  return map;
+ };
+ XeenEventFile empty{28,"maze0028.evt",true,{record(0,0x12)}};
+ Fixture control(in,source,false,&empty,loader);control.act(NavigationAction::MoveForward);settle(control);
+ const auto expected=XeenSaveFormat::encode(control.snapshot());
+ for(unsigned fault=0;fault<7;++fault) {
+  const bool receiptFailure=fault==1;
+  XeenEventFile city{28,"maze0028.evt",true,{
+   record(0,0x14,{100,5,0,0,0}),record(1,0x2c,{70,37}),record(2,0x0c,{0,0,21,99}),
+   record(3,0x0c,{0,0,104,2}),record(4,0x0c,{0,0,103,23}),record(5,0x0c,{0,0,20,199}),
+   record(6,0x0c,{0,0,76,1}),record(7,0x0c,{0,0,16,1,0,0,0}),
+   record(8,fault==0?0x0c:fault==1?0x12:fault==2?0x05:fault==3?48:fault==4?0x20:0x07,
+    fault==0?std::vector<std::uint8_t>{0,0,107,32}:fault==1?std::vector<std::uint8_t>{}:
+    fault==2?std::vector<std::uint8_t>{0,0,0,1,0}:fault==3?std::vector<std::uint8_t>{1}:
+    fault<=5?std::vector<std::uint8_t>{0,0}:std::vector<std::uint8_t>{99,1,1})}};
+  for(unsigned attempt=0;attempt<2;++attempt) {
+   const auto priorMissing=missingLoads;
+   Fixture f(in,source,false,&city,loader);unsigned failures=0,sparkles=0;std::string errorMessage;
+   f.flow->reportManual=[&](const auto &result) {
+    if(const auto *error=std::get_if<XeenEventExecutionError>(&result)){++failures;errorMessage=error->message;}
+    if(const auto *pending=std::get_if<XeenEventExecutionSuspended>(&result)) {
+     if(pending->request.kind==XeenPresentationKind::PortraitEffect)++sparkles;
+     const auto kind=pending->request.kind;
+     if((receiptFailure && kind==XeenPresentationKind::RewardReceipt && pending->state.reward.phase==XeenRewardPhase::Receipt) ||
+        (fault==2 && kind==XeenPresentationKind::NpcAcknowledgment) ||
+        (fault==3 && kind==XeenPresentationKind::NumericChoice) ||
+        (fault==4 && kind==XeenPresentationKind::CharacterSelection)) {
+      ++failures;throw std::out_of_range("Injected automatic presentation failure");
+     }
+    }
+   };
+   f.act(NavigationAction::MoveForward);settle(f);
+   check(sparkles==1 && (fault==6?missingLoads>priorMissing:failures==1),"Automatic Event did not reach the expected refusal");
+   if(fault==5)check(errorMessage.find("Mirror teleport requires a ConfirmWord selection")!=std::string::npos,"Automatic mirror case did not report its execution error");
+   if(fault==6)check(f.flow->encounter()->journeyRefusal().find("not supported yet")!=std::string::npos,"Automatic unavailable destination gave no refusal notice");
+   const auto bytes=XeenSaveFormat::encode(f.snapshot());
+   check(bytes==expected,"Automatic refusal changed the triggering step or leaked Event effects");
+   Fixture restored(in,XeenSaveFormat::decode(bytes),false,&city,loader);
+   check(XeenSaveFormat::encode(restored.snapshot())==bytes,"Automatic refusal save did not round trip");
+   if(fault==0 && attempt==0) {
+    f.act(NavigationAction::MoveBackward);settle(f);control.act(NavigationAction::MoveBackward);settle(control);
+    f.act(NavigationAction::MoveForward);settle(f);control.act(NavigationAction::MoveForward);settle(control);
+    check(sparkles==2 && failures==2,"Automatic refusal did not repeat in the same session");
+    check(XeenSaveFormat::encode(f.snapshot())==XeenSaveFormat::encode(control.snapshot()) &&
+     f.programState.eventCallSkipped==control.programState.eventCallSkipped,
+     "Repeated automatic refusal changed state beyond the movement steps");
+   }
+  }
+ }
+ // Cross-side Continue reaches a destination wait, then refuses. The source
+ // movement is compared against the same automatic step with an empty Event.
+ {
+  XeenEventFile departure{28,"maze0028.evt",true,{record(0,0x0c,{0,0,16,1,0,0,0}),
+   record(1,59,{1}),record(2,31,{29,14,4})}};
+  const XeenMapIdentity destination{XeenSide::Darkside,29};
+  auto message=record(0,1,{0});message.x=14;message.y=4;
+  auto unsupported=record(1,0x0c,{0,0,107,32});unsupported.x=14;unsupported.y=4;
+  XeenEventFile arrival{destination,"cross-side automatic destination",true,{message,unsupported}};
+  for(unsigned attempt=0;attempt<2;++attempt) {
+   Fixture f(in,source,false,&departure,loader);
+   f.events=XeenEventSystem([&](auto id){return XeenEventScript(id==XeenMapIdentity(28)?departure:id==destination?arrival:in.events.load(id));},
+    [&](auto id){return in.texts.load(id);});
+   unsigned failures=0,waits=0;
+   f.flow->reportManual=[&](const auto &result) {
+    if(std::holds_alternative<XeenEventExecutionError>(result))++failures;
+    if(const auto *pending=std::get_if<XeenEventExecutionSuspended>(&result))
+     if(pending->request.source.mapId==destination)++waits;
+   };
+   f.act(NavigationAction::MoveForward);settle(f);
+   check(failures==1 && waits==1,"Automatic cross-side refusal did not reach its destination wait");
+   const auto bytes=XeenSaveFormat::encode(f.snapshot());
+   check(bytes==expected,"Automatic cross-side refusal published candidate effects");
+   Fixture restored(in,XeenSaveFormat::decode(bytes),false,&departure,loader);
+   check(XeenSaveFormat::encode(restored.snapshot())==bytes,"Automatic cross-side refusal save did not round trip");
+  }
+ }
+
+}
+void npcRandomRefusal(Inputs &in) {
+ stage="M111 NPC animation random refusal";
+ for(bool automatic:{false,true}) {
+  auto source=at(in,20,automatic?19:20);
+  for(auto &map:source.maps)if(map.monsters)for(auto &actor:map.monsters->slots) {
+   actor.x=actor.y=-128;actor.lifecycle=XeenActorLifecycle::Defeated;actor.accounted=true;
+  }
+  const auto loader=[&](auto id) {
+   auto map=in.maps.loadGeometryMap(in.assets,id);
+   if(!map.geometry.isOutdoors()) {
+    map.geometry.surfaceTypes[0]=0;
+    for(auto &cell:map.geometry.cells){cell.rawWord=0;cell.geometry=XeenIndoorWalls{};cell.rawAttributes=1;cell.surfaceIndex=0;cell.flags=0;}
+    map.geometry.cells[3*16+4].rawAttributes=0;
+    if(automatic && id==XeenMapIdentity(111))map.geometry.cells[4*16+4].rawAttributes|=kXeenAutomaticEventFlag;
+   }
+   return map;
+  };
+  XeenEventFile empty{28,"maze0028.evt",true,{record(0,0x12)}};
+  Fixture control(in,source,false,&empty,loader);
+  if(automatic){control.act(NavigationAction::MoveForward);settle(control);}
+  const auto expected=XeenSaveFormat::encode(control.snapshot());
+  XeenEventFile script{28,"maze0028.evt",true,{record(0,0x14,{100,5,0,0,0}),
+   record(1,0x05,{0,0,0,1,0}),record(2,0x0c,{0,0,107,32})}};
+  Fixture f(in,source,false,&script,loader);
+  f.act(automatic?PlayerAction{NavigationAction::MoveForward}:PlayerAction{InteractionAction{false}});
+  for(unsigned n=0;n<1000 && !XeenCityEventTestAccess::pendingNpc(*f.flow);++n){f.now+=125;f.flow->beginCycle(++f.cycle);if(auto frame=f.flow->updatePresentation())f.present(*frame);}
+  check(XeenCityEventTestAccess::pendingNpc(*f.flow),"NPC refusal fixture did not reach its wait");
+  const auto live=f.w.sessionState().journeyRandom(),candidate=XeenCityEventTestAccess::visibleRandom(*f.flow);
+  f.present(XeenCityEventTestAccess::busyNpcFrame(*f.flow,f.now));
+  check(f.w.sessionState().journeyRandom()==live && XeenCityEventTestAccess::visibleRandom(*f.flow)!=candidate,
+   "NPC animation did not advance only the Event candidate RNG");
+  f.present(XeenCityEventTestAccess::failNpc(*f.flow));settle(f);
+  const auto bytes=XeenSaveFormat::encode(f.snapshot());
+  check(bytes==expected,"NPC refusal retained its animation draw or Event effects");
+  Fixture restored(in,XeenSaveFormat::decode(bytes),false,&script,loader);
+  check(XeenSaveFormat::encode(restored.snapshot())==bytes,"NPC refusal save did not round trip");
  }
 }
 void npcBeforeDeadline(Inputs &in) {
@@ -1346,7 +1542,7 @@ int main(int argc,char **argv) {
   try {
    timed("portraitRewards",portraitRewards);timed("originalPortraitOrder",originalPortraitOrder);timed("npcBeforeDeadline",npcBeforeDeadline);
    timed("partBVernGuild",partBVernGuild);timed("partBSearches",partBSearches);timed("partA",partA);timed("rules",rules);timed("teachers",teachers);
-   timed("treasure",treasure);timed("rewardRandomOwnership",rewardRandomOwnership);timed("originalVisualRegressions",originalVisualRegressions);timed("originalEvents",originalEvents);
+   timed("treasure",treasure);timed("wholeEventRefusal",wholeEventRefusal);timed("automaticEventRefusal",automaticEventRefusal);timed("npcRandomRefusal",npcRandomRefusal);timed("rewardRandomOwnership",rewardRandomOwnership);timed("originalVisualRegressions",originalVisualRegressions);timed("originalEvents",originalEvents);
    timed("partAOriginal",partAOriginal);timed("treeFlags",treeFlags);timed("originalJourney",originalJourney);
   }catch(...){std::cout.rdbuf(saved);throw;}
   std::cout.rdbuf(saved);

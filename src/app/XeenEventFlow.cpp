@@ -869,26 +869,6 @@ void XeenEventFlow::prepareTerrainTransition() {
  drive(XeenManualEventResult{XeenManualEventCompleted{0,true,false}},false);
 }
 
-void XeenEventFlow::retainManualPrefix(bool party,std::optional<std::uint16_t> prefixLight) {
- auto &work=*_transition;checkTransitionCandidate();
- const auto ending=*work.world->sessionState().journeyRandom();
- if(party || !work.observed) {
-  auto prefix=std::make_unique<TransitionCandidate::ObservedPrefix>();
-  prefix->world=(party?*work.world:_world).transitionCandidate();
-  prefix->world->copyEventParty(party?work.party:_party,prefix->party);
-  if(prefixLight && prefix->party.encounterContext)prefix->party.encounterContext->lightAndResistances[0]=*prefixLight;
-  prefix->camera=party?work.camera:_camera;prefix->flags=party?work.flags:_flags;
-  prefix->world->retainEventRandom(ending);
-  for(auto &effect:prefix->world->scenePresentation().portraits) {effect.damageTicks=0;effect.spellFrame=4;}
-  prefix->guard=std::make_unique<XeenRestoreGuard>(*prefix->world,prefix->party,prefix->camera,prefix->flags);
-  work.observed=std::move(prefix);
- } else {
-  auto &prefix=*work.observed;prefix.guard->prepareEventAnimationRandom(ending);
-  prefix.world->retainEventRandom(ending);prefix.guard->adoptMutationBoundary();
- }
- _eventPublication->check();
-}
-
 void XeenEventFlow::beginFall(const IndexedFrame &top,const IndexedFrame &bottom,std::uint64_t eventGeneration) {
  if(_fallSequence || !_transition)throw std::logic_error("Falling presentation is unavailable");
  FallSequence sequence;sequence.top=top;sequence.bottom=bottom;sequence.eventGeneration=eventGeneration;
@@ -954,11 +934,6 @@ std::optional<IndexedFrame> XeenEventFlow::advanceFall() {
   drawFallImage(*_fallSequence);
  });
 }
-void XeenEventFlow::publishManualPrefix() {
- auto &work=*_transition;if(work.automatic)return;checkTransitionCandidate();
- if(work.observed)_eventPublication->publishSequencePrefix(_world,_party,*work.observed->guard);
-}
-
 bool XeenEventFlow::serviceManualStep() {
  auto &work=*_transition;
  const auto retain=[&] {
@@ -1999,6 +1974,7 @@ void XeenEventFlow::prepareDetachedResult(const XeenManualEventResult &result) t
 	if (!_transition || !_eventPublication) return;
 	checkTransitionCandidate();
 	auto &work=*_transition;
+    bool terrainFeedbackPrepared=false;
 	_eventPublication->check();
 	if (const auto *suspended=std::get_if<XeenEventExecutionSuspended>(&result)) {
 		work.continuation.emplace(suspended->state,true);
@@ -2033,9 +2009,7 @@ void XeenEventFlow::prepareDetachedResult(const XeenManualEventResult &result) t
 		return;
 	}
 	if (const auto *failure=std::get_if<XeenEventExecutionError>(&result)) {
-        publishManualPrefix();
-		// Both retained owner guards have passed above. No unpublished effects
-		// escape, and a valid already-published exit prelude remains authoritative.
+		// Both retained owner guards have passed; discard the entire candidate.
 		_encounter->_journeyRefusal="This Event is not supported yet";
 		_candidateResultRefused=true;
 		_transition.reset(); return;
@@ -2095,10 +2069,8 @@ void XeenEventFlow::prepareDetachedResult(const XeenManualEventResult &result) t
 			work.guard=std::make_unique<XeenRestoreGuard>(*work.world,work.party,work.camera,work.flags);return;}
 		work.terrain->context.ctr24=(work.terrain->context.ctr24+1)%24;
         work.world->publishTerrainArrival(work.party,*work.terrain,random.continuation());
+        terrainFeedbackPrepared=work.terrain->rule.damage && !work.falling;
 
-		if(work.terrain->rule.damage && !work.falling)for(auto owner:work.party.party.activeRosterIds())
-			_eventPublication->damageEffects[owner]=work.terrain->rule.type==XeenDamageType::Fire?1u:0u;
-		_encounter->_terrainDead=work.terrain->rule.dead;
 		work.guard=std::make_unique<XeenRestoreGuard>(*work.world,work.party,work.camera,work.flags);work.terrainDone=true;
         _manualInput->action.reset();
 	}
@@ -2161,7 +2133,10 @@ void XeenEventFlow::prepareDetachedResult(const XeenManualEventResult &result) t
 		try {
 			auto frame=_transitionCompose(*work.world,work.party,work.camera,0,XeenMonsterAppearance{0});
 			candidateGuard.check();return frame;
-		} catch (...) { candidateGuard.check();throw; }
+		} catch (const std::logic_error &error) {
+            candidateGuard.check();checkTransitionCandidate();_encounter->journeySavePreimage().check();
+            throw PresentationDefect(error.what());
+        } catch (...) { candidateGuard.check();throw; }
 	}();
 	if(!composed.frame.isValid())throw std::runtime_error("Vertigo destination frame is invalid");
     if(work.falling && !work.fallPresented) {
@@ -2187,6 +2162,10 @@ void XeenEventFlow::prepareDetachedResult(const XeenManualEventResult &result) t
     // impact image, rather than leaking from detached damage preparation.
     for(auto cue:work.fallEffects)_encounter->fmEffect(cue);
     work.fallEffects.clear();
+    // Keep terrain feedback private until all fallible preparation has passed.
+    if(terrainFeedbackPrepared)
+        for(auto owner:work.party.party.activeRosterIds())
+            _eventPublication->damageEffects[owner]=work.terrain->rule.type==XeenDamageType::Fire?1u:0u;
 	_eventPublication->publishCandidate(_world,_party,_camera,_flags,*work.world,candidateGuard);
     if(work.falling)for(auto owner:_party.party.activeRosterIds())_eventPublication->damageEffects[owner]=0;
     if(work.eventFlags) {
@@ -2195,7 +2174,10 @@ void XeenEventFlow::prepareDetachedResult(const XeenManualEventResult &result) t
     }
     _encounter->_drawnSlot0=bool(arrival.slots[0]);
     if(work.manualStep){_encounter->_doorTextUp=false;work.doorTextBase=false;}
-    if(work.manualStep)_encounter->settleManualStep(work.manualStep->result.needsRest || work.terrain->needsRest);
+    if(work.manualStep) {
+        _encounter->_terrainDead=work.terrain->rule.dead;
+        _encounter->settleManualStep(work.manualStep->result.needsRest || work.terrain->needsRest);
+    }
 	// Retain the classified destination under the Event lease. Keep the Event's
 	// concrete ticket intact until its final provider/publication checks finish;
 	// contact changes the encounter phase at callback-free retirement below.
@@ -2260,7 +2242,7 @@ IndexedFrame XeenEventFlow::journeyEventWork(const std::function<void()> &operat
         }
 		catch (const std::exception &error) {
 			// End a permanently failing detached Event while this publication can
-			// still project its observed prefix; other failures take the paths below.
+			// still verify its owners; other failures take the paths below.
 			bool abandoned=false;
 			try {abandoned=!_fatal && !_smithSettlement && !_trainingSettlement && _encounter->current(entry) && abandonDetachedPresentation(error);}
 			catch (...) {_eventPublication=nullptr;throw;}
@@ -2408,8 +2390,7 @@ bool XeenEventFlow::abandonDetachedPresentation(const std::exception &error) {
 		!(dynamic_cast<const std::logic_error *>(&error) || dynamic_cast<const XeenSpritePreflightError *>(&error) ||
 		dynamic_cast<const PresentationDefect *>(&error)))return false;
 	_encounter->journeySavePreimage().check();checkTransitionCandidate();
-	if(_eventPublication)publishManualPrefix();
-	// Only already-published effects survive; the candidate and staged rewards go.
+	// Discard the candidate and its staged rewards.
 	const auto outcome=cleanup(XeenRewardDiscard::PresentationFailure);
 	_fallSequence.reset();_regionalEventContinuation.reset();_transition.reset();_manualInput.reset();
 	_encounter->_journeyRefusal="Unable to display this Event: not supported yet";
@@ -2582,19 +2563,13 @@ void XeenEventFlow::publishEventSequencePrefix(const XeenEventExecutionState &st
 		throw std::logic_error("Event sequence prefix has no retained authority");
 	_eventPublication->continuation(state,*_transition->continuation,true);
 	checkTransitionCandidate();
-	if(_transition->automatic)_eventPublication->publishSequencePrefix(_world,_party,*_transition->guard,state.prefixLight);
-    else {
-        // These effects have their interpreter-issued portrait presentation.
-        // Keep their gameplay prefix detached, but consume the candidate's
-        // visual flags so final publication cannot arm that portrait again.
-        for(auto &effect:_transition->world->scenePresentation().portraits) {
-            if(effect.damageTicks && !effect.damageDeadline)effect.damageTicks=0;
-            if(effect.spellFrame<4 && !effect.spellDeadline)effect.spellFrame=4;
-        }
-        retainManualPrefix(true,state.prefixLight);
+    // The portrait sequence has its own presentation. Consume only the
+    // candidate's visual flags so final publication cannot arm it twice.
+    for(auto &effect:_transition->world->scenePresentation().portraits) {
+        if(effect.damageTicks && !effect.damageDeadline)effect.damageTicks=0;
+        if(effect.spellFrame<4 && !effect.spellDeadline)effect.spellFrame=4;
     }
-	// Party/RNG stores do not swap the detached World. Its checked interpreter
-	// image remains intact for the next resume; camera/flag settlement is deferred.
+    _eventPublication->check();
 }
 void XeenEventFlow::prepareTreasureWait(std::uint64_t generation,unsigned ticks,bool monster) {
 	if(!ticks){_treasureWait.reset();return;}
@@ -2741,20 +2716,13 @@ bool XeenEventFlow::advanceNpcSequence(std::optional<std::uint64_t> sampledNow) 
             if(journey()) {
                 if(!_eventPublication)throw std::logic_error("NPC animation publication lease is absent");
                 checkTransitionCandidate();
-                if(_transition && !_transition->automatic) {
+                if(_transition) {
                     XeenCombatRandom random(*_transition->world->sessionState().journeyRandom());
                     frame=*random.draw(0,3);const auto ending=random.continuation();
                     _transition->guard->prepareEventAnimationRandom(ending);
                     _transition->world->retainEventRandom(ending);_transition->guard->adoptMutationBoundary();
-                    retainManualPrefix(false);
-                } else {
-                    frame=_eventPublication->npcAnimationFrame();
-                    if(_transition) {
-                        const auto &ending=*_world.sessionState().journeyRandom();
-                        _transition->guard->prepareEventAnimationRandom(ending);
-                        _transition->world->retainEventRandom(ending);_transition->guard->adoptMutationBoundary();
-                    }
-                }
+                    _eventPublication->check();
+                } else frame=_eventPublication->npcAnimationFrame();
             } else {
                 if(!_npcRandomFrame)throw std::logic_error("NPC random continuation is absent");
                 frame=_npcRandomFrame();requireCurrentOwners();

@@ -377,20 +377,11 @@ private:
         std::vector<unsigned> fallEffects;
 		std::optional<XeenTerrainArrivalCandidate> terrain;
 		std::optional<XeenRegionalActionCandidate> manualStep;
-        // The old observable party/RNG prefix, retained until the final fall
-        // check. Its World remains detached; only the old prefix projection
-        // can be published on ordinary cancellation or an unsupported tail.
-        struct ObservedPrefix {
-            std::unique_ptr<XeenWorld> world;XeenPartyState party;XeenCamera camera;XeenGameFlags flags;
-            std::unique_ptr<XeenRestoreGuard> guard;
-        };
-        std::unique_ptr<ObservedPrefix> observed;
+
 	};
 	std::unique_ptr<TransitionCandidate> _transition;
 	void prepareTerrainTransition();
 	bool serviceManualStep();
-	void retainManualPrefix(bool party,std::optional<std::uint16_t> prefixLight={});
-	void publishManualPrefix();
 	std::optional<XeenEventContinuation> _serviceEventContinuation;
 	const void *_serviceEventOwner=nullptr;
 	bool _candidateResultRefused=false;

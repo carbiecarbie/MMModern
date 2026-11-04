@@ -282,7 +282,6 @@ XeenEventExecutionStepResult XeenEventInterpreter::begin(
 	if (world.sessionState().journey() && !publication) throw std::logic_error("Journey event requires live continuation authority");
 	if (publication) publication->check();
 	XeenEventExecutionState state;
-    if(partyState.encounterContext)state.prefixLight=partyState.encounterContext->lightAndResistances[0];
 	// 0x267b1..0x26a5d: with currency or readiness pending, stash the whole staging
 	// and clear only those; the arrays stay live and hold Event treasure too.
 	// Entry also clears WhoWill (0x26797), published with the completed run.
@@ -1324,8 +1323,7 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			world.applyAlterEvent(workingCamera,alter->line,alter->replacement,script->file());
 			++logical.line;missingPolicy=MissingInstructionPolicy::NaturalCompletion;continue;
 		}
-		XeenEventValueOwners owners{partyState,workingGameFlags,workingCamera,state.scriptValues,
-            state.prefixLight?&*state.prefixLight:nullptr};
+		XeenEventValueOwners owners{partyState,workingGameFlags,workingCamera,state.scriptValues};
 		const auto advance=[&](const char *what) -> std::optional<XeenEventExecutionError> {
 			if(logical.line==255)return error(XeenEventExecutionErrorKind::LineOverflow,
 				std::string(what)+" sequential line overflow",instructionCount,logical,decoded.source);
@@ -1621,7 +1619,6 @@ XeenEventExecutionStepResult XeenEventInterpreter::runInstructions(
 			case 85:
 				if(!world.detachedEventCandidate() || !partyState.encounterContext)return fail("Event year change requires a detached Event");
 				world.applyEventYear(partyState,workingGameFlags,giveValue);
-                if(state.prefixLight)state.prefixLight=0;
 				done(false);return std::nullopt;
 			case 100: {
 				// 0x232bc: party gold, a random amount from the operand's low word, no sparkle.

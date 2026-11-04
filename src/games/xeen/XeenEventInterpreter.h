@@ -237,7 +237,6 @@ struct XeenEventExecutionState {
     bool redrawDone=false; // Shared initial text/damage draw, reset on Continue.
     bool window11Text=false; // The latest presentation was window-11 text (DisplayMain/DisplayLarge).
     // Event-owned light changes eligible for partial publication, without scene drains.
-    std::optional<std::uint16_t> prefixLight;
     std::optional<XeenEventPortraitProgress> portraitProgress;
     std::optional<XeenTypedDamageCandidate> portraitDamage;
     std::optional<XeenCombatRandom> portraitRandom;

@@ -777,10 +777,9 @@ apart from the fidelity differences above.
   original, has no limit. Answering a prompt starts a new count, so the
   Darkside dials turn as often as the player likes. Master not rechecked.
   [Details](original-quirks.md#dev-event-dispatch-cap)
-- **Broken Event pictures end the Event.** If an Event's picture can never be
-  drawn, MMModern ends the Event with a "not supported yet" notice and keeps
-  what the player already saw; ScummVM has no such failure path. Interim
-  rule. Master not rechecked.
+- **Refused Events are discarded.** An unsupported instruction or permanently
+  failing Event picture ends the Event with a notice and discards its gameplay
+  effects; ScummVM has no corresponding failure path. Master not rechecked.
   [Details](original-quirks.md#dev-event-presentation-abandon)
 
 - **Darkside music.** [Load replays the saved song without drawing](original-quirks.md#dev-darkside-load-music), preserving gameplay RNG; the pin selects anew. The original approval is dated 2026-10-30. The maintainer approved the M106 extension on 2026-11-01: a Darkside win save keeps map 51's song in Castleview until the next arrival, whereas DOS draws from the camera row on Load. Outdoors follows DOS row 0; the pin indexes by wall kind. Pin: differs; master not rechecked.

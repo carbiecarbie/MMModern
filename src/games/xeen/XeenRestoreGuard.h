@@ -370,10 +370,6 @@ private:
         maps=candidate._maps;objects=candidate._objects;cityStatistics=candidate._cityStatistics;darksideStatistics=candidate._darksideStatistics;mapRuleView=candidate._mapRuleView;pendingLoadSide=candidate._pendingLoadSide;
         ++worldRevision;prepareMutationRanges();
     }
-    void prepareVertigoPrelude(const XeenGameFlags &after) {
-		check();
-		flagValues=after.values();
-	}
 	void prepareServicePrelude(const XeenCamera &after,const XeenGameFlags &flags) {
 		check();
 		if(after.mapId!=cameraValue.mapId || after.x!=cameraValue.x || after.y!=cameraValue.y || unsigned(after.direction)>3)
@@ -449,36 +445,6 @@ private:
 		cameraValue=candidate.cameraValue;flagValues=candidate.flagValues;mapRuleView=candidate.mapRuleView;pendingLoadSide=candidate.pendingLoadSide;++worldRevision;
 		context=candidate.context;recovery=candidate.recovery;soundOptions=candidate.soundOptions;food=candidate.food;economy=candidate.economy;
 		quests=candidate.quests;questFlags=candidate.questFlags;
-	}
-	// Sequence boundaries publish the interpreter's known party/RNG prefix while
-	// camera, game flags and World overlays remain owned by final settlement.
-	void prepareEventSequencePrefix(const XeenRestoreGuard &candidate) {
-		check();candidate.check();checkEventStaging(candidate);
-		if(candidate.membership!=membership || candidate.dismissed!=dismissed || candidate.insideInn!=insideInn || candidate.playTimeSeconds!=playTimeSeconds || candidate.cloudsCompleted!=cloudsCompleted || candidate.darksideCompleted!=darksideCompleted || candidate.worldCompleted!=worldCompleted || candidate.marked!=marked ||
-			bool(candidate.recovery)!=bool(recovery) || bool(candidate.context)!=bool(context) || bool(candidate.purse)!=bool(purse) ||
-			bool(candidate.economy)!=bool(economy) || candidate.first!=first || candidate.effective!=effective ||
-			candidate.diagnostics!=diagnostics || bool(candidate.s._journeyRandom)!=bool(s._journeyRandom)) {
-			failed=true;throw std::logic_error("Event sequence changed an unowned party field");
-		}
-		for(unsigned owner=0;owner<characters.size();++owner) {
-			auto retained=candidate.characters[owner];const auto &before=characters[owner];
-			xeenEventCopyOwnedCharacter(retained,before);
-			auto retainedInputs=candidate.inputs[owner];
-			if(retainedInputs && inputs[owner])*retainedInputs=*inputs[owner];
-			if(!xeen_state::sameCharacter(retained,before) || bool(candidate.inputs[owner])!=bool(inputs[owner]) ||
-				(inputs[owner] && !xeen_state::sameInputs(*retainedInputs,*inputs[owner]))) {
-				failed=true;throw std::logic_error("Event sequence changed character inputs without a capability");
-			}
-		}
-		check();candidate.check();
-		for(unsigned owner=0;owner<characters.size();++owner) {
-			xeenEventCopyOwnedCharacter(characters[owner],candidate.characters[owner]);
-			if(inputs[owner])*inputs[owner]=*candidate.inputs[owner];
-		}
-		quests=candidate.quests;questFlags=candidate.questFlags;context=candidate.context;recovery=candidate.recovery;
-		soundOptions=candidate.soundOptions;food=candidate.food;economy=candidate.economy;
-		purse=candidate.purse;
-		s._journeyRandom=candidate.s._journeyRandom;
 	}
 	// Only the coordinator's checked, callback-free authority transitions may adopt these fields.
 	// Gameplay values, identity controls and cache preimages remain retained.

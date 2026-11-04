@@ -57,8 +57,7 @@ struct Fixture : regional_save_test::Fixture {
 };
 void sessionAndRefusal(bool publishedPrefix,bool continuedDestination=false) {
     Fixture h;
-    // XP's sparkle is a published script prefix. Quest flags after it remain
-    // candidate-only and must be discarded when the travel operation refuses.
+    // XP's sparkle is shown before refusal, but its Event remains detached.
     if(publishedPrefix) h.script.records.push_back(record(0,12,{0,0,16,1,0,0,0}));
     else h.script.records.push_back(record(0,0x14,{100,5,0,0,0})); // Candidate-only random gold.
     const auto line=1u;
@@ -121,8 +120,8 @@ void sessionAndRefusal(bool publishedPrefix,bool continuedDestination=false) {
             !h.party->questFlags.isSet(3) && h.party->purse->gold==gold && *h.world->sessionState().journeyRandom()==random &&
             xeen_state::sameMapStates(h.world->sessionState().mapStates(),before->sessionState().mapStates()) && h.unavailableLoads,
             "Unavailable destination leaked candidate map, flag, party or random values");
-        check(h.party->roster.combatInputs(0)->experience==xp+(publishedPrefix?1u:0u) && prefixSeen==publishedPrefix,
-            "Refused travel lost or replayed an already published XP prefix");
+        check(h.party->roster.combatInputs(0)->experience==xp && prefixSeen==publishedPrefix,
+            "Refused travel retained the displayed XP prefix");
         h.send(handler,NavigationAction::TurnRight);
         check(h.camera->direction==XeenDirection::East,"Developer session could not continue after refusal");
         return true;
@@ -276,6 +275,6 @@ void originalSessions(const char *directory) {
 int main(int argc,char **argv) {
     std::ostringstream output;auto *stream=std::cout.rdbuf(output.rdbuf());
     try {sessionAndRefusal(false);sessionAndRefusal(true);sessionAndRefusal(false,true);sessionAndRefusal(true,true);integrity();if(argc==2)originalSessions(argv[1]);
-        std::cout.rdbuf(stream);std::cout<<"Event developer session, unavailable travel, published prefix and integrity checks passed\n";return 0;
+        std::cout.rdbuf(stream);std::cout<<"Event developer session, unavailable travel, discarded prefix and integrity checks passed\n";return 0;
     }catch(const std::exception &error){std::cout.rdbuf(stream);std::cerr<<error.what()<<'\n';return 1;}
 }

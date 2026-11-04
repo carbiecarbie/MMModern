@@ -45,7 +45,6 @@ struct XeenEventValueOwners {
 	XeenGameFlags &flags;
 	XeenCamera &camera;
 	XeenEventScriptValues &script;
-    std::uint16_t *prefixLight=nullptr;
 };
 
 // A failed skill, award, condition or spell test, and an unhandled action,

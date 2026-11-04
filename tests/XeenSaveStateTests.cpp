@@ -1081,12 +1081,12 @@ void travelRoundTrips() {
   check(failures==unsigned(refused) && flow.canSave(),"Travel did not settle through the normal Journey publication boundary");
   check(!wrongDestinationComposition && !earlyTravelPublication,"Destination suspension composition or deferred publication changed");
   if(refused) {
-   auto expected=initial;if(publishedPrefix)++expected.food;
+   auto expected=initial;
    // Part 0: an invalid destination rejected before teleport clearing leaves Space as Wait.
    if(!lateRefused && !mirror){expected.journey->context->minutes+=1;expected.journey->context->ctr24=(expected.journey->context->ctr24+1)%24;}
    check(destinationSuspensions==(lateRefused?2u:0u),"Late refusal must follow destination message and input");
    check(XeenSaveFormat::encode(live.capture())==XeenSaveFormat::encode(expected),
-    "Refused travel leaked a candidate or lost/replayed its published food prefix");
+    "Refused travel leaked a candidate or its displayed food prefix");
    const auto bytes=XeenSaveFormat::encode(live.capture());CurrentDestination restored;configure(restored);
    restored.restore(XeenSaveFormat::decode(bytes));restored.bind();
    check(XeenSaveFormat::encode(restored.capture())==bytes,"Refused travel v13 round trip replayed an Event");continue;

@@ -57,31 +57,6 @@ public:
 		world.scenePresentation()=std::move(presentation);
 		guard.adoptMutationBoundary();
 	}
-	void publishPrelude(XeenGameFlags &flags,const XeenEventExecutionState &state,
-			const XeenEventContinuation &continuation) const {
-		check();continuation.check(state);script(state.currentScript->file());
-		if(&flags!=&guard.f)integrity("Event prelude flag owner changed");
-		guard.prepareVertigoPrelude(state.workingGameFlags);
-		flags=state.workingGameFlags;guard.adoptMutationBoundary();
-	}
-	void publishSequencePrefix(XeenWorld &world,XeenPartyState &party,const XeenRestoreGuard &candidate,
-            std::optional<std::uint16_t> prefixLight={}) const {
-		check();candidate.check();
-		if(&world!=&guard.w || &party!=&guard.p || !candidate.w.detachedEventCandidate())
-			integrity("Event sequence publication owner changed");
-		const XeenQuestItems quests(candidate.quests);const XeenQuestFlags flags(candidate.questFlags);
-		guard.prepareEventSequencePrefix(candidate);
-        if(prefixLight && guard.context)guard.context->lightAndResistances[0]=*prefixLight;
-		world.publishEventParty(party,candidate.p);party.questItems=quests;party.questFlags=flags;
-        if(prefixLight && party.encounterContext)party.encounterContext->lightAndResistances[0]=*prefixLight;
-		world._sessionState._journeyRandom=candidate.s._journeyRandom;
-		guard.adoptMutationBoundary();
-		for(unsigned owner=0;owner<30;++owner) {
-			auto &effect=const_cast<XeenWorld &>(candidate.w).scenePresentation().portraits[owner];
-			if(effect.damageTicks && !effect.damageDeadline){damageEffects[owner]=effect.damageFrame;effect.damageTicks=0;}
-			if(effect.spellFrame<4 && !effect.spellDeadline){portraitEffectOwners|=1u<<owner;effect.spellFrame=4;}
-		}
-	}
 	void script(const XeenEventFile &file) const {
 		check();
 		if (file.mapId != original.mapId || file.resourceName!=original.resourceName || file.resourcePresent != original.resourcePresent || file.records.size() != original.records.size())

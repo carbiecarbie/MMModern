@@ -4,10 +4,22 @@
 #include "XeenTrainingTestSupport.h"
 #include "platform/sdl/XeenMainScreenInput.h"
 #include "games/xeen/XeenEventTrigger.h"
+#include "games/xeen/XeenRestoreGuard.h"
 #include <iostream>
 using namespace training_test;
 namespace mmodern {
 struct XeenRestTestAccess {
+ static bool terrainDead(const XeenEventFlow &f){return f._encounter->_terrainDead;}
+ static bool death(const XeenEventFlow &f){return bool(f._death);}
+ static void injectUnavailableDestination(XeenEventFlow &f) {
+  auto &work=*f._transition;const XeenMapIdentity physical(111);
+  if(!work.world->sessionState().hasRegionalActors(physical)) {
+   XeenObjectFile empty{physical,"synthetic.mob",true,{}};
+   work.world->stageMapMonsters(empty,f._encounter->_journeyStatistics);
+  }
+  work.camera={physical,5,5,work.camera.direction};
+  work.guard=std::make_unique<XeenRestoreGuard>(*work.world,work.party,work.camera,work.flags);
+ }
  static bool active(const XeenEventFlow &f){return bool(f._encounter->_rest);}
  static bool complete(const XeenEventFlow &f){return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Complete;}
  static bool confirm(const XeenEventFlow &f){return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Confirm;}
@@ -627,7 +639,66 @@ void terrainCallsites(Inputs &in) {
   f.act(InteractionAction{});bool portrait=false;
   for(unsigned n=0;!f.flow->canSave();++n){check(n<1000,"Refused prefix fixture did not settle");portrait=portrait || XeenRestTestAccess::eventPortrait(*f.flow);pulse(f);}
   check(portrait,"Refused fall fixture did not reach its visible damage prefix");
-  check(XeenSaveFormat::encode(f.snapshot())==bytes,"Refused post-Event fall leaked a published flag/damage/time/RNG prefix");
+  check(XeenSaveFormat::encode(f.snapshot())==bytes,"Refused post-Event fall leaked a flag/damage/time/RNG prefix");
+ }
+ // A permanent failure after the Space terrain step must not leave its
+ // death marker or damage flash on the live encounter.
+ for(unsigned surface:{15u,5u}) {
+  auto state=armed(true);XeenEventFile script{28,"maze0028.evt",true,{row(20,20,0x12)}};
+  const auto loader=[&](auto id){auto m=in.maps.loadGeometryMap(in.assets,id);if(!m.geometry.isOutdoors()) {
+   m.geometry.surfaceTypes.fill(surface);for(auto &c:m.geometry.cells){c.rawWord=0;c.geometry=XeenIndoorWalls{};c.rawAttributes=0;c.flags=0;}
+  }return m;};
+  Fixture f(in,state,false,&script,loader);wire(f);bool failed=false;
+  XeenRestTestAccess::transitionComposer(*f.flow,[&](auto &,const auto &,const auto &,auto,auto) {
+   if(XeenRestTestAccess::manualReady(*f.flow) && !failed){failed=true;throw std::out_of_range("Injected completed Space presentation failure");}
+   return XeenEventFlow::Composition{frame(),false};
+  });
+  const auto before=XeenSaveFormat::encode(f.snapshot());f.act(InteractionAction{});finish(f);
+  check(failed && f.flow->encounter()->journeyRefusal()=="Unable to display this Event: not supported yet",
+   "Terrain Event did not abandon its failed presentation");
+  check(!XeenRestTestAccess::terrainDead(*f.flow) && !XeenRestTestAccess::death(*f.flow) &&
+   XeenSaveFormat::encode(f.snapshot())==before,"Abandoned Space leaked terrain death, damage, time or RNG");
+  for(auto owner:state.activeRosterIds)check(!f.w.scenePresentation().portraits[owner].damageTicks,
+   "Abandoned Space armed a discarded terrain damage flash");
+  // A fresh no-Wait Event publishes a normal arrival at the living party.
+  f.act(InteractionAction{false});finish(f);
+  check(!XeenRestTestAccess::terrainDead(*f.flow) && !XeenRestTestAccess::death(*f.flow) &&
+   f.flow->encounter()->state().phase()==XeenEncounterPhase::Exploring,
+   "A later normal arrival inherited an abandoned terrain defeat");
+ }
+ // Fault-inject a physical extension as the final destination: terrain can
+ // sample it, but Journey admission rejects it after the staged Space step.
+ for(unsigned surface:{15u,5u}) {
+  auto state=armed(true);auto travel=row(20,20,0x07,{23,9,11});travel.direction=0;
+  auto ordinary=row(20,20,0x12);ordinary.direction=1;
+  XeenEventFile script{28,"maze0028.evt",true,{travel,ordinary}};
+  const auto loader=[&](auto id){auto m=in.maps.loadGeometryMap(in.assets,id);if(!m.geometry.isOutdoors()) {
+   m.geometry.surfaceTypes[0]=0;m.geometry.surfaceTypes[1]=surface;
+   for(auto &c:m.geometry.cells){c.rawWord=0;c.geometry=XeenIndoorWalls{};c.rawAttributes=0;c.surfaceIndex=0;c.flags=0;}
+   if(id==XeenMapIdentity(111))m.geometry.cells[5*16+5].surfaceIndex=1;
+  }return m;};
+  Fixture f(in,state,false,&script,loader);wire(f);bool injected=false;unsigned completions=0,errors=0;
+  f.flow->reportManual=[&](const auto &result) {
+   if(std::holds_alternative<XeenManualEventCompleted>(result))++completions;
+   if(std::holds_alternative<XeenEventExecutionError>(result))++errors;
+  };
+  // Keep the synthetic Space input across teleport solely to reach the late
+  // terrain/admission boundary; ordinary teleport still consumes it.
+  f.flow->eventInputClearForAudit=[&](unsigned site) {
+   if(site==0xf590 && !injected){injected=true;XeenRestTestAccess::injectUnavailableDestination(*f.flow);return false;}
+   return true;
+  };
+  const auto before=XeenSaveFormat::encode(f.snapshot());f.act(InteractionAction{});finish(f);
+  check(injected && completions==1 && errors==0 && f.flow->encounter()->journeyRefusal().find("not supported yet")!=std::string::npos,
+   "Synthetic late transition was not refused after the Space terrain step");
+  check(!XeenRestTestAccess::terrainDead(*f.flow) && !XeenRestTestAccess::death(*f.flow) &&
+   XeenSaveFormat::encode(f.snapshot())==before,"Refused transition leaked terrain death, damage, time or RNG");
+  for(auto owner:state.activeRosterIds)check(!f.w.scenePresentation().portraits[owner].damageTicks,
+   "Refused transition armed a discarded terrain damage flash");
+  f.act(NavigationAction::TurnRight);finish(f);f.act(InteractionAction{false});finish(f);
+  check(!XeenRestTestAccess::terrainDead(*f.flow) && !XeenRestTestAccess::death(*f.flow) &&
+   f.flow->encounter()->state().phase()==XeenEncounterPhase::Exploring,
+   "A later normal arrival inherited a refused terrain defeat");
  }
  // Already displayed damage/sparkle prefixes are not armed again by final
  // publication. Their Event holds must not grow a standalone presentation tail.

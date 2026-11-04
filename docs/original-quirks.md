@@ -1285,28 +1285,21 @@ stays documented here and in the plan that implements it.
   `xeen_dial_original` (150 turns at map 122 (2,30) East) and the reward
   hold case in `xeen_reward_execution`. **ScummVM:** differs; the pin has no cap. Master not rechecked.
 
-- <a id="dev-event-presentation-abandon"></a> **A permanently failing Event
-  presentation ends the Event** (maintainer, 2026-11-02, interim). DOS has no
-  such failure path. When a detached Event's presentation fails in a way a
-  retry cannot clear (a logic error over verified owners, or an original
-  sprite the drawer rejects), MMModern ends the Event with "Unable to display
-  this Event: not supported yet" and returns to input; other failures keep
-  retrying. Effects the player already observed are kept: party, quest
-  items, quest flags and the RNG prefix. The rest of the candidate is
-  discarded, including deferred game flags, so a failure right after a
-  displayed grant can leave the grant without its repeat-prevention flag.
-  This matches the existing runtime-refusal behavior; the 2026-10-31 decision
-  to discard the whole Event stays open as a waiting Tier A item in the
-  [roadmap](roadmap.md). Implemented in
-  `XeenEventFlow::abandonDetachedPresentation`. The fault tests in
-  `xeen_fall_defeat_original` cover a terrain fall's first scared-face draw
-  (the real `dse.fac` rejection and an out-of-range error, Darkside 128
-  (5,5)), the pending presentation of the original map 8 FallToMap, and a
-  transient failure retried to completion. NPC, numeric and WhoWill waits, a
-  failure after a displayed reward, combat-interrupted Events, later fall
-  images and cross-side transitions are not fault-tested.
-  **ScummVM:** differs; the pin has no corresponding failure path. Master not
-  rechecked.
+- <a id="dev-event-presentation-abandon"></a> **A refused Event is discarded**
+  (maintainer, 2026-10-31 and 2026-11-02). DOS has no unsupported-instruction
+  or permanently failing presentation path. In Journey play, when MMModern
+  cannot execute an Event or its presentation cannot succeed, it shows the
+  existing "not supported yet" notice ("Unable to display this Event: not
+  supported yet" for a permanent presentation failure) and discards the whole
+  Event, including party, items, flags, position, time and Journey RNG. Sounds
+  and images already presented cannot be undone. Recoverable presentation
+  failures still retry. The action that triggered the Event remains; input
+  consumed by that action stays consumed. `XeenEventFlow` retains Event work
+  on a detached candidate until completion; terminal service and ending handoffs
+  publish the complete candidate. Fault and repeat cases are covered by
+  `xeen_world_event`, `xeen_fall_defeat_original`, `xeen_mixed_travel_original`
+  and `xeen_event_dispatch`. **ScummVM:** differs; the pin has no
+  corresponding refusal or presentation failure path. Master not rechecked.
 
 ## Reference behavior not reproduced
 

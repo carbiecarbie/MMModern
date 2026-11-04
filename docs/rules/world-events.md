@@ -729,13 +729,11 @@ wake state and temporary outdoor-neighbour changes. An actual map change uses
 the existing exit lifetime, clears that temporary layer, stages/reloads the
 destination monsters and reloads head indicators before destination Events.
 The foundation's shared transition result checks admission before candidate
-changes. Unavailable travel discards unpublished map, party, rewards and Journey
-RNG changes. An already published presentation/reward prefix remains authoritative
-under the foundation's publication rule. Its light word tracks successful Event
-Set/Take/Give operations (including the year reset), independently of detached
-scene drains. Repeated prefix publication therefore preserves Event effects
-without leaking a drain from a subsequently refused run; the final candidate
-publication retains the actual checked light word.
+changes. Unavailable travel discards the entire Event, including map, party,
+rewards and Journey RNG changes. Sequence effects and their light word remain
+in the candidate until completion; drawings use that candidate without
+publishing its camera or gameplay effects. The candidate's checked light word
+includes Event operations and scene drains.
 
 Exit terminates. Continue redraws/reselects destination objects and restarts at
 physical destination line 0 (`0x27117..0x27127`). It discards CallEvent frames
@@ -745,8 +743,8 @@ and damage type to physical: initializer `0x26a8e..0x26ab8`, Call/Return storage
 ordinary redraw lookup (`0x170c1..0x171d4`, `0x156ee..0x15839`).
 Destination messages, input and other visible suspensions compose the retained
 destination world at the interpreter's working camera. Drawing does not publish
-the travel camera or candidate effects: a later refusal still discards them,
-while an already published reward/presentation prefix retains its authority.
+the travel camera or candidate effects; a later refusal discards the entire
+Event, including any displayed reward or presentation prefix.
 
 ConfirmWord (21) reads input type, success line, alternate text index and title
 index. Type 0 looks up a mirror; other values name primary map text (the

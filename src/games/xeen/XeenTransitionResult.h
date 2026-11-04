@@ -4,7 +4,7 @@
 #include <string>
 namespace mmodern {
 // Admission is distinct from integrity. Unavailable travel is an ordinary
-// refusal: discard unpublished candidate values, retaining published prefixes.
+// refusal: the caller discards its unpublished candidate.
 struct XeenTransitionResult {
     enum class Status { Available, Unavailable };
     Status status = Status::Unavailable;
