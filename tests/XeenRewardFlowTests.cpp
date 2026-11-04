@@ -9,7 +9,7 @@ using namespace reward_test;
 IndexedFrame base(){IndexedFrame b;b.width=320;b.height=200;b.pixels.assign(64000,90);for(int i=0;i<256;++i)for(int j=0;j<3;++j)b.palette[i*3+j]=i;return b;}
 void portraitRequiresOwner(){
     mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
- Execution e;auto state=e.seed({pause()},0);
+ Execution e;auto state=e.seed({pauseEvent()},0);
  state.pendingPresentation->request.kind=XeenPresentationKind::PortraitEffect;
  state.pendingPresentation->request.portrait=XeenEventPortraitEffect{XeenEventPortraitStage::Sparkle,0,0};
  state.pendingPresentation->request.response=XeenPresentationResponseRequirement::Presented;
@@ -23,7 +23,7 @@ void portraitRequiresOwner(){
 void treasureEntryClear() {
  for(unsigned mode=0;mode<3;++mode) {
   Execution e;if(mode==2)full(e.f.initial,true);
-  auto state=e.seed({pause(),record(1,1,1,0x12)},mode?2:0);
+  auto state=e.seed({pauseEvent(),record(1,1,1,0x12)},mode?2:0);
   state.treasure.gold=1;state.treasure.ready=true;
   auto result=e.resumeOne(state);
   for(unsigned n=0;;++n) {
@@ -44,7 +44,7 @@ void treasureEntryClear() {
 void flows(){
     mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
 	for(bool global:{false,true}){Execution e;if(global)full(e.f.initial,true);
-		auto s=e.seed({pause(),record(1,1,1,12,{0,0,20,7}),record(1,1,2,0x12)},10);
+		auto s=e.seed({pauseEvent(),record(1,1,1,12,{0,0,20,7}),record(1,1,2,0x12)},10);
 		XeenEventSystem events(e.scripts,e.texts);auto b=base();
 		XeenEventFlow flow(programState,e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t){return XeenEventFlow::Composition{b, false};});
   flow.dialogText=&dos_test::text();
@@ -80,8 +80,8 @@ void producedFlow(){
 	for(int outcome=0;outcome<4;++outcome) {
 		Execution e;e.f.initial.questItems.increment(17);e.f.initial.questFlags.set(2);
 		if(outcome==1)full(e.f.initial,true);
-		e.f.scripts[1]={pause(),record(1,1,1,12,{21,99}),record(1,1,2,12,{104,2}),record(1,1,3,0x2c,{70,37,0,1}),
-			pause(4),record(1,1,5,12,{0,0,20,7})};
+		e.f.scripts[1]={pauseEvent(),record(1,1,1,12,{21,99}),record(1,1,2,12,{104,2}),record(1,1,3,0x2c,{70,37,0,1}),
+			pauseEvent(4),record(1,1,5,12,{0,0,20,7})};
 		XeenEventSystem events(e.scripts,e.texts);auto b=base();
 		XeenEventFlow flow(programState,e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t){return XeenEventFlow::Composition{b, false};});
   flow.dialogText=&dos_test::text();
@@ -120,7 +120,7 @@ void failures(){
 	// Composition/rebase before presentation; reporting before layout; layout
 	// failure after transient layer push; and abandonment on both sides of insertion.
 	for(int fault=0;fault<6;++fault)for(bool delivered:{false,true}){
-		Execution e;auto s=e.seed({pause(),record(1,1,1,0x12)},3);
+		Execution e;auto s=e.seed({pauseEvent(),record(1,1,1,0x12)},3);
 		if(delivered)s=pending(e.resume(s));
 		if(fault==5&&!delivered){full(e.f.initial,true);s=pending(e.resume(s));}
 		XeenEventSystem events(e.scripts,e.texts);auto b=base();bool failCompose=false;
@@ -140,7 +140,7 @@ void failures(){
 		failCompose=false;flow.refresh(true);
 		check(flow.frame().pixels==b.pixels,"failed transient layer survived rebase");
 	}
-	Execution e;auto s=e.seed({pause(),record(1,1,1,0x12)});XeenEventSystem events(e.scripts,e.texts);auto b=base();
+	Execution e;auto s=e.seed({pauseEvent(),record(1,1,1,0x12)});XeenEventSystem events(e.scripts,e.texts);auto b=base();
 	XeenEventFlow flow(programState,e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t){return XeenEventFlow::Composition{b, false};});
   flow.dialogText=&dos_test::text();
 	flow.acceptManual(XeenEventExecutionSuspended{s,s.pendingPresentation->request});const auto generation=flow.presentationGeneration();
@@ -152,7 +152,7 @@ void animatedRewardLayers(){
     mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
  for(bool warning:{false,true}){
   Execution e;if(warning)full(e.f.initial,true);
-  auto state=e.seed({pause(),record(1,1,1,0x12)},3);state=pending(e.resume(state));
+  auto state=e.seed({pauseEvent(),record(1,1,1,0x12)},3);state=pending(e.resume(state));
   XeenEventSystem events(e.scripts,e.texts);auto b=base();std::uint64_t now=0,phase=0;
   XeenEventFlow flow(programState,e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t value){phase=value;auto current=b;current.pixels[100]=value;return XeenEventFlow::Composition{current,true};},{},[&]{return now;});
   flow.dialogText=&dos_test::text();
@@ -169,7 +169,7 @@ void animatedRewardLayers(){
 void animationFailures(){
     mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
  for(bool automatic:{false,true})for(bool delivered:{false,true}){
-  Execution e;auto state=e.seed({pause(),record(1,1,1,0x12)},3);
+  Execution e;auto state=e.seed({pauseEvent(),record(1,1,1,0x12)},3);
   if(delivered)state=pending(e.resume(state));
   XeenEventSystem events(e.scripts,e.texts);auto b=base();std::uint64_t now=0;bool fail=false;
   std::vector<std::uint64_t> phases;unsigned reports=0;
@@ -188,7 +188,7 @@ void animationFailures(){
   fail=false;flow.refresh(true);check(phases.back()==1,"idle failure rolled logical step back");
  }
  // An initial input refresh that cleans pending execution cannot dispatch that input anew.
- Execution e;auto state=e.seed({pause(),record(1,1,1,0x12)},1);XeenEventSystem events(e.scripts,e.texts);auto b=base();bool fail=false;
+ Execution e;auto state=e.seed({pauseEvent(),record(1,1,1,0x12)},1);XeenEventSystem events(e.scripts,e.texts);auto b=base();bool fail=false;
  unsigned compositions=0,reports=0;
  XeenEventFlow flow(programState,e.world,events,e.f.initial,e.camera,e.flags,e.f.font,[&](std::uint64_t){++compositions;if(fail)throw std::runtime_error("rebase failure");return XeenEventFlow::Composition{b,true};});
   flow.dialogText=&dos_test::text();
@@ -226,7 +226,7 @@ void presentation(const XeenFontFormat &font,IndexedFrame b,const std::filesyste
 void timedItems() {
     mmodern::XeenProgramState programState{mmodern::XeenWallClock::fixed(0)};
  Execution e;e.f.initial.purse=XeenPurse{};
- auto state=e.seed({pause(),record(1,1,1,0x12)},2);state.treasure.gold+=19u;
+ auto state=e.seed({pauseEvent(),record(1,1,1,0x12)},2);state.treasure.gold+=19u;
  XeenEventSystem events(e.scripts,e.texts);auto b=base();std::uint64_t now=0;
  XeenEventFlow flow(programState,e.world,events,e.f.initial,e.camera,e.flags,e.f.font,
   [&](std::uint64_t){return XeenEventFlow::Composition{b,true};},{},[&]{return now;});
@@ -258,7 +258,7 @@ void timedItems() {
   "Stale found frame credited currency");
  flow.framePresented(flow.frame().presentation());now+=110;flow.handle(AcknowledgeAction{});
  check(!flow.blocksGameplay() && e.f.initial.purse->gold==19,"Final acknowledgment did not credit currency");
- auto abandoned=e.seed({pause(),record(1,1,1,0x12)},1);
+ auto abandoned=e.seed({pauseEvent(),record(1,1,1,0x12)},1);
  flow.acceptManual(XeenEventExecutionSuspended{abandoned,abandoned.pendingPresentation->request});
  flow.handle(AcknowledgeAction{});flow.framePresented(flow.frame().presentation());
  const auto prefix=xeenInventoryInspection(e.f.initial);

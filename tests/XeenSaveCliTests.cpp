@@ -5,21 +5,23 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
+#ifdef _WIN32
 #include <windows.h>
+#endif
 #include <fstream>
 #include <iostream>
 using namespace gameplay_test;
 namespace fs=std::filesystem;
 using child_test::Result;
-Result launch(const fs::path &exe,const std::vector<std::wstring>&args,const fs::path &log){
+Result launch(const fs::path &exe,const std::vector<std::string>&args,const fs::path &log){
  static unsigned sequence = 0;
  // Preserve explicit CFG arguments in the parsing matrix. Once its synthetic
  // nullmus CFG exists, select it even if the build overrides the UI module.
  auto isolated=args;const auto cfg=log.parent_path()/"WORLD"/"XEEN.CFG";
- if(fs::is_regular_file(cfg) && std::find(args.begin(),args.end(),L"--xeen-cfg")==args.end()) {
-  isolated.push_back(L"--xeen-cfg");isolated.push_back(cfg.wstring());
+ if(fs::is_regular_file(cfg) && std::find(args.begin(),args.end(),"--xeen-cfg")==args.end()) {
+  isolated.push_back("--xeen-cfg");isolated.push_back(cfg.u8string());
  }
- return child_test::launch(exe,isolated,fs::path(log.wstring()+L"."+std::to_wstring(GetCurrentProcessId())+L"."+std::to_wstring(++sequence)),false,false,300000,false);
+ return child_test::launch(exe,isolated,fs::u8path(log.u8string()+"."+std::to_string(child_test::processId())+"."+std::to_string(++sequence)),false,false,300000,false);
 }
 int main(int argc,char **argv){try{
  check(argc==2,"CLI test executable argument");const fs::path exe=fs::absolute(argv[1]);
@@ -27,84 +29,84 @@ int main(int argc,char **argv){try{
  const auto dir=child_test::freshDirectory(root/"run");
  check(child_test::freshDirectory(root/"run")!=dir,"process evidence directories are isolated");
  const auto game=dir/"GAME";fs::create_directories(game);
- const auto log=dir/"cli.log";const auto path=dir/fs::path(L"space \u00e7 \u6e38.mmsave");fs::remove(path);
- for(const auto &args:std::vector<std::vector<std::wstring>>{
-  {L"--inspect-party",game.wstring(),L"--xeen-cfg"},
-  {L"--inspect-party",game.wstring(),L"--xeen-cfg",L""},
-  {L"--inspect-party",game.wstring(),L"--xeen-cfg",L"--wall-clock"},
-  {L"--inspect-party",game.wstring(),L"--xeen-cfg",L"a",L"--xeen-cfg",L"b"}}) {
+ const auto log=dir/"cli.log";const auto path=dir/fs::u8path(u8"space \u00e7 \u6e38.mmsave");fs::remove(path);
+ for(const auto &args:std::vector<std::vector<std::string>>{
+  {"--inspect-party",game.u8string(),"--xeen-cfg"},
+  {"--inspect-party",game.u8string(),"--xeen-cfg",""},
+  {"--inspect-party",game.u8string(),"--xeen-cfg","--wall-clock"},
+  {"--inspect-party",game.u8string(),"--xeen-cfg","a","--xeen-cfg","b"}}) {
   const auto r=launch(exe,args,log);
   check(r.exit==1 && r.output.find("--xeen-cfg")!=std::string::npos,"invalid CFG override accepted or missing diagnostic");
  }
- for(const auto &args:std::vector<std::vector<std::wstring>>{
-  {game.wstring(),L"--wall-clock",L"1"},
-  {L"--inspect-party",game.wstring(),L"--wall-clock",L"4294967296"},
-  {L"--inspect-party",game.wstring(),L"--wall-clock",L"-1"},
-  {L"--inspect-party",game.wstring(),L"--wall-clock",L"0",L"--wall-clock",L"1"},
-  {L"--inspect-party",game.wstring(),L"--wall-clock"}}) {
+ for(const auto &args:std::vector<std::vector<std::string>>{
+  {game.u8string(),"--wall-clock","1"},
+  {"--inspect-party",game.u8string(),"--wall-clock","4294967296"},
+  {"--inspect-party",game.u8string(),"--wall-clock","-1"},
+  {"--inspect-party",game.u8string(),"--wall-clock","0","--wall-clock","1"},
+  {"--inspect-party",game.u8string(),"--wall-clock"}}) {
   const auto r=launch(exe,args,log);
   check(r.exit==1 && r.output.find("--wall-clock")!=std::string::npos,"invalid wall-clock override accepted or missing clear diagnostic");
  }
- const std::vector<std::vector<std::wstring>> bad{
- {L"--encounter-26"}, {L"--encounter-26",L""}, {L"--encounter-26",L"--load-game"},
- {L"--encounter-26",game.wstring(),L"20",L"13",L"1",L"north"},
- {L"--encounter-26",game.wstring(),L"extra"},
- {L"--encounter-26",game.wstring(),L"--save-file",path.wstring()},
- {L"--encounter-26",game.wstring(),L"--load-game",path.wstring()},
- {L"--render-map",game.wstring(),L"--encounter-26"},
- {L"--manual-equipment",game.wstring(),L"--encounter-26"},
- {L"--load-game",game.wstring(),path.wstring(),L"--encounter-26"},
- {L"--load-game"},{L"--load-game",game.wstring()},{L"--load-game",game.wstring(),path.wstring(),L"1"},
- {L"--load-game",game.wstring(),path.wstring(),L"--save-file",path.wstring()},
- {L"--render-map"},{L"--render-map",game.wstring(),L"--save-file"},
- {L"--render-map",game.wstring(),L"--save-file",path.wstring(),L"--save-file",path.wstring()},
- {L"--render-map",game.wstring(),L"1",L"0",L"0",L"bad"},
- {L"--render-map",game.wstring(),L"0",L"0",L"0",L"north"},
- {L"--render-map",game.wstring(),L"1",L"16",L"0",L"north"},
- {L"--render-map",game.wstring(),L"--save-file",L"--load-game"}};
+ const std::vector<std::vector<std::string>> bad{
+ {"--encounter-26"}, {"--encounter-26",""}, {"--encounter-26","--load-game"},
+ {"--encounter-26",game.u8string(),"20","13","1","north"},
+ {"--encounter-26",game.u8string(),"extra"},
+ {"--encounter-26",game.u8string(),"--save-file",path.u8string()},
+ {"--encounter-26",game.u8string(),"--load-game",path.u8string()},
+ {"--render-map",game.u8string(),"--encounter-26"},
+ {"--manual-equipment",game.u8string(),"--encounter-26"},
+ {"--load-game",game.u8string(),path.u8string(),"--encounter-26"},
+ {"--load-game"},{"--load-game",game.u8string()},{"--load-game",game.u8string(),path.u8string(),"1"},
+ {"--load-game",game.u8string(),path.u8string(),"--save-file",path.u8string()},
+ {"--render-map"},{"--render-map",game.u8string(),"--save-file"},
+ {"--render-map",game.u8string(),"--save-file",path.u8string(),"--save-file",path.u8string()},
+ {"--render-map",game.u8string(),"1","0","0","bad"},
+ {"--render-map",game.u8string(),"0","0","0","north"},
+ {"--render-map",game.u8string(),"1","16","0","north"},
+ {"--render-map",game.u8string(),"--save-file","--load-game"}};
  for(const auto &args:bad)check(launch(exe,args,log).exit==1,"invalid CLI syntax accepted");
- for(const auto &args:std::vector<std::vector<std::wstring>>{
-  {game.wstring(),L"--difficulty",L"warrior"},{game.wstring(),L"--save-file",path.wstring()}}) {
+ for(const auto &args:std::vector<std::vector<std::string>>{
+  {game.u8string(),"--difficulty","warrior"},{game.u8string(),"--save-file",path.u8string()}}) {
   const auto result=launch(exe,args,log);
   check(result.exit==1 && result.output.find("Usage:")!=std::string::npos && !fs::exists(path),
    "bare launch developer override must print usage without writing");
  }
  for(bool explicitEntry:{false,true}) {
-  const auto arguments=[&](std::vector<std::wstring> tail) {
-   std::vector<std::wstring> args;if(explicitEntry)args.push_back(L"--new-game");
-   args.push_back(game.wstring());args.insert(args.end(),tail.begin(),tail.end());return args;
+  const auto arguments=[&](std::vector<std::string> tail) {
+   std::vector<std::string> args;if(explicitEntry)args.push_back("--new-game");
+   args.push_back(game.u8string());args.insert(args.end(),tail.begin(),tail.end());return args;
   };
-  for(const auto &tail:std::vector<std::vector<std::wstring>>{
-   {L"--difficulty"},{L"--difficulty",L""},{L"--difficulty",L"Warrior"},{L"--difficulty",L"easy"},
-   {L"--difficulty",L"warrior",L"--difficulty",L"adventurer"},
-   {L"--save-file"},{L"--save-file",L""},{L"--save-file",L"--difficulty"},
-   {L"--save-file",path.wstring(),L"--save-file",path.wstring()},
-   {L"--combat-seed",L"1"},{L"--combat-seed",L"0"},
-   {L"--difficulty",L"warrior",L"--combat-seed",L"1"},
-   {L"--journey-region"},{L"--load-game",path.wstring()},{L"--new-game"},{L"extra"}}) {
+  for(const auto &tail:std::vector<std::vector<std::string>>{
+   {"--difficulty"},{"--difficulty",""},{"--difficulty","Warrior"},{"--difficulty","easy"},
+   {"--difficulty","warrior","--difficulty","adventurer"},
+   {"--save-file"},{"--save-file",""},{"--save-file","--difficulty"},
+   {"--save-file",path.u8string(),"--save-file",path.u8string()},
+   {"--combat-seed","1"},{"--combat-seed","0"},
+   {"--difficulty","warrior","--combat-seed","1"},
+   {"--journey-region"},{"--load-game",path.u8string()},{"--new-game"},{"extra"}}) {
    const auto result=launch(exe,arguments(tail),log);
    check(result.exit==1 && result.output.find("--new-game <game-dir> [--difficulty adventurer|warrior] [--save-file <path>]")!=std::string::npos,
     "new-game invalid/duplicate/conflicting options must print exact usage");
   }
  }
- for(const auto &args:std::vector<std::vector<std::wstring>>{
-  {L"--new-game"},{L"--new-game",L""},{L""},
-  {L"--journey-region",game.wstring(),L"--difficulty",L"warrior"},
-  {L"--journey-region",L"--difficulty",L"adventurer",game.wstring()},
-  {L"--load-game",game.wstring(),path.wstring(),L"--difficulty",L"warrior"}})
+ for(const auto &args:std::vector<std::vector<std::string>>{
+  {"--new-game"},{"--new-game",""},{""},
+  {"--journey-region",game.u8string(),"--difficulty","warrior"},
+  {"--journey-region","--difficulty","adventurer",game.u8string()},
+  {"--load-game",game.u8string(),path.u8string(),"--difficulty","warrior"}})
   check(launch(exe,args,log).exit==1,"new-game missing path/difficulty override on Journey or load");
- for(const auto *entry:{L"--journey-region"}) {
-  for(const auto *seed:{L"0",L"-1",L"+1",L"1x",L"4294967296",L"",L" 56",L"99999999999"})
-   check(launch(exe,{entry,L"--combat-seed",seed,game.wstring()},log).exit==1,"strict seed syntax");
-  for(const auto &args:std::vector<std::vector<std::wstring>>{
-   {entry},{entry,L""},{entry,game.wstring(),L"extra"},
-   {entry,game.wstring(),L"--combat-seed",L"56"},{entry,L"--combat-seed",L"56",L"--combat-seed",L"56",game.wstring()},
-   {entry,game.wstring(),L"--save-file",path.wstring(),L"--save-file",path.wstring()},
-   {entry,L"--load-game",game.wstring(),path.wstring()},
-   {L"--load-game",game.wstring(),path.wstring(),entry},
-   {L"--load-game",game.wstring(),path.wstring(),L"--combat-seed",L"56"},
-   {entry,game.wstring(),L"--encounter-26"},{entry,game.wstring(),L"--journey-skeleton"},
-   {entry,game.wstring(),L"--journey-expedition"},{entry,game.wstring(),L"--encounter-27"}})
+ for(const auto *entry:{"--journey-region"}) {
+  for(const auto *seed:{"0","-1","+1","1x","4294967296",""," 56","99999999999"})
+   check(launch(exe,{entry,"--combat-seed",seed,game.u8string()},log).exit==1,"strict seed syntax");
+  for(const auto &args:std::vector<std::vector<std::string>>{
+   {entry},{entry,""},{entry,game.u8string(),"extra"},
+   {entry,game.u8string(),"--combat-seed","56"},{entry,"--combat-seed","56","--combat-seed","56",game.u8string()},
+   {entry,game.u8string(),"--save-file",path.u8string(),"--save-file",path.u8string()},
+   {entry,"--load-game",game.u8string(),path.u8string()},
+   {"--load-game",game.u8string(),path.u8string(),entry},
+   {"--load-game",game.u8string(),path.u8string(),"--combat-seed","56"},
+   {entry,game.u8string(),"--encounter-26"},{entry,game.u8string(),"--journey-skeleton"},
+   {entry,game.u8string(),"--journey-expedition"},{entry,game.u8string(),"--encounter-27"}})
    check(launch(exe,args,log).exit==1,"Journey/diagnostic duplicate or conflict accepted");
  }
  Fixture fixture;Bytes party(782),roster(30*354),map(892);map[768]=1;map[781]=128;
@@ -114,28 +116,28 @@ int main(int argc,char **argv){try{
  for(std::size_t i=2+3*8;i<inner.size();++i)inner[i]^=0x35; // Initial archive payload is plaintext.
  sprite_test::archive(game/"xeen.cc",{{"fnt",fontBytes()},{"2a0c",inner}});
  GameInstallation installation{game,game/"xeen.cc",{},GameEdition::CloudsOfXeen};
- for(bool explicitEntry:{true})for(const auto &tail:std::vector<std::vector<std::wstring>>{
-  {},{L"--difficulty",L"adventurer"},{L"--difficulty",L"warrior"},
-  {L"--save-file",path.wstring()},
-  {L"--difficulty",L"warrior",L"--save-file",path.wstring()},
-  {L"--save-file",path.wstring(),L"--difficulty",L"adventurer"}}) {
-  std::vector<std::wstring> args;if(explicitEntry)args.push_back(L"--new-game");args.push_back(game.wstring());
+ for(bool explicitEntry:{true})for(const auto &tail:std::vector<std::vector<std::string>>{
+  {},{"--difficulty","adventurer"},{"--difficulty","warrior"},
+  {"--save-file",path.u8string()},
+  {"--difficulty","warrior","--save-file",path.u8string()},
+  {"--save-file",path.u8string(),"--difficulty","adventurer"}}) {
+  std::vector<std::string> args;if(explicitEntry)args.push_back("--new-game");args.push_back(game.u8string());
   args.insert(args.end(),tail.begin(),tail.end());const auto result=launch(exe,args,log);
   check(result.exit==3 && result.output.find("complete CD source")!=std::string::npos,"valid public new-game syntax reaches production");
  }
- for(const auto &args:std::vector<std::vector<std::wstring>>{
-  {L"--journey-region",game.wstring()},
-  {L"--journey-region",L"--combat-seed",L"4294967295",game.wstring()},
-  {L"--journey-region",L"--combat-seed",L"56",game.wstring(),L"--save-file",path.wstring()}}) {
+ for(const auto &args:std::vector<std::vector<std::string>>{
+  {"--journey-region",game.u8string()},
+  {"--journey-region","--combat-seed","4294967295",game.u8string()},
+  {"--journey-region","--combat-seed","56",game.u8string(),"--save-file",path.u8string()}}) {
   const auto result=launch(exe,args,log);check(result.exit==3&&result.output.find("complete CD source")!=std::string::npos,"valid regional entry parsing");
  }
- for(const auto *entry:{L"--encounter-26",L"--encounter-27",L"--journey-skeleton",L"--journey-expedition"}) {
-  const auto result=launch(exe,{entry,game.wstring()},log);
+ for(const auto *entry:{"--encounter-26","--encounter-27","--journey-skeleton","--journey-expedition"}) {
+  const auto result=launch(exe,{entry,game.u8string()},log);
   check(result.exit==1&&result.output.find("Usage:")!=std::string::npos,"Removed mode must print usage");
  }
- for(const auto &args:std::vector<std::vector<std::wstring>>{
-  {L"--render-map",game.wstring(),L"--save-file",path.wstring()},
-  {L"--render-map",game.wstring(),L"1",L"0",L"0",L"north",L"--save-file",path.wstring()}})
+ for(const auto &args:std::vector<std::vector<std::string>>{
+  {"--render-map",game.u8string(),"--save-file",path.u8string()},
+  {"--render-map",game.u8string(),"1","0","0","north","--save-file",path.u8string()}})
   check(launch(exe,args,log).exit==1,"Map explorer cannot accept a save target");
  // Inspect now reads the full DARK New Game tail for two-sided party state.
  sprite_test::archive(dir/"initial-dark-test.cc",{{"maze.pty",Bytes(1530)}});
@@ -162,25 +164,29 @@ int main(int argc,char **argv){try{
   out.write(reinterpret_cast<const char *>(ui.data()),ui.size());
  }
  {std::ofstream out(dir/"WORLD"/"XEEN.CFG",std::ios::binary);const char cfg[6]{};out.write(cfg,sizeof(cfg));} // Synthetic nullmus configuration.
- const auto alternateCfg=dir/fs::path(L"alternate \u00e7.cfg");
+ const auto alternateCfg=dir/fs::u8path(u8"alternate \u00e7.cfg");
  {std::ofstream out(alternateCfg,std::ios::binary);const char cfg[29]{};out.write(cfg,sizeof(cfg));}
  {
-  const auto good=launch(exe,{L"--inspect-party",game.wstring(),L"--xeen-cfg",alternateCfg.wstring()},log);
+  const auto good=launch(exe,{"--inspect-party",game.u8string(),"--xeen-cfg",alternateCfg.u8string()},log);
   check(good.exit==0 && good.output.find("Initial Clouds party:")!=std::string::npos,"Valid Unicode CFG override did not reach the entry mode");
-  const auto missing=launch(exe,{L"--inspect-party",game.wstring(),L"--xeen-cfg",(dir/"missing.cfg").wstring()},log);
+  const auto missing=launch(exe,{"--inspect-party",game.u8string(),"--xeen-cfg",(dir/"missing.cfg").u8string()},log);
   check(missing.exit==3 && missing.output.find("Selected XEEN.CFG is missing")!=std::string::npos,"Missing override silently used the installed CFG");
   check(fs::file_size(alternateCfg)==29 && fs::file_size(dir/"WORLD"/"XEEN.CFG")==6,"CFG file was modified");
  }
- for(const auto *seconds:{L"0",L"1",L"4294967295"}) {
-  const auto r=launch(exe,{L"--inspect-party",game.wstring(),L"--wall-clock",seconds},log);
+ for(const auto *seconds:{"0","1","4294967295"}) {
+  const auto r=launch(exe,{"--inspect-party",game.u8string(),"--wall-clock",seconds},log);
   const auto value=std::filesystem::path(seconds).string();
   check(r.exit==0 && r.output.find("Wall clock: fixed "+value)!=std::string::npos &&
    r.output.find("Initial Clouds party:")!=std::string::npos,"valid developer wall-clock override must use the fixed clock and run normally");
  }
  installation.darkArchive=game/"dark.cc";installation.edition=GameEdition::WorldOfXeen;
  auto s=regional_test::snapshot();s.resources=XeenSaveFile::fingerprint(installation);
- const auto run=[&](const char *message){const auto r=launch(exe,{L"--load-game",game.wstring(),path.wstring()},log);check(r.exit==3&&r.output.find(message)!=std::string::npos&&r.output.find("Resumed ")==std::string::npos,"CLI startup failure/fallback content");};
+ const auto run=[&](const char *message){const auto r=launch(exe,{"--load-game",game.u8string(),path.u8string()},log);check(r.exit==3&&r.output.find(message)!=std::string::npos&&r.output.find("Resumed ")==std::string::npos,"CLI startup failure/fallback content");};
+#ifdef _WIN32
  run("Inspect save file");
+#else
+ run("Open save file");
+#endif
  for(int kind=0;kind<6;++kind){
   auto saved=s;if(kind==0)saved.resources.clouds.crc32++;
   XeenSaveFile::write(path,saved);
@@ -190,11 +196,19 @@ int main(int argc,char **argv){try{
   run(kind==0?"archive/data-edition incompatibility":kind==1?"active roster identity":kind==2?"format":kind==3?"newer or unsupported MMModern build":kind==5?"older MMModern build":"maze0023.dat");
   fs::remove(path);
  }
+#ifdef _WIN32
  XeenSaveFile::write(path,s);HANDLE lock=CreateFileW(path.c_str(),GENERIC_READ,0,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
  check(lock!=INVALID_HANDLE_VALUE,"CLI save lock");run("Open save file");CloseHandle(lock);
+#else
+ if(::geteuid()==0)std::cout<<"SKIP: unreadable-save case; root bypasses file read permissions (geteuid()==0)\n";
+ else {
+ XeenSaveFile::write(path,s);const auto oldMode=fs::status(path).permissions();
+ fs::permissions(path,fs::perms::none);run("Open save file");fs::permissions(path,oldMode);
+ }
+#endif
  // Unsaveable map exploration still reaches initial-owner loading.
- for(const auto &args:std::vector<std::vector<std::wstring>>{{L"--render-map",game.wstring()},
-  {L"--render-map",game.wstring(),L"1",L"0",L"0",L"north"}})
+ for(const auto &args:std::vector<std::vector<std::string>>{{"--render-map",game.u8string()},
+  {"--render-map",game.u8string(),"1","0","0","north"}})
   check(launch(exe,args,log).exit==3,"valid render syntax rejected");
  std::cout<<"CLI syntax, Unicode paths and production startup failure matrix passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

@@ -16,7 +16,12 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
+#ifdef _WIN32
 #include <windows.h>
+#else
+#include <unistd.h>
+#endif
+#include "core/PathText.h"
 #include <algorithm>
 #include <atomic>
 #include <fstream>
@@ -79,11 +84,15 @@ void restore(const GameInstallation &installation,const XeenSaveSnapshot &s) {
 }
 fs::path outputPath(const fs::path &requested,const GameInstallation &installation) {
 	if(requested.empty()) throw std::invalid_argument("Output folder is empty");
+#ifdef _WIN32
 	const bool extended=requested.native().rfind(L"\\\\?\\",0)==0;
 	if(extended) {
 		if(requested.native().find(L'/')!=std::wstring::npos) throw std::invalid_argument("Extended DOS output path requires native separators");
 		for(const auto &part:requested) if(part==L"." || part==L"..") throw std::invalid_argument("Extended DOS output path cannot contain relative components");
 	}
+#else
+ const bool extended=false;
+#endif
 	auto ancestor=extended?requested:fs::absolute(requested).lexically_normal().make_preferred(); fs::path suffix;
 	while(!fs::exists(ancestor)) {
 		if(ancestor==ancestor.root_path()) throw std::runtime_error("Output folder has no existing ancestor");
@@ -92,8 +101,8 @@ fs::path outputPath(const fs::path &requested,const GameInstallation &installati
 	// Reuse the save platform's Windows handle resolution, including junctions,
 	// links, case and 8.3 names, and all installation protected directories.
 	fs::path resolved;
-	try {resolved=XeenSaveFile::resolve(ancestor/L".dos-export-guard.mmsave",installation).parent_path();}
-	catch(const std::exception &e) {throw std::runtime_error("Resolve DOS output folder "+ancestor.u8string()+": "+e.what());}
+	try {resolved=XeenSaveFile::resolve(ancestor/".dos-export-guard.mmsave",installation).parent_path();}
+	catch(const std::exception &e) {throw std::runtime_error("Resolve DOS output folder "+xeenPathText(ancestor)+": "+e.what());}
 	// Extended Windows paths require native separators; lexical normalization
 	// after handle resolution would turn those back into forward slashes in MinGW.
 	auto result=(resolved/suffix).make_preferred();
@@ -101,6 +110,7 @@ fs::path outputPath(const fs::path &requested,const GameInstallation &installati
 	return result;
 }
 void ordinaryTarget(const fs::path &p,bool overwrite) {
+#ifdef _WIN32
 	const auto a=GetFileAttributesW(p.c_str());
 	if(a==INVALID_FILE_ATTRIBUTES) {
 		if(GetLastError()==ERROR_FILE_NOT_FOUND || GetLastError()==ERROR_PATH_NOT_FOUND) return;
@@ -109,12 +119,21 @@ void ordinaryTarget(const fs::path &p,bool overwrite) {
 	if(!overwrite) throw std::runtime_error("DOS slot file already exists; use --overwrite");
 	if(a&(FILE_ATTRIBUTE_REPARSE_POINT|FILE_ATTRIBUTE_DIRECTORY|FILE_ATTRIBUTE_DEVICE))
 		throw std::runtime_error("DOS slot target must be an ordinary file");
+#else
+ std::error_code error;const auto status=fs::symlink_status(p,error);
+ if(error==std::errc::no_such_file_or_directory)return;
+ if(error)throw std::system_error(error,"Cannot inspect DOS slot target");
+ if(!fs::exists(status))return;
+ if(!overwrite)throw std::runtime_error("DOS slot file already exists; use --overwrite");
+ if(!fs::is_regular_file(status))throw std::runtime_error("DOS slot target must be an ordinary file");
+#endif
 }
 void write(const fs::path &path,const DosBytes &b) {
 	std::ofstream f(path,std::ios::binary|std::ios::trunc);
 	f.exceptions(std::ios::badbit|std::ios::failbit); f.write(reinterpret_cast<const char *>(b.data()),b.size()); f.close();
 }
 void removeStage(const fs::path &stage) {
+#ifdef _WIN32
 	// The staging directory is flat and owned by this invocation. Windows may
 	// retain a delete-pending entry briefly after its file handle closes.
 	for(unsigned attempt=0;attempt<50;++attempt) {
@@ -123,10 +142,14 @@ void removeStage(const fs::path &stage) {
 		const auto error=GetLastError();
 		if(error==ERROR_FILE_NOT_FOUND || error==ERROR_PATH_NOT_FOUND) return;
 		if(error!=ERROR_ACCESS_DENIED && error!=ERROR_SHARING_VIOLATION && error!=ERROR_DIR_NOT_EMPTY)
-			throw std::runtime_error("Cannot remove DOS staging folder (Windows error "+std::to_string(error)+"): "+stage.u8string());
+			throw std::runtime_error("Cannot remove DOS staging folder (Windows error "+std::to_string(error)+"): "+xeenPathText(stage));
 		Sleep(100);
 	}
-	throw std::runtime_error("Cannot remove DOS staging folder: "+stage.u8string());
+	throw std::runtime_error("Cannot remove DOS staging folder: "+xeenPathText(stage));
+#else
+ for(const auto *name:{"xeen.new","dark.new","xeen.old","dark.old"})fs::remove(stage/name);
+ fs::remove(stage);
+#endif
 }
 }
 bool validDosExportName(const std::string &name) noexcept {
@@ -298,7 +321,13 @@ void exportDosSave(const GameInstallation &installation,const fs::path &input,co
 	if(outputPath(out,installation)!=out) throw std::runtime_error("Output folder changed during export");
 	static std::atomic<unsigned> sequence{0}; fs::path stage;
 	for(unsigned attempts=0;attempts<100;++attempts) {
-		stage=out/(".dos-export-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(++sequence));
+		stage=out/(".dos-export-"+std::to_string(
+#ifdef _WIN32
+ GetCurrentProcessId()
+#else
+ getpid()
+#endif
+)+"-"+std::to_string(++sequence));
 		if(fs::create_directory(stage)) break;
 		stage.clear();
 	}
@@ -323,6 +352,9 @@ void exportDosSave(const GameInstallation &installation,const fs::path &input,co
 void exportDosBoxSave(const GameInstallation &installation,const fs::path &input,const fs::path &requested,
 	unsigned slot,const std::string &name,bool overwrite,const std::optional<DosPlace> &place,
 	const fs::path &dosbox,const std::optional<fs::path> &cfg) {
+#ifndef _WIN32
+ throw std::invalid_argument("DOSBox launchers are Windows-only; --dosbox is not supported on POSIX");
+#else
 	if(slot<1 || slot>10)throw std::invalid_argument("DOS slot must be in 1..10");
 	(void)dosExportNam(name);
 	if(!fs::is_regular_file(dosbox))throw std::invalid_argument("DOSBox executable is missing");
@@ -404,7 +436,9 @@ void exportDosBoxSave(const GameInstallation &installation,const fs::path &input
 		{out/"start.cmd",asBytes("@echo off\r\npowershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%~dp0start.ps1\"\r\nif errorlevel 1 pause\r\n")}};
 	static std::atomic<unsigned> sequence{0};fs::path stage;
 	for(unsigned attempt=0;attempt<100;++attempt) {
-		stage=out/(".dosbox-export-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(++sequence));
+		stage=out/(".dosbox-export-"+std::to_string(
+ GetCurrentProcessId()
+)+"-"+std::to_string(++sequence));
 		if(fs::create_directory(stage))break;stage.clear();
 	}
 	if(stage.empty())throw std::runtime_error("Cannot create DOSBox staging folder");
@@ -415,7 +449,7 @@ void exportDosBoxSave(const GameInstallation &installation,const fs::path &input
 			if(RemoveDirectoryW(stage.c_str()) || GetLastError()==ERROR_FILE_NOT_FOUND || GetLastError()==ERROR_PATH_NOT_FOUND)return;
 			Sleep(100);
 		}
-		throw std::runtime_error("Cannot remove DOSBox staging folder: "+stage.u8string());
+		throw std::runtime_error("Cannot remove DOSBox staging folder: "+xeenPathText(stage));
 	};
 	try {
 		for(unsigned i=0;i<outputs.size();++i)if(outputs[i].data)write(staged(i,".new"),*outputs[i].data);
@@ -435,5 +469,6 @@ void exportDosBoxSave(const GameInstallation &installation,const fs::path &input
 		cleanup();throw;
 	}
 	cleanup();
+#endif
 }
 }

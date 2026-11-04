@@ -1,3 +1,4 @@
+#include <initializer_list>
 #include "XeenRemoveTestSupport.h"
 #include "XeenPartySnapshotTestSupport.h"
 #include "XeenDosTextTestSupport.h"
@@ -65,7 +66,7 @@ void valuesAndLoading() {
 	XeenQuestFlags empty;
 	for(int i=0;i<30;++i){check(!empty.isSet(i) && XeenQuestFlags::validIndex(i),"default/domain");
 		auto copy=empty;copy.set(i);copy.set(i);for(int j=0;j<30;++j)check(copy.isSet(j)==(i==j) && !empty.isSet(j),"independent/idempotent flags");}
-	for(std::int64_t i:{-1LL,30LL,255LL,4294967296LL,std::numeric_limits<std::int64_t>::min(),std::numeric_limits<std::int64_t>::max()}){
+	for(std::int64_t i:std::initializer_list<std::int64_t>{-1LL,30LL,255LL,4294967296LL,std::numeric_limits<std::int64_t>::min(),std::numeric_limits<std::int64_t>::max()}){
 		check(!XeenQuestFlags::validIndex(i),"wide index accepted");rejects([&]{empty.isSet(i);});rejects([&]{empty.set(i);});}
 	check(empty.values()==XeenQuestFlags::Values{},"failed set changed flags");
 	// Every serialized bit individually: adjacent Darkside and padding bits are ignored.

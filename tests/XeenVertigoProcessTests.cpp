@@ -1,3 +1,4 @@
+#include "XeenPortableTestSupport.h"
 #include "XeenChildProcessTestSupport.h"
 #include "XeenSaveTestSupport.h"
 #include "XeenTestInstallation.h"
@@ -74,15 +75,15 @@ int main(int argc,char **argv) {
   child_test::require(argc==3,"usage: mmodern_vertigo_process_tests <CLI-witness> <original-installation>");
   const auto witness=fs::absolute(argv[1]),game=fs::absolute(argv[2]);
   const auto dir=fs::temp_directory_path()/("mmodern-m37-process-"+
-   std::to_string(GetCurrentProcessId())+"-"+
+   std::to_string(child_test::processId())+"-"+
    std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   fs::create_directories(dir);
   const auto route=dir/"route.mmsave";
-  SetEnvironmentVariableW(L"SDL_VIDEODRIVER",L"dummy");
-  SetEnvironmentVariableW(L"SDL_RENDER_DRIVER",L"software");
-  SetEnvironmentVariableW(L"MMODERN_M37_STAGE",nullptr);
-  std::set<DWORD> pids;
-  const auto fresh=child_test::launch(witness,{L"--journey-region",L"--combat-seed",L"56",game.wstring(),L"--save-file",route.wstring()},dir/"fresh.log",false,false,120000);
+  portable_test::setEnvironment("SDL_VIDEODRIVER","dummy");
+  portable_test::setEnvironment("SDL_RENDER_DRIVER","software");
+  portable_test::setEnvironment("MMODERN_M37_STAGE",nullptr);
+  std::set<unsigned> pids;
+  const auto fresh=child_test::launch(witness,{"--journey-region","--combat-seed","56",game.u8string(),"--save-file",route.u8string()},dir/"fresh.log",false,false,120000);
   child_test::require(fresh.exit==0 && fresh.output.find("M37 CLI SMOKE 23,10,12 passed")!=std::string::npos,"M37 uninterrupted route failed");
   pids.insert(fresh.pid);
   durableCheckpoints(route);
@@ -93,8 +94,8 @@ int main(int argc,char **argv) {
    const std::string label(1,stage);
    const auto checkpoint=dir/("route-"+label+".mmsave");
    const auto before=bytes(checkpoint);
-   SetEnvironmentVariableW(L"MMODERN_M37_STAGE",fs::path(label).c_str());
-   const auto result=child_test::launch(witness,{L"--load-game",game.wstring(),checkpoint.wstring()},dir/("restore-"+label+".log"),false,false,120000);
+   portable_test::setEnvironment("MMODERN_M37_STAGE",fs::path(label).c_str());
+   const auto result=child_test::launch(witness,{"--load-game",game.u8string(),checkpoint.u8string()},dir/("restore-"+label+".log"),false,false,120000);
    child_test::require(result.exit==0 && pids.insert(result.pid).second,"M37 distinct resume process failed");
    child_test::require(stage!='A' || result.output.find("M37 DECISION8 A Orc 9 rebuilt asleep")!=std::string::npos,
     "M37 A restore did not show the decision 8 rebuild");
@@ -107,8 +108,8 @@ int main(int argc,char **argv) {
   // only the separately documented city discovery flag is supplied here.
   auto flag9=originalB;flag9.gameFlags[9]=true;
   const auto flag9Path=dir/"flag9.mmsave";XeenSaveFile::write(flag9Path,flag9);
-  SetEnvironmentVariableW(L"MMODERN_M37_STAGE",L"B9");
-  const auto flag9Run=child_test::launch(witness,{L"--load-game",game.wstring(),flag9Path.wstring()},dir/"flag9.log",false,false,120000);
+  portable_test::setEnvironment("MMODERN_M37_STAGE","B9");
+  const auto flag9Run=child_test::launch(witness,{"--load-game",game.u8string(),flag9Path.u8string()},dir/"flag9.log",false,false,120000);
   child_test::require(flag9Run.exit==0 && pids.insert(flag9Run.pid).second &&
    flag9Run.output.find("M37 FLAG9 SKIP RESET passed")!=std::string::npos,
    "M37 artificial flag-9-true process failed");
@@ -130,8 +131,8 @@ int main(int argc,char **argv) {
    try {XeenSaveFile::write(path,snapshot);}
    catch(const std::exception &) {child_test::require(!fs::exists(path),"M37 rejected wire state created a file");return;}
    const auto before=bytes(path);
-   SetEnvironmentVariableW(L"MMODERN_M37_STAGE",L"B");
-   const auto result=child_test::launch(witness,{L"--load-game",game.wstring(),path.wstring()},dir/(std::string("reject-")+name+".log"),false,false,120000);
+   portable_test::setEnvironment("MMODERN_M37_STAGE","B");
+   const auto result=child_test::launch(witness,{"--load-game",game.u8string(),path.u8string()},dir/(std::string("reject-")+name+".log"),false,false,120000);
    child_test::require(result.exit!=0 && result.output.find("M37 RESTORE BEFORE INPUT")==std::string::npos &&
     bytes(path)==before,"M37 malformed city save was published or changed on disk");
   };
@@ -181,34 +182,34 @@ int main(int argc,char **argv) {
    child_test::require(rejected==(mode<2),"M37 city overlay codec admission differs");
    if(mode==3 && forged.camera.mapId==XeenMapIdentity(28))rejectRestore("city-camera-without-table",forged);
   }
-  SetEnvironmentVariableW(L"MMODERN_M37_STAGE",L"fail-city-compose");
+  portable_test::setEnvironment("MMODERN_M37_STAGE","fail-city-compose");
   const auto failedTransition=child_test::launch(witness,
-   {L"--journey-region",L"--combat-seed",L"56",game.wstring(),L"--save-file",(dir/"failure.mmsave").wstring()},
+   {"--journey-region","--combat-seed","56",game.u8string(),"--save-file",(dir/"failure.mmsave").u8string()},
    dir/"failure.log",false,false,120000);
   child_test::require(failedTransition.exit==0 &&
    failedTransition.output.find("M37 DESTINATION COMPOSE FAILURE atomic passed")!=std::string::npos,
    "M37 destination preparation failure published partial state");
-  for(const auto stage:{L"candidate-mutation",L"candidate-aba",L"candidate-aba-container",L"candidate-aba-party",
-    L"candidate-aba-camera",L"candidate-aba-flags",L"candidate-aba-overlay",L"candidate-aba-rng",
-    L"candidate-aba-treasure",L"candidate-cache-rebuild"}) {
-   SetEnvironmentVariableW(L"MMODERN_M37_STAGE",stage);
+  for(const auto stage:{"candidate-mutation","candidate-aba","candidate-aba-container","candidate-aba-party",
+    "candidate-aba-camera","candidate-aba-flags","candidate-aba-overlay","candidate-aba-rng",
+    "candidate-aba-treasure","candidate-cache-rebuild"}) {
+   portable_test::setEnvironment("MMODERN_M37_STAGE",stage);
    const auto result=child_test::launch(witness,
-    {L"--journey-region",L"--combat-seed",L"56",game.wstring(),L"--save-file",(dir/(std::wstring(stage)+L".mmsave")).wstring()},
-    dir/(std::wstring(stage)+L".log"),false,false,120000);
-   const bool cache=std::wstring(stage)==L"candidate-cache-rebuild";
+    {"--journey-region","--combat-seed","56",game.u8string(),"--save-file",(dir/(std::string(stage)+".mmsave")).u8string()},
+    dir/(std::string(stage)+".log"),false,false,120000);
+   const bool cache=std::string(stage)=="candidate-cache-rebuild";
    const auto expected=cache?"M37 CLI SMOKE":"M37 CANDIDATE INTEGRITY REJECTION passed";
    child_test::require(result.exit==0 && result.output.find(expected)!=std::string::npos,
     "M37 retained provider/candidate guard regression failed");
   }
-  for(const auto stage:{L"restore-candidate-mutation",L"restore-candidate-aba"}) {
-   const auto path=dir/(std::wstring(stage)+L".mmsave");
+  for(const auto stage:{"restore-candidate-mutation","restore-candidate-aba"}) {
+   const auto path=dir/(std::string(stage)+".mmsave");
    XeenSaveFile::write(path,originalB);const auto before=bytes(path);
-   SetEnvironmentVariableW(L"MMODERN_M37_STAGE",stage);
-   const auto result=child_test::launch(witness,{L"--load-game",game.wstring(),path.wstring()},dir/(std::wstring(stage)+L".log"),false,false,120000);
+   portable_test::setEnvironment("MMODERN_M37_STAGE",stage);
+   const auto result=child_test::launch(witness,{"--load-game",game.u8string(),path.u8string()},dir/(std::string(stage)+".log"),false,false,120000);
    child_test::require(result.exit!=0 && result.output.find("M37 RESTORE BEFORE INPUT")==std::string::npos && bytes(path)==before,
     "M37 restore composer changed candidate before publication");
   }
-  SetEnvironmentVariableW(L"MMODERN_M37_STAGE",nullptr);
+  portable_test::setEnvironment("MMODERN_M37_STAGE",nullptr);
   std::cout<<"M37 A/B/C/D original-resource, five-process route passed\n";
   child_test::removePassedRun(dir);return 0;
  }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}

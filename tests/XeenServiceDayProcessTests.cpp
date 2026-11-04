@@ -1,3 +1,4 @@
+#include "XeenPortableTestSupport.h"
 // M87 DOS target draws shift the genuine repair route and its stock/combat cursor.
 #include "XeenChildProcessTestSupport.h"
 #include "XeenM40Evidence.h"
@@ -46,16 +47,16 @@ int main(int argc,char **argv) {
         const auto exe=fs::absolute(argv[1]),game=fs::absolute(argv[2]);
         const auto dir=child_test::freshDirectory(fs::temp_directory_path()/"mmodern-m40-process");
         std::cout<<"M40 original-resource/process evidence: "<<dir<<'\n';
-        SetEnvironmentVariableW(L"SDL_VIDEODRIVER",L"dummy");SetEnvironmentVariableW(L"SDL_RENDER_DRIVER",L"software");
-        std::set<std::pair<DWORD,std::uint64_t>> incarnations;
+        portable_test::setEnvironment("SDL_VIDEODRIVER","dummy");portable_test::setEnvironment("SDL_RENDER_DRIVER","software");
+        std::set<std::pair<unsigned,std::uint64_t>> incarnations;
         const auto run=[&](const std::string &name,const std::string &stage,const fs::path &source={},const std::string &control="",const std::string &branch="production") {
             const auto save=dir/(name+".mmsave");
-            SetEnvironmentVariableW(L"MMODERN_M40_STAGE",fs::path(stage).c_str());
-            SetEnvironmentVariableW(L"MMODERN_M40_CONTROL",control.empty()?nullptr:fs::path(control).c_str());
-            SetEnvironmentVariableW(L"MMODERN_M40_BRANCH",fs::path(branch).c_str());
-            std::vector<std::wstring> args;
-            if(source.empty())args={L"--journey-region",L"--combat-seed",L"1114",game.wstring(),L"--save-file",save.wstring()};
-            else {fs::copy_file(source,save);args={L"--load-game",game.wstring(),save.wstring()};}
+            portable_test::setEnvironment("MMODERN_M40_STAGE",fs::path(stage).c_str());
+            portable_test::setEnvironment("MMODERN_M40_CONTROL",control.empty()?nullptr:fs::path(control).c_str());
+            portable_test::setEnvironment("MMODERN_M40_BRANCH",fs::path(branch).c_str());
+            std::vector<std::string> args;
+            if(source.empty())args={"--journey-region","--combat-seed","1114",game.u8string(),"--save-file",save.u8string()};
+            else {fs::copy_file(source,save);args={"--load-game",game.u8string(),save.u8string()};}
             const auto before=source.empty()?std::vector<std::uint8_t>{}:XeenSaveFormat::encode(XeenSaveFile::read(save));
             const auto result=child_test::launch(exe,args,dir/(name+".log"),false,false,120000);
             child_test::require(incarnations.insert({result.pid,result.created}).second,"M40 full process incarnation reused");

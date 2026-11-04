@@ -1,3 +1,4 @@
+#include "XeenPortableTestSupport.h"
 #include "XeenChildProcessTestSupport.h"
 #include "XeenM42Evidence.h"
 #include "platform/XeenSaveFile.h"
@@ -41,12 +42,12 @@ int main(int argc,char **argv) {
         check(argc==3 || (argc==4 && std::string(argv[3])=="new-game"),"usage: purchase-process <witness> <installation> [new-game]");
         const fs::path executable=fs::absolute(argv[1]),installation=argv[2];
         const auto directory=child_test::freshDirectory(executable.parent_path()/"m42-process");
-        SetEnvironmentVariableW(L"SDL_VIDEODRIVER",L"dummy");SetEnvironmentVariableW(L"SDL_RENDER_DRIVER",L"software");
-        SetEnvironmentVariableW(L"MMODERN_M42_STAGE",L"fresh");
-        SetEnvironmentVariableW(L"MMODERN_M42_CONTROL",nullptr);
+        portable_test::setEnvironment("SDL_VIDEODRIVER","dummy");portable_test::setEnvironment("SDL_RENDER_DRIVER","software");
+        portable_test::setEnvironment("MMODERN_M42_STAGE","fresh");
+        portable_test::setEnvironment("MMODERN_M42_CONTROL",nullptr);
         if(argc==4) { freshStartProcesses(executable,installation,directory); child_test::removePassedRun(directory); return 0; }
         const auto save=directory/"fresh.mmsave";
-        const auto fresh=child_test::launch(executable,{L"--journey-region",L"--combat-seed",L"7",installation.wstring(),L"--save-file",save.wstring()},directory/"fresh.log",false,false,180000);
+        const auto fresh=child_test::launch(executable,{"--journey-region","--combat-seed","7",installation.u8string(),"--save-file",save.u8string()},directory/"fresh.log",false,false,180000);
         check(fresh.exit==0 && fresh.output.find("M42 PRODUCTION WITNESS PASSED")!=std::string::npos,"M42 fresh application witness failed; inspect fresh.log");
         const auto a=XeenSaveFile::read(directory/"fresh-A.mmsave"),b=XeenSaveFile::read(directory/"fresh-B.mmsave"),
             b1=XeenSaveFile::read(directory/"fresh-B1.mmsave"),c=XeenSaveFile::read(directory/"fresh-C.mmsave"),d=XeenSaveFile::read(directory/"fresh-D.mmsave");
@@ -65,11 +66,11 @@ int main(int argc,char **argv) {
         // caught by the obsolete secondary stock CRC, without freezing its old draw tape.
         check(xeenSameItem(b.characters[0].armor[4],{0,3,0,0}) && xeenSameItem(b1.characters[18].armor[4],{0,3,0,3}) &&
             xeenSameItem(b1.characters[18].armor[0],{0,2,0,0}) && xeenSameItem(d.characters[18].armor[4],{0,3,0,3}),"M42 physical delivery/transfer/remove/equip/restock retention differs");
-        std::set<std::pair<DWORD,std::uint64_t>> processes{{fresh.pid,fresh.created}};
+        std::set<std::pair<unsigned,std::uint64_t>> processes{{fresh.pid,fresh.created}};
         for(const auto *stage:{"A","B","B1","C","D"}) {
             const std::string name=stage;const auto path=directory/("restore"+name+".mmsave");
-            fs::copy_file(directory/("fresh-"+name+".mmsave"),path);SetEnvironmentVariableW(L"MMODERN_M42_STAGE",fs::path(name).c_str());
-            const auto restored=child_test::launch(executable,{L"--load-game",installation.wstring(),path.wstring()},directory/("restore"+name+".log"),false,false,180000);
+            fs::copy_file(directory/("fresh-"+name+".mmsave"),path);portable_test::setEnvironment("MMODERN_M42_STAGE",fs::path(name).c_str());
+            const auto restored=child_test::launch(executable,{"--load-game",installation.u8string(),path.u8string()},directory/("restore"+name+".log"),false,false,180000);
             check(processes.insert({restored.pid,restored.created}).second,"M42 process incarnation reused");
             check(restored.exit==0 && restored.output.find("RESTORE EXACT BEFORE INPUT")!=std::string::npos &&
                 restored.output.find("M42 PRODUCTION WITNESS PASSED")!=std::string::npos,"M42 new-process restoration/continuation failed");
@@ -77,20 +78,20 @@ int main(int argc,char **argv) {
             for(const auto *checkpoint:{"A","B","B1","C","D","E"}) {if(checkpoint==name){following=true;continue;}if(following)equal(directory/("fresh-"+std::string(checkpoint)+".mmsave"),directory/("restore"+name+"-"+checkpoint+".mmsave"));}
             check(trace(fresh.output,name)==trace(restored.output,name),"M42 operation/input/publication/consumer/raw-draw continuation trace differs");
         }
-        const auto weaponSave=directory/"weapons.mmsave";fs::copy_file(directory/"fresh-A.mmsave",weaponSave);SetEnvironmentVariableW(L"MMODERN_M42_STAGE",L"weapons");
-        const auto weapons=child_test::launch(executable,{L"--load-game",installation.wstring(),weaponSave.wstring()},directory/"weapons.log",false,false,180000);
+        const auto weaponSave=directory/"weapons.mmsave";fs::copy_file(directory/"fresh-A.mmsave",weaponSave);portable_test::setEnvironment("MMODERN_M42_STAGE","weapons");
+        const auto weapons=child_test::launch(executable,{"--load-game",installation.u8string(),weaponSave.u8string()},directory/"weapons.log",false,false,180000);
         check(processes.insert({weapons.pid,weapons.created}).second && weapons.exit==0 && weapons.output.find("M42 PRODUCTION WITNESS PASSED")!=std::string::npos,"M42 actual repeated successive Weapons integration failed");
-        const auto shootSave=directory/"shoot.mmsave";fs::copy_file(directory/"fresh-D.mmsave",shootSave);SetEnvironmentVariableW(L"MMODERN_M42_STAGE",L"shoot");
-        const auto shoot=child_test::launch(executable,{L"--load-game",installation.wstring(),shootSave.wstring()},directory/"shoot.log",false,false,180000);
+        const auto shootSave=directory/"shoot.mmsave";fs::copy_file(directory/"fresh-D.mmsave",shootSave);portable_test::setEnvironment("MMODERN_M42_STAGE","shoot");
+        const auto shoot=child_test::launch(executable,{"--load-game",installation.u8string(),shootSave.u8string()},directory/"shoot.log",false,false,180000);
         check(processes.insert({shoot.pid,shoot.created}).second && shoot.exit==0 && shoot.output.find("M42 PRODUCTION WITNESS PASSED")!=std::string::npos,"M42 actual stock missile32 purchase/transfer/equip/Shoot integration failed");
         for(const auto *control:{"upload-admission","copy-admission","upload-purchase","copy-purchase","upload-departure","copy-departure"}) {
             const auto path=directory/(std::string(control)+".mmsave");fs::copy_file(directory/"fresh-A.mmsave",path);const auto before=m40_test::diskBytes(path);
-            SetEnvironmentVariableW(L"MMODERN_M42_STAGE",L"A");SetEnvironmentVariableW(L"MMODERN_M42_CONTROL",fs::path(control).c_str());
-            const auto result=child_test::launch(executable,{L"--load-game",installation.wstring(),path.wstring()},directory/(std::string(control)+".log"),false,false,180000);
+            portable_test::setEnvironment("MMODERN_M42_STAGE","A");portable_test::setEnvironment("MMODERN_M42_CONTROL",fs::path(control).c_str());
+            const auto result=child_test::launch(executable,{"--load-game",installation.u8string(),path.u8string()},directory/(std::string(control)+".log"),false,false,180000);
             check(processes.insert({result.pid,result.created}).second && result.exit==4 && result.output.find("M42 NATIVE FAILURE PRESERVATION PASSED")!=std::string::npos && before==m40_test::diskBytes(path),"M42 native failure changed previous disk or paid prefix");
         }
-        SetEnvironmentVariableW(L"MMODERN_M42_CONTROL",nullptr);
-        SetEnvironmentVariableW(L"MMODERN_M42_STAGE",nullptr);
+        portable_test::setEnvironment("MMODERN_M42_CONTROL",nullptr);
+        portable_test::setEnvironment("MMODERN_M42_STAGE",nullptr);
         std::cout<<"M42 actual seed7 earned Armor A/B/B1/C/D/E and successive Weapons integration; exact distinct-process restores and traces passed\n";child_test::removePassedRun(directory);return 0;
     }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}
 }

@@ -487,8 +487,8 @@ int main(int argc,char **argv){try{
  else if(argc==3&&std::string(argv[1])=="cli"){
   const auto root=child_test::freshDirectory(std::filesystem::current_path()/"combat-cli");
   unsigned sequence=0;
-  for(const std::wstring mode:{L"--encounter-26",L"--encounter-27",L"--journey-skeleton",L"--journey-expedition"}){
-   const auto result=child_test::launch(std::filesystem::absolute(argv[2]),{mode,L"missing"},root/(std::to_string(sequence++)+".log"));
+  for(const std::string mode:{"--encounter-26","--encounter-27","--journey-skeleton","--journey-expedition"}){
+   const auto result=child_test::launch(std::filesystem::absolute(argv[2]),{mode,"missing"},root/(std::to_string(sequence++)+".log"));
    check(result.exit==1&&result.output.find("Usage:")!=std::string::npos,"Removed mode prints usage before resources");
   }
   child_test::removePassedRun(root);

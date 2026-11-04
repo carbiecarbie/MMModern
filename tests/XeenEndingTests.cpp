@@ -1,3 +1,5 @@
+#include "platform/XeenUserFolders.h"
+#include "XeenPortableTestSupport.h"
 #include "XeenTrainingTestSupport.h"
 #include "XeenTestInstallation.h"
 #include "app/XeenGameplayServices.h"
@@ -13,10 +15,28 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
+#ifdef _WIN32
 #include <windows.h>
+#endif
+#ifdef _WIN32
 #include <shlobj.h>
+#endif
 #include <fstream>
 #include <iostream>
+
+namespace portable_test {
+#ifndef _WIN32
+struct PublicationBlock {
+ std::filesystem::path directory;std::filesystem::perms previous{};
+ void block(const std::filesystem::path &file) {
+  directory=file.parent_path();previous=std::filesystem::status(directory).permissions();
+  std::filesystem::permissions(directory,std::filesystem::perms::owner_write|std::filesystem::perms::group_write|std::filesystem::perms::others_write,std::filesystem::perm_options::remove);
+ }
+ ~PublicationBlock(){if(!directory.empty()){std::error_code error;std::filesystem::permissions(directory,previous,error);}}
+};
+#endif
+}
+
 using namespace training_test;
 namespace mmodern {
 struct XeenMonsterTestAccess {
@@ -48,7 +68,7 @@ namespace {
 namespace fs=std::filesystem;
 std::string bytes(const fs::path &path) {std::ifstream in(path,std::ios::binary);return {std::istreambuf_iterator<char>(in),{}};}
 struct Directory {
- fs::path path=fs::temp_directory_path()/("mmodern-m92-"+std::to_string(GetCurrentProcessId()));
+ fs::path path=fs::temp_directory_path()/("mmodern-m92-"+std::to_string(child_test::processId()));
  Directory(){removeTestTree(path);check(fs::create_directories(path),"Ending test directory");}
  ~Directory(){removeTestTree(path);}
 };
@@ -165,21 +185,37 @@ void mirrors(Inputs &in,const fs::path &directory) {
  }
 }
 void applicationEnding(Inputs &in,const fs::path &directory,bool hasTarget=true,bool rewriteFailure=false,unsigned opcode=30) {
+#ifndef _WIN32
+ if(rewriteFailure && ::geteuid()==0) {
+  std::cout<<"SKIP: ending settings rewrite failure (opcode "<<opcode<<"); root bypasses directory write permissions (geteuid()==0)\n";
+  return;
+ }
+#endif
  auto source=scored(in);auto event=endingEvent(opcode);
  if(opcode!=30) {source.camera={{XeenSide::Darkside,51},2,13,XeenDirection::North};event.mapId=source.camera.mapId;event.records[0].x=2;event.records[0].y=13;source.darksideSong=7*xeenMapMusicRow(in.maps.loadGeometryMap(in.assets,source.camera.mapId).geometry);}
  const auto wonKind=opcode==57?XeenWonKind::Darkside:opcode==58?XeenWonKind::World:XeenWonKind::Clouds;
  const auto outcomeKind=opcode==57?XeenSessionOutcome::Kind::DarksideEnding:opcode==58?XeenSessionOutcome::Kind::WorldEnding:XeenSessionOutcome::Kind::CloudsEnding;
  std::uint32_t wall=100;XeenProgramState program{XeenWallClock([&]{return wall;})};
- const auto target=directory/(rewriteFailure?"rewrite-ending.mmsave":hasTarget?"application-ending.mmsave":"no-target.mmsave"),settings=directory/"application-settings.ini";
+ const auto target=directory/(rewriteFailure?"rewrite-ending.mmsave":hasTarget?"application-ending.mmsave":"no-target.mmsave");
+#ifdef _WIN32
+ const auto settings=directory/"application-settings.ini";
+#else
+ fs::create_directories(directory/"settings-parent");
+ const auto settings=directory/"settings-parent"/"application-settings.ini";
+#endif
  if(rewriteFailure)check(xeenWriteWon(settings,wonKind),"Earlier successful win");
  const auto earlierSettings=bytes(settings);
  Application app(program,{},settings);XeenSessionOutcome outcome;
+#ifdef _WIN32
  struct Lock {HANDLE value=INVALID_HANDLE_VALUE;~Lock(){if(value!=INVALID_HANDLE_VALUE)CloseHandle(value);}} lock;
  if(rewriteFailure) {
   check(opcode==57?program.darksideWon:opcode==58?program.worldWon:program.cloudsWon,"Earlier selected win read at application entry");
   lock.value=CreateFileW(settings.c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
   check(lock.value!=INVALID_HANDLE_VALUE,"Lock earlier won file against rewrite");
  }
+#else
+ portable_test::PublicationBlock lock;if(rewriteFailure)lock.block(settings);
+#endif
  unsigned notices=0;
  XeenGameplayServices services{program,in.resources(),{},in.mapLoader(),in.objectLoader(),[&](auto id){return in.texts.load(id);},in.font};
  services.restoreSnapshot=std::make_shared<const XeenSaveSnapshot>(source);if(hasTarget)services.developerSavePath=target;services.outcome=&outcome;
@@ -505,8 +541,12 @@ void completionCopies(Inputs &in) {
  }
 }
 void won(const fs::path &directory) {
+#ifdef _WIN32
  PWSTR value=nullptr;check(SUCCEEDED(SHGetKnownFolderPath(FOLDERID_LocalAppData,0,nullptr,&value)),"Real local appdata lookup");
  const auto real=fs::path(value)/"MMModern"/"settings.ini";CoTaskMemFree(value);
+#else
+ const auto real=xeenUserFolder(false)/"settings.ini";
+#endif
  const bool existed=fs::exists(real);const auto original=bytes(real);
  const auto path=directory/"settings.ini";
  check(xeenSettingsFile() && *xeenSettingsFile()!=real,"CTest child processes inherit a private settings override");
@@ -519,10 +559,19 @@ void won(const fs::path &directory) {
  check(xeenWriteWon(path) && bytes(path)=="won=1\ndarkside_intro_seen=1\ndarkside_won=0\nworld_won=0\nlanguage=english\nrussian_translation=\n" && xeenReadWon(path) && !fs::exists(path.string()+".tmp"),"Atomic settings publication");
  check(xeenWriteSeen(path,false) && xeenReadWon(path) && !xeenReadSettings(path).darksideIntroSeen,"Clear seen preserves win");
  check(xeenWriteSeen(path,true),"Restore seen");
+#ifdef _WIN32
  const auto handle=CreateFileW(path.c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
  check(handle!=INVALID_HANDLE_VALUE,"Lock settings replacement");
  check(!xeenWriteWon(path) && bytes(path)=="won=1\ndarkside_intro_seen=1\ndarkside_won=0\nworld_won=0\nlanguage=english\nrussian_translation=\n" && !fs::exists(path.string()+".tmp"),"Failed publication preserves old complete file and cleans temporary");
  CloseHandle(handle);check(xeenWriteWon(path),"Atomic replacement of an existing file");
+#else
+ if(::geteuid()==0)std::cout<<"SKIP: settings publication failure; root bypasses directory write permissions (geteuid()==0)\n";
+ else {
+ {portable_test::PublicationBlock block;block.block(path);const auto before=bytes(path);
+ check(!xeenWriteWon(path) && bytes(path)==before && !fs::exists(path.string()+".tmp"),"Failed POSIX publication preserves settings");}
+ }
+ check(xeenWriteWon(path),"POSIX existing settings replacement");
+#endif
  for(unsigned mask=0;mask<16;++mask) {
   const auto seed=[&] {std::ofstream out(path);out<<"world_won="<<bool(mask&4)<<"\nwon="<<bool(mask&1)<<"\ndarkside_won="<<bool(mask&2)<<"\ndarkside_intro_seen="<<bool(mask&8)<<"\n";};
   const auto matches=[&](unsigned expected) {
@@ -533,11 +582,22 @@ void won(const fs::path &directory) {
   for(unsigned kind=0;kind<3;++kind) {
    seed();check(xeenWriteWon(path,kinds[kind]) && matches(mask|(1u<<kind)),"Each win preserves every other win and seen value");
    seed();const auto before=bytes(path);
+#ifdef _WIN32
    const auto locked=CreateFileW(path.c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
    check(locked!=INVALID_HANDLE_VALUE,"Lock each settings combination");
    const bool failed=!xeenWriteWon(path,kinds[kind]) && !xeenWriteSeen(path,!bool(mask&8));
    CloseHandle(locked);
+#else
+   if(::geteuid()==0) {
+    std::cout<<"SKIP: win/intro publication failure (mask "<<mask<<", kind "<<kind<<"); root bypasses directory write permissions (geteuid()==0)\n";
+   } else {
+   bool failed=false;{portable_test::PublicationBlock block;block.block(path);failed=!xeenWriteWon(path,kinds[kind]) && !xeenWriteSeen(path,!bool(mask&8));}
    check(failed && bytes(path)==before && matches(mask) && !fs::exists(path.string()+".tmp"),"Failed win/intro replacement retains every earlier value and cleans temporary");
+   }
+#endif
+#ifdef _WIN32
+   check(failed && bytes(path)==before && matches(mask) && !fs::exists(path.string()+".tmp"),"Failed win/intro replacement retains every earlier value and cleans temporary");
+#endif
   }
   for(bool seen:{false,true}) {seed();check(xeenWriteSeen(path,seen) && matches((mask&7)|(seen?8:0)),"Intro D/seen writes preserve all three wins");}
  }

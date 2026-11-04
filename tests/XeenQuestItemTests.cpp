@@ -1,3 +1,4 @@
+#include <initializer_list>
 #include "XeenRemoveTestSupport.h"
 #include "formats/xeen/XeenQuestItemFormat.h"
 #include "formats/xeen/XeenCharacterFormat.h"
@@ -34,7 +35,7 @@ void valueAndLoading() {
 		check(empty.at(i) == 0, "default count not zero");
 		check(XeenQuestItems::indexForItemId(82 + i) == i, "item ID mapping");
 	}
-	for (std::int64_t id : {-1LL, 0LL, 81LL, 167LL, 4294967296LL,
+	for (std::int64_t id : std::initializer_list<std::int64_t>{-1LL, 0LL, 81LL, 167LL, 4294967296LL,
 		std::numeric_limits<std::int64_t>::min(), std::numeric_limits<std::int64_t>::max()})
 		check(!XeenQuestItems::indexForItemId(id), "unsupported item mapped to a counter");
 	rejects([&] { empty.at(85); });

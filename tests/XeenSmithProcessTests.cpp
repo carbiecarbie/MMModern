@@ -1,3 +1,4 @@
+#include "XeenPortableTestSupport.h"
 // M75 DOS Awaken order and witness policy: 1398 -> 1397.
 #include "XeenChildProcessTestSupport.h"
 #include <cstdlib>
@@ -46,13 +47,13 @@ int main(int argc,char **argv) {
   const auto exe=fs::absolute(argv[1]),game=fs::absolute(argv[2]);
   const auto dir=child_test::freshDirectory(fs::temp_directory_path()/"mmodern-m38-process");
   std::cout<<"M38 evidence: "<<dir<<'\n';
-  SetEnvironmentVariableW(L"SDL_VIDEODRIVER",L"dummy");
-  SetEnvironmentVariableW(L"SDL_RENDER_DRIVER",L"software");
-  SetEnvironmentVariableW(L"MMODERN_M38_INSTALLATION",game.c_str());
-  SetEnvironmentVariableW(L"MMODERN_M38_STAGE",nullptr);
-  SetEnvironmentVariableW(L"MMODERN_M38_CONTROL",nullptr);
+  portable_test::setEnvironment("SDL_VIDEODRIVER","dummy");
+  portable_test::setEnvironment("SDL_RENDER_DRIVER","software");
+  portable_test::setEnvironment("MMODERN_M38_INSTALLATION",game.c_str());
+  portable_test::setEnvironment("MMODERN_M38_STAGE",nullptr);
+  portable_test::setEnvironment("MMODERN_M38_CONTROL",nullptr);
   const auto route=dir/"production.mmsave";
-  const auto fresh=child_test::launch(exe,{L"--journey-region",L"--combat-seed",L"1114",game.wstring(),L"--save-file",route.wstring()},dir/"production.log",false,false,120000);
+  const auto fresh=child_test::launch(exe,{"--journey-region","--combat-seed","1114",game.u8string(),"--save-file",route.u8string()},dir/"production.log",false,false,120000);
   child_test::require(fresh.exit==0 && fresh.output.find("M38 PRODUCTION WITNESS PASSED")!=std::string::npos,"M38 production witness failed");
   const auto a=XeenSaveFile::read(dir/"production-A.mmsave");
   child_test::require(a.journey && a.journey->schema==9 && a.journey->content==14 &&
@@ -60,13 +61,13 @@ int main(int argc,char **argv) {
    a.journey->purse->gold==840 && a.characters[1].armor[0].state==128 &&
    a.characters[1].armor[1].state==128,"M38 production-input checkpoint differs from content");
   // Windows may recycle a terminated process PID; creation time identifies its incarnation.
-  std::set<std::pair<DWORD,std::uint64_t>> processes{{fresh.pid,fresh.created}};
+  std::set<std::pair<unsigned,std::uint64_t>> processes{{fresh.pid,fresh.created}};
   const auto run=[&](const std::string &name,const std::string &stage,const fs::path &source,const std::string &control="") {
    const auto path=dir/(name+".mmsave");fs::copy_file(source,path);
    const auto before=bytes(path);
-   SetEnvironmentVariableW(L"MMODERN_M38_STAGE",fs::path(stage).c_str());
-   SetEnvironmentVariableW(L"MMODERN_M38_CONTROL",control.empty()?nullptr:fs::path(control).c_str());
-   const auto result=child_test::launch(exe,{L"--load-game",game.wstring(),path.wstring()},dir/(name+".log"),false,false,120000);
+   portable_test::setEnvironment("MMODERN_M38_STAGE",fs::path(stage).c_str());
+   portable_test::setEnvironment("MMODERN_M38_CONTROL",control.empty()?nullptr:fs::path(control).c_str());
+   const auto result=child_test::launch(exe,{"--load-game",game.u8string(),path.u8string()},dir/(name+".log"),false,false,120000);
    child_test::require(processes.insert({result.pid,result.created}).second,"M38 process incarnation was reused");
    child_test::require(result.output.find("M38 RESTORE EXACT BEFORE INPUT")!=std::string::npos,"M38 pre-input restore evidence absent");
    if(control.rfind("upload-",0)==0 || control.rfind("copy-",0)==0) {

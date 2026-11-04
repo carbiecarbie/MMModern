@@ -381,14 +381,14 @@ int main(int argc,char **argv) {
 			XeenSaveFile::write(std::filesystem::absolute(argv[3]),d.capture());return 0;
 		}
 		captureIntegrity();wire();roundtrips();refusals();failures();
-		const auto directory=std::filesystem::temp_directory_path()/("mmodern-journey-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));
+		const auto directory=std::filesystem::temp_directory_path()/("mmodern-journey-"+std::to_string(child_test::processId())+"-"+std::to_string(child_test::ticks()));
 		application(directory);
 		for(auto s:{moved(),ended()}) {
 			const auto label=s.map(23).monsters->slots[5].accounted?"ended":"moved";
 			auto input=directory/(std::string(label)+"0.mmsave");XeenSaveFile::write(input,s);
 			for(unsigned n=1;n<=2;++n) {
 				const auto output=directory/(std::string(label)+std::to_string(n)+".mmsave");
-				const auto result=child_test::launch(std::filesystem::absolute(argv[0]),{L"consume",input.wstring(),output.wstring()},
+				const auto result=child_test::launch(std::filesystem::absolute(argv[0]),{"consume",input.u8string(),output.u8string()},
 					directory/(std::string(label)+std::to_string(n)+".log"));
 				check(result.exit==0,"separate-process Journey consumer");check(disk(input)==disk(output),"separate-process exact disk preservation");input=output;
 			}

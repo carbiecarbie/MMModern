@@ -1,3 +1,4 @@
+#include "XeenPortableTestSupport.h"
 #include "XeenChildProcessTestSupport.h"
 #include "platform/XeenSaveFile.h"
 #include "formats/xeen/XeenSaveFormat.h"
@@ -34,15 +35,15 @@ int main(int argc,char **argv) {
         const unsigned schema=9,content=14;
         const auto dir=child_test::freshDirectory(fs::temp_directory_path()/"mmodern-m39-process");
         std::cout<<"M39 evidence: "<<dir<<'\n';
-        SetEnvironmentVariableW(L"SDL_VIDEODRIVER",L"dummy");SetEnvironmentVariableW(L"SDL_RENDER_DRIVER",L"software");
-        std::set<std::pair<DWORD,std::uint64_t>> incarnations;
+        portable_test::setEnvironment("SDL_VIDEODRIVER","dummy");portable_test::setEnvironment("SDL_RENDER_DRIVER","software");
+        std::set<std::pair<unsigned,std::uint64_t>> incarnations;
         const auto run=[&](const std::string &name,const std::string &branch,const std::string &stage,const fs::path &source={}) {
             const auto save=dir/(name+".mmsave");
-            SetEnvironmentVariableW(L"MMODERN_M39_BRANCH",fs::path(branch).c_str());
-            SetEnvironmentVariableW(L"MMODERN_M39_STAGE",fs::path(stage).c_str());
-            std::vector<std::wstring> args;
-            if(source.empty())args={L"--journey-region",L"--combat-seed",branch=="B" || branch=="C"?L"7":L"1",game.wstring(),L"--save-file",save.wstring()};
-            else {fs::copy_file(source,save);args={L"--load-game",game.wstring(),save.wstring()};}
+            portable_test::setEnvironment("MMODERN_M39_BRANCH",fs::path(branch).c_str());
+            portable_test::setEnvironment("MMODERN_M39_STAGE",fs::path(stage).c_str());
+            std::vector<std::string> args;
+            if(source.empty())args={"--journey-region","--combat-seed",branch=="B" || branch=="C"?"7":"1",game.u8string(),"--save-file",save.u8string()};
+            else {fs::copy_file(source,save);args={"--load-game",game.u8string(),save.u8string()};}
             const auto result=child_test::launch(exe,args,dir/(name+".log"),false,false,120000);
             child_test::require(incarnations.insert({result.pid,result.created}).second,"M39 distinct full-process incarnation missing");
             child_test::require(result.exit==0 && result.output.find("M39 PRODUCTION WITNESS PASSED")!=std::string::npos,"M39 production/process witness failed");

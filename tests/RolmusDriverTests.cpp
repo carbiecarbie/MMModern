@@ -1,3 +1,4 @@
+#include "XeenWrapSymbols.h"
 #include "formats/xeen/XeenAssetSource.h"
 #include "app/XeenAudio.h"
 #include "app/XeenFmSource.h"
@@ -23,9 +24,10 @@ using Bytes=std::vector<std::uint8_t>;
 namespace MT32Emu {class Synth;}
 enum class QueueFault {None,ReportedSize,ActualMask};
 static QueueFault queueFault=QueueFault::None;
-extern "C" std::uint32_t __real__ZN7MT32Emu5Synth21setMIDIEventQueueSizeEj(MT32Emu::Synth *,std::uint32_t);
-extern "C" std::uint32_t __wrap__ZN7MT32Emu5Synth21setMIDIEventQueueSizeEj(MT32Emu::Synth *synth,std::uint32_t size) {
- const auto actual=__real__ZN7MT32Emu5Synth21setMIDIEventQueueSizeEj(synth,queueFault==QueueFault::ActualMask?size/2:size);
+extern "C" std::uint32_t realQueueSize(MT32Emu::Synth *,std::uint32_t) asm("__real_" XEEN_WRAP_MIDI_QUEUE_SIZE);
+extern "C" std::uint32_t wrappedQueueSize(MT32Emu::Synth *,std::uint32_t) asm("__wrap_" XEEN_WRAP_MIDI_QUEUE_SIZE);
+extern "C" std::uint32_t wrappedQueueSize(MT32Emu::Synth *synth,std::uint32_t size) {
+ const auto actual=realQueueSize(synth,queueFault==QueueFault::ActualMask?size/2:size);
  if(queueFault==QueueFault::ReportedSize)return actual-1;
  return queueFault==QueueFault::ActualMask?size:actual;
 }

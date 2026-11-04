@@ -1,3 +1,4 @@
+#include "XeenWrapSymbols.h"
 #include "XeenTestInstallation.h"
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
@@ -46,8 +47,8 @@ struct XeenCombatPresentationTestAccess {
 }
 namespace consequence_controls {
 std::vector<XeenCombatRandom::Draw> tape;unsigned cursor=0;bool taped=false;
-std::optional<std::uint32_t> realDraw(XeenCombatRandom *,std::uint32_t,std::uint32_t) asm("__real__ZN7mmodern16XeenCombatRandom4drawEjj");
-std::optional<std::uint32_t> wrappedDraw(XeenCombatRandom *,std::uint32_t,std::uint32_t) asm("__wrap__ZN7mmodern16XeenCombatRandom4drawEjj");
+std::optional<std::uint32_t> realDraw(XeenCombatRandom *,std::uint32_t,std::uint32_t) asm("__real_" XEEN_WRAP_RANDOM_DRAW);
+std::optional<std::uint32_t> wrappedDraw(XeenCombatRandom *,std::uint32_t,std::uint32_t) asm("__wrap_" XEEN_WRAP_RANDOM_DRAW);
 std::optional<std::uint32_t> wrappedDraw(XeenCombatRandom *r,std::uint32_t lo,std::uint32_t hi) {
  const auto result=realDraw(r,lo,hi);if(!taped)return result;
  check(cursor<tape.size(),"Rare-rule literal tape exhausted");const auto d=tape[cursor++];
@@ -57,7 +58,7 @@ std::optional<std::uint32_t> wrappedDraw(XeenCombatRandom *r,std::uint32_t lo,st
 // Artificial zero-damage operand at the pure resolver boundary only. World
 // profiles/resources remain original; no genuine route uses this wrapper mode.
 bool zeroResistanceFixture=false;
-#define PLAYER_CTOR "_ZN7mmodern27XeenPhysicalPlayerCandidateC1ERKNS_13XeenCharacterERKNS_16XeenCombatInputsERKNS_17XeenMonsterRecordEjjbNS_14XeenDifficultyENS_15XeenActorStatusE"
+#define PLAYER_CTOR XEEN_WRAP_PLAYER_CONSTRUCTOR
 void realPlayer(XeenPhysicalPlayerCandidate *,const XeenCharacter &,const XeenCombatInputs &,const XeenMonsterRecord &,unsigned,unsigned,bool,XeenDifficulty,XeenActorStatus) asm("__real_" PLAYER_CTOR);
 void wrappedPlayer(XeenPhysicalPlayerCandidate *,const XeenCharacter &,const XeenCombatInputs &,const XeenMonsterRecord &,unsigned,unsigned,bool,XeenDifficulty,XeenActorStatus) asm("__wrap_" PLAYER_CTOR);
 void wrappedPlayer(XeenPhysicalPlayerCandidate *self,const XeenCharacter &c,const XeenCombatInputs &i,const XeenMonsterRecord &m,unsigned type,unsigned year,bool shoot,XeenDifficulty difficulty,XeenActorStatus status){

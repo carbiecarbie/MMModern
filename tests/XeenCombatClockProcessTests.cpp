@@ -1,3 +1,4 @@
+#include "XeenPortableTestSupport.h"
 #include "XeenChildProcessTestSupport.h"
 #include "XeenM40Evidence.h"
 #include "platform/XeenSaveFile.h"
@@ -11,11 +12,11 @@ int main(int argc,char **argv) {
         const auto exe=fs::absolute(argv[1]),game=fs::absolute(argv[2]);
         const auto dir=child_test::freshDirectory(fs::temp_directory_path()/"mmodern-m40-combat-clock");
         std::cout<<"M40 combat-clock process evidence: "<<dir<<'\n';
-        SetEnvironmentVariableW(L"SDL_VIDEODRIVER",L"dummy");SetEnvironmentVariableW(L"SDL_RENDER_DRIVER",L"software");
-        SetEnvironmentVariableW(L"MMODERN_M40_CONTROL",nullptr);
-        SetEnvironmentVariableW(L"MMODERN_M40_BRANCH",L"production");
-        SetEnvironmentVariableW(L"MMODERN_M40_STAGE",L"fresh");
-        std::set<std::pair<DWORD,std::uint64_t>> incarnations;
+        portable_test::setEnvironment("SDL_VIDEODRIVER","dummy");portable_test::setEnvironment("SDL_RENDER_DRIVER","software");
+        portable_test::setEnvironment("MMODERN_M40_CONTROL",nullptr);
+        portable_test::setEnvironment("MMODERN_M40_BRANCH","production");
+        portable_test::setEnvironment("MMODERN_M40_STAGE","fresh");
+        std::set<std::pair<unsigned,std::uint64_t>> incarnations;
         fs::path source,expected;
         if(const auto reuse=std::getenv("MMODERN_M40_CLOCK_SOURCE")) {
             source=fs::path(reuse);
@@ -23,7 +24,7 @@ int main(int argc,char **argv) {
             child_test::require(final,"Focused clock run needs certified post-service and final snapshots");expected=fs::path(final);
         } else {
             const auto save=dir/"production.mmsave";
-            const auto fresh=child_test::launch(exe,{L"--journey-region",L"--combat-seed",L"1114",game.wstring(),L"--save-file",save.wstring()},dir/"production.log",false,false,120000);
+            const auto fresh=child_test::launch(exe,{"--journey-region","--combat-seed","1114",game.u8string(),"--save-file",save.u8string()},dir/"production.log",false,false,120000);
             child_test::require(fresh.exit==0 && fresh.output.find("M40 PRODUCTION WITNESS PASSED")!=std::string::npos,"Genuine service route failed before clock regression");
             incarnations.insert({fresh.pid,fresh.created});source=dir/"production-D.mmsave";expected=save;
         }
@@ -35,9 +36,9 @@ int main(int argc,char **argv) {
             "Clock regression source is not genuine post-service D");
         const auto run=[&](const std::string &control,bool healthy=false) {
             const auto save=dir/(control+".mmsave");fs::copy_file(source,save);
-            SetEnvironmentVariableW(L"MMODERN_M40_STAGE",L"D");SetEnvironmentVariableW(L"MMODERN_M40_BRANCH",L"clock");
-            SetEnvironmentVariableW(L"MMODERN_M40_CONTROL",fs::path(control).c_str());
-            const auto result=child_test::launch(exe,{L"--load-game",game.wstring(),save.wstring()},dir/(control+".log"),false,false,120000);
+            portable_test::setEnvironment("MMODERN_M40_STAGE","D");portable_test::setEnvironment("MMODERN_M40_BRANCH","clock");
+            portable_test::setEnvironment("MMODERN_M40_CONTROL",fs::path(control).c_str());
+            const auto result=child_test::launch(exe,{"--load-game",game.u8string(),save.u8string()},dir/(control+".log"),false,false,120000);
             child_test::require(incarnations.insert({result.pid,result.created}).second &&
                 result.output.find("M40 RESTORE EXACT BEFORE INPUT")!=std::string::npos &&
                 result.output.find("M40 POST-SERVICE RESTORED PLAYERREADY CLOCK ARMED")!=std::string::npos,

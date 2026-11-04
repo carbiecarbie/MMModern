@@ -148,11 +148,11 @@ int child(const fs::path &path,bool resume) {
  Quiet quiet;const int result=Application(services.program).playGameplay(services,{},path,true);if(result)std::cerr<<quiet.out.str();return result;
 }
 void restart(const fs::path &exe) {
-	const auto dir=fs::current_path()/("inventory-restart-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));fs::create_directory(dir);
+	const auto dir=fs::current_path()/("inventory-restart-"+std::to_string(child_test::processId())+"-"+std::to_string(child_test::ticks()));fs::create_directory(dir);
 	const auto path=dir/"transfer.mmsave";
-	const auto p=child_test::launch(exe,{L"producer",path.wstring()},dir/"producer.log");check(p.exit==0,"producer failed");
+	const auto p=child_test::launch(exe,{"producer",path.u8string()},dir/"producer.log");check(p.exit==0,"producer failed");
 	std::ifstream input(path,std::ios::binary);const std::string bytes{std::istreambuf_iterator<char>(input),{}};input.close();
-	const auto c=child_test::launch(exe,{L"consumer",path.wstring()},dir/"consumer.log");check(c.exit==0&&p.pid!=c.pid,"fresh consumer failed");
+	const auto c=child_test::launch(exe,{"consumer",path.u8string()},dir/"consumer.log");check(c.exit==0&&p.pid!=c.pid,"fresh consumer failed");
 	std::ifstream after(path,std::ios::binary);check(bytes==std::string(std::istreambuf_iterator<char>(after),{}),"consumer rewrote producer disk");
 	after.close();child_test::removePassedRun(dir);
 }

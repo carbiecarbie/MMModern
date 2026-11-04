@@ -1,3 +1,4 @@
+#include "XeenWrapSymbols.h"
 // Original-resource M43 witness: all party, combat, route and Temple mutations
 // arise from the production application after concrete presented-frame input.
 #include "XeenDecisionNine.h"
@@ -72,10 +73,10 @@ struct QuietCliOutput {
 };
 }
 struct RealRandom {
-    std::optional<std::uint32_t> draw(std::uint32_t,std::uint32_t) asm("__real__ZN7mmodern16XeenCombatRandom4drawEjj");
+    std::optional<std::uint32_t> draw(std::uint32_t,std::uint32_t) asm("__real_" XEEN_WRAP_RANDOM_DRAW);
 };
 struct ProbeRandom {
-    std::optional<std::uint32_t> draw(std::uint32_t,std::uint32_t) asm("__wrap__ZN7mmodern16XeenCombatRandom4drawEjj");
+    std::optional<std::uint32_t> draw(std::uint32_t,std::uint32_t) asm("__wrap_" XEEN_WRAP_RANDOM_DRAW);
 };
 std::optional<std::uint32_t> ProbeRandom::draw(std::uint32_t lo,std::uint32_t hi) {probe_fired::hit("XeenCombatRandom::draw");
     auto result=reinterpret_cast<RealRandom *>(this)->draw(lo,hi);
@@ -89,7 +90,7 @@ std::optional<std::uint32_t> ProbeRandom::draw(std::uint32_t lo,std::uint32_t hi
     }
     return result;
 }
-#define PLAY_SYMBOL "_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjE"
+#define PLAY_SYMBOL XEEN_WRAP_PLAY_GAMEPLAY
 extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__real_" PLAY_SYMBOL);
 extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__wrap_" PLAY_SYMBOL);
 static const probe_fired::Expect playProbe{"Application::playGameplay"};
@@ -221,7 +222,7 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
             inspect([&,label]{xeen_decision9::check(*world,*position,label,std::string("ABCDEF").find(label)!=std::string::npos);});
             action(SaveGameAction{});inspect([&,label]{
             check(flow->canSave(),"M43 checkpoint is not Quiet");
-            const auto path=fs::path(target->wstring()+L"-"+fs::path(label).wstring()+L".mmsave");
+            auto path=*target;path+="-"+std::string(label)+".mmsave";
             check(fs::exists(*target),"M43 native F9 did not save");
             fs::copy_file(*target,path,fs::copy_options::overwrite_existing);
             std::cerr<<"M43 CHECKPOINT "<<label<<' '<<position->x<<','<<position->y<<' '<<party->encounterContext->day<<':'

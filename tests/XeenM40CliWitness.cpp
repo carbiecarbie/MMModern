@@ -1,3 +1,4 @@
+#include "XeenWrapSymbols.h"
 // M87 DOS target draws shift the genuine repair route and its stock/combat cursor.
 #include "XeenDecisionNine.h"
 #include "XeenProbeFired.h"
@@ -35,11 +36,11 @@ extern "C" int __wrap_SDL_RenderCopy(SDL_Renderer *renderer,SDL_Texture *texture
     if(failNativeCopy){failNativeCopy=false;nativeFailed=true;return SDL_SetError("M40 injected native render failure");}
     return __real_SDL_RenderCopy(renderer,texture,source,destination);
 }
-#define M40_INTEREST_SYMBOL "_ZN7mmodern23xeenPrepareBankInterestERKNS_16XeenBankBalancesE"
+#define M40_INTEREST_SYMBOL XEEN_WRAP_BANK_INTEREST
 XeenBankBalances realInterest(const XeenBankBalances &) asm("__real_" M40_INTEREST_SYMBOL);
 XeenBankBalances wrappedInterest(const XeenBankBalances &) asm("__wrap_" M40_INTEREST_SYMBOL);
 XeenBankBalances wrappedInterest(const XeenBankBalances &bank) {probe_fired::hit("xeenPrepareBankInterest");++interestOperations;return realInterest(bank);}
-#define PLAY_SYMBOL "_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjE"
+#define PLAY_SYMBOL XEEN_WRAP_PLAY_GAMEPLAY
 extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__real_" PLAY_SYMBOL);
 extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__wrap_" PLAY_SYMBOL);
 static const probe_fired::Expect playProbe{"Application::playGameplay","SDL_RenderCopy","SDL_UpdateTexture"};

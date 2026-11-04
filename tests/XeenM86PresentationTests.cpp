@@ -1,3 +1,4 @@
+#include "XeenWrapSymbols.h"
 #include "XeenTrainingTestSupport.h"
 #include "XeenTestInstallation.h"
 #include "app/XeenAudio.h"
@@ -10,10 +11,11 @@ namespace {
 XeenAudio *observedAudio=nullptr;
 std::vector<std::string> *digitalCommands=nullptr;
 }
-extern "C" void __real__ZN7mmodern9XeenAudio11stopDigitalEy(XeenAudio *,std::uint64_t);
-extern "C" void __wrap__ZN7mmodern9XeenAudio11stopDigitalEy(XeenAudio *audio,std::uint64_t now) {
+extern "C" void realStopDigital(XeenAudio *,std::uint64_t) asm("__real_" XEEN_WRAP_STOP_DIGITAL);
+extern "C" void wrappedStopDigital(XeenAudio *,std::uint64_t) asm("__wrap_" XEEN_WRAP_STOP_DIGITAL);
+extern "C" void wrappedStopDigital(XeenAudio *audio,std::uint64_t now) {
  if(audio==observedAudio && digitalCommands)digitalCommands->push_back("stop");
- __real__ZN7mmodern9XeenAudio11stopDigitalEy(audio,now);
+ realStopDigital(audio,now);
 }
 namespace mmodern {
 struct XeenRestTestAccess {

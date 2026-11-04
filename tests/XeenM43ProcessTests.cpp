@@ -1,3 +1,4 @@
+#include "XeenPortableTestSupport.h"
 #include "XeenChildProcessTestSupport.h"
 namespace fs=std::filesystem;
 int main(int argc,char **argv){
@@ -5,20 +6,20 @@ int main(int argc,char **argv){
         child_test::require(argc==3,"usage: mmodern_m43_process_tests <witness> <original-installation>");
         const auto exe=fs::absolute(argv[1]),game=fs::absolute(argv[2]);
         const auto dir=child_test::freshDirectory(fs::temp_directory_path()/"mmodern-m43-process");
-        SetEnvironmentVariableW(L"SDL_VIDEODRIVER",L"dummy");
-        SetEnvironmentVariableW(L"SDL_RENDER_DRIVER",L"software");
+        portable_test::setEnvironment("SDL_VIDEODRIVER","dummy");
+        portable_test::setEnvironment("SDL_RENDER_DRIVER","software");
         const auto fresh=dir/"fresh.mmsave";
         const auto first=child_test::launch(exe,
-            {L"--journey-region",L"--combat-seed",L"3626689381",game.wstring(),L"--save-file",fresh.wstring()},
+            {"--journey-region","--combat-seed","3626689381",game.u8string(),"--save-file",fresh.u8string()},
             dir/"fresh.log",false,false,180000);
         child_test::require(first.exit==0 && first.output.find("M43 CHECKPOINT A")!=std::string::npos,
             "M43 original unpaid quote-cancellation fixture failed");
-        const auto a=fs::path(fresh.wstring()+L"-A.mmsave");
+        const auto a=fs::path(fresh.u8string()+"-A.mmsave");
         const auto refused=dir/"refused.mmsave";fs::copy_file(a,refused);
-        SetEnvironmentVariableW(L"MMODERN_M43_STAGE",L"unpaid");
-        const auto refusal=child_test::launch(exe,{L"--load-game",game.wstring(),refused.wstring()},
+        portable_test::setEnvironment("MMODERN_M43_STAGE","unpaid");
+        const auto refusal=child_test::launch(exe,{"--load-game",game.u8string(),refused.u8string()},
             dir/"refused.log",false,false,120000);
-        SetEnvironmentVariableW(L"MMODERN_M43_STAGE",nullptr);
+        portable_test::setEnvironment("MMODERN_M43_STAGE",nullptr);
         child_test::require(refusal.exit==0 &&
             refusal.output.find("M43 RESTORE EXACT BEFORE INPUT")!=std::string::npos &&
             refusal.output.find("M43 ORIGINAL A REFUSAL DAY9 STOCK/RNG RETAINED")!=std::string::npos &&

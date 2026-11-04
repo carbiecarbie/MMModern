@@ -1,6 +1,12 @@
+#include "XeenWrapSymbols.h"
+#include "XeenPortableTestSupport.h"
 #include "app/XeenPlayerSupport.h"
+#ifdef _WIN32
 #include <windows.h>
+#endif
+#ifdef _WIN32
 #include <shlobj.h>
+#endif
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -16,16 +22,23 @@ struct Terminal:std::streambuf {
 };
 void check(bool value,const char *message){if(!value)throw std::runtime_error(message);}
 }
+#ifdef _WIN32
 extern "C" HRESULT __real_SHGetKnownFolderPath(REFKNOWNFOLDERID,DWORD,HANDLE,PWSTR *);
 extern "C" HRESULT __wrap_SHGetKnownFolderPath(REFKNOWNFOLDERID id,DWORD flags,HANDLE token,PWSTR *path) {
  ++folderQueries;return __real_SHGetKnownFolderPath(id,flags,token,path);
 }
+#else
+extern std::filesystem::path realFolder(bool) asm("__real_" XEEN_WRAP_USER_FOLDER);
+std::filesystem::path wrappedFolder(bool create) asm("__wrap_" XEEN_WRAP_USER_FOLDER);
+std::filesystem::path wrappedFolder(bool create){++folderQueries;return realFolder(create);}
+#endif
 int main(int argc,char **argv){try{
  check(argc==2 || (argc==3 && std::string(argv[2])=="--console"),"usage: mmodern_player_log_tests <scratch> [--console]");
  const bool console=argc==3;
  const auto root=std::filesystem::absolute(std::filesystem::u8path(argv[1]));
  std::filesystem::create_directories(root);const auto file=root/"mmodern.log";
- SetEnvironmentVariableW(L"MMODERN_LOG_FILE",file.c_str());
+ portable_test::Environment restoreLog("MMODERN_LOG_FILE");
+ check(portable_test::environment("MMODERN_LOG_FILE",file),"Isolate log environment");
  Terminal terminal;auto *out=std::cout.rdbuf(),*err=std::cerr.rdbuf();
  if(!console){std::cout.rdbuf(&terminal);std::cerr.rdbuf(&terminal);}
  const std::string line="Actor 12 map=23 (Clouds) 5 0 HP=15 active=0 lifecycle=0 status=0 accounted=0\n";
@@ -46,7 +59,7 @@ int main(int argc,char **argv){try{
  check(recorded.find(dump)!=std::string::npos,"Lost log lines");
  check(lineFlushed,"Complete lines were not flushed while the log was alive");
  check(recorded.find("partial\n")!=std::string::npos && recorded.find("diagnostic\n")!=std::string::npos,"Lost split/std::cerr line");
- check(after==before,"Repeated Windows folder lookups during gameplay logging");
+ check(after==before,"Repeated user-folder lookups during gameplay logging");
  if(!console)check(writesAfter-writesBefore==1 && terminal.characters==0,"Bulk diagnostics degraded to character-at-a-time console writes");
  if(!console)check(terminal.bytes.find(dump)!=std::string::npos,"Changed terminal output");
  std::ostringstream metrics;metrics<<"1000 gameplay diagnostic lines: "<<elapsed<<" seconds; folder queries during messages="<<(after-before)

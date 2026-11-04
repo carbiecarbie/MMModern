@@ -1,11 +1,15 @@
+#include "XeenPortableTestSupport.h"
+#include "platform/XeenUserFolders.h"
 #include "XeenSaveTestSupport.h"
 #include "platform/XeenSaveFile.h"
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
+#ifdef _WIN32
 #include <windows.h>
 #include <winioctl.h>
 #include <shlobj.h>
+#endif
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -14,6 +18,7 @@
 using namespace mmodern;
 using namespace save_test;
 namespace fs = std::filesystem;
+#ifdef _WIN32
 Bytes raw(const fs::path &p) {
  HANDLE file=CreateFileW(p.c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
  check(file!=INVALID_HANDLE_VALUE,"cannot open raw save bytes");
@@ -70,7 +75,7 @@ struct TestJunction {
  void remove(){check(RemoveDirectoryW(path.c_str())!=0,"synthetic junction cleanup failed");path.clear();}
 };
 void directoryAliasTests(const fs::path &directory) {
- const auto fixture=directory/("aliases-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));
+ const auto fixture=directory/("aliases-"+std::to_string(child_test::processId())+"-"+std::to_string(child_test::ticks()));
  const auto protectedRoot=fixture/"protected", outside=fixture/"protected-other";
  fs::create_directories(protectedRoot/"child"); fs::create_directories(outside);
  TestJunction junction(fixture/"junction",protectedRoot);
@@ -116,7 +121,7 @@ bool sameDirectory(const BY_HANDLE_FILE_INFORMATION &a,const BY_HANDLE_FILE_INFO
  return a.dwVolumeSerialNumber==b.dwVolumeSerialNumber && a.nFileIndexHigh==b.nFileIndexHigh && a.nFileIndexLow==b.nFileIndexLow;
 }
 void extendedIdentityTests(const fs::path &directory) {
- const auto fixture=directory/("identity-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));
+ const auto fixture=directory/("identity-"+std::to_string(child_test::processId())+"-"+std::to_string(child_test::ticks()));
  const auto protectedRoot=fixture/"protected";
  fs::create_directories(protectedRoot);
  const fs::path literal(L"\\\\?\\"+protectedRoot.wstring()+L".");
@@ -182,6 +187,46 @@ void extendedIdentityTests(const fs::path &directory) {
  check(GetProcessHandleCount(GetCurrentProcess(),&handlesAfter)!=0 && handlesAfter==handlesBefore,"directory handles leaked");
  std::cout<<"Distinct protected/protected. junction identity, creation, replacement and failure cleanup passed\n";
 }
+#else
+Bytes raw(const fs::path &path){std::ifstream in(path,std::ios::binary);check(bool(in),"raw save read");return {std::istreambuf_iterator<char>(in),{}};}
+void put(const fs::path &path,const Bytes &bytes){std::ofstream out(path,std::ios::binary|std::ios::trunc);out.write(reinterpret_cast<const char *>(bytes.data()),bytes.size());out.close();check(bool(out),"fixture write");}
+struct TestJunction {
+ fs::path path;
+ TestJunction(const fs::path &link,const fs::path &target):path(link){fs::create_directory_symlink(target,link);}
+ ~TestJunction(){if(!path.empty())fs::remove(path);}
+ void remove(){check(fs::remove(path),"symlink removal");path.clear();}
+};
+void directoryAliasTests(const fs::path &directory) {
+ const auto fixture=child_test::freshDirectory(directory/"aliases");
+ const auto protectedRoot=fixture/"protected",outside=fixture/"outside";
+ fs::create_directories(protectedRoot/"child");fs::create_directories(outside);
+ TestJunction first(fixture/"alias",protectedRoot),second(fixture/"alias2",first.path);
+ for(const auto &parent:{protectedRoot,protectedRoot/"child",first.path,first.path/"child",second.path,second.path/"child"})
+  rejects([&]{XeenSaveFile::resolve(parent/"blocked.mmsave",protectedRoot);},"Cannot save inside");
+ for(const auto &root:{first.path,second.path})rejects([&]{XeenSaveFile::resolve(protectedRoot/"blocked.mmsave",root);},"Cannot save inside");
+ for(const auto &leaf:std::vector<fs::path>{"plain.mmsave","with spaces.mmsave",fs::u8path(u8"ç 游.mmsave")}) {
+  const auto path=XeenSaveFile::resolve(outside/leaf,protectedRoot);auto next=sample();next.questItems[17]=34;
+  XeenSaveFile::write(path,sample());sameSnapshot(XeenSaveFile::read(path),sample());
+  XeenSaveFile::write(path,next);sameSnapshot(XeenSaveFile::read(path),next);
+ }
+ // POSIX path bytes are independent of locale and need not be UTF-8.
+ const auto invalid=outside/fs::path(std::string("bytes-\xff"));fs::create_directory(invalid);
+ const auto path=XeenSaveFile::resolve(invalid/"save.mmsave",protectedRoot);
+ XeenSaveFile::write(path,sample());sameSnapshot(XeenSaveFile::read(path),sample());
+ check(mmodern::xeenPathText(path).find("\\xff")!=std::string::npos,"invalid path diagnostic escaping");
+ second.remove();first.remove();check(removeTestTree(fixture),"alias fixture cleanup");
+}
+void extendedIdentityTests(const fs::path &directory) {
+ const auto fixture=child_test::freshDirectory(directory/"identity");
+ const auto protectedRoot=fixture/"protected",literal=fixture/"protected.";fs::create_directory(protectedRoot);fs::create_directory(literal);
+ TestJunction link(fixture/"alias",literal);
+ const auto path=XeenSaveFile::resolve(link.path/"identity.mmsave",protectedRoot);
+ check(fs::equivalent(path.parent_path(),literal),"resolved POSIX directory identity");
+ XeenSaveFile::write(path,sample());sameSnapshot(XeenSaveFile::read(path),sample());
+ check(!fs::exists(protectedRoot/"identity.mmsave"),"literal sibling changed protected directory");
+ link.remove();check(removeTestTree(fixture),"identity cleanup");
+}
+#endif
 void legacyReplacement(const fs::path &path) {
  const auto current=sample(); const auto wire=XeenSaveFormat::encode(current);
  std::vector<Bytes> older{nonzeroLegacy()};
@@ -215,13 +260,14 @@ void legacyReplacement(const fs::path &path) {
 // still listed while delete-pending, whose holder closes later. Links are
 // removed without deleting their targets.
 void testTreeRemoval(const fs::path &directory) {
- const auto fixture=directory/("tree-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));
+ const auto fixture=directory/("tree-"+std::to_string(child_test::processId())+"-"+std::to_string(child_test::ticks()));
  const auto tree=fixture/"tree",outside=fixture/"outside",deep=tree/"a"/"b";
  fs::create_directories(deep);fs::create_directories(outside);
  for(unsigned i=0;i<10;++i)put(deep/("slot-"+std::to_string(i)+".mmsave"),Bytes{1});
  put(outside/"keep.mmsave",Bytes{2});
  TestJunction link(tree/"link",outside);
  const auto victim=deep/"slot-0.mmsave";
+#ifdef _WIN32
  const DWORD share=FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE;
  HANDLE holder=CreateFileW(victim.c_str(),GENERIC_READ,share,nullptr,OPEN_EXISTING,0,nullptr);
  HANDLE marker=CreateFileW(victim.c_str(),DELETE,share,nullptr,OPEN_EXISTING,0,nullptr);
@@ -231,6 +277,11 @@ void testTreeRemoval(const fs::path &directory) {
  check(holder!=INVALID_HANDLE_VALUE && pending,"cannot create delete-pending fixture entry");
  std::thread release([&]{Sleep(300);CloseHandle(holder);});
  const bool removed=removeTestTree(tree);release.join();
+#else
+ std::ifstream holder(victim,std::ios::binary);check(bool(holder),"open unlink fixture");
+ check(fs::remove(victim),"unlink held fixture");
+ const bool removed=removeTestTree(tree);holder.close();
+#endif
  link.path.clear();
  check(removed && !fs::exists(tree),"test tree removal left entries");
  check(raw(outside/"keep.mmsave")==Bytes{2},"test tree removal followed a junction");
@@ -238,7 +289,7 @@ void testTreeRemoval(const fs::path &directory) {
  std::cout<<"Test tree removal survives a delete-pending entry and keeps junction targets\n";
 }
 void managedStorage(const fs::path &directory) {
- const auto fixture=directory/("managed-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));
+ const auto fixture=directory/("managed-"+std::to_string(child_test::processId())+"-"+std::to_string(child_test::ticks()));
  const auto commercial=fixture/"commercial",repository=fixture/"repository",local=fixture/"local";
  fs::create_directories(commercial);fs::create_directories(repository);fs::create_directories(local);
  put(commercial/"xeen.cc",Bytes{1,2,3});put(commercial/"dark.cc",Bytes{4,5,6});
@@ -247,9 +298,15 @@ void managedStorage(const fs::path &directory) {
  // Execute the real default-path branch without creating anything there:
  // protect that resolved folder as the repository, so validation stops before
  // the first creation. All successful writes below use the temporary override.
+#ifdef _WIN32
  PWSTR value=nullptr;
  check(SUCCEEDED(SHGetKnownFolderPath(FOLDERID_LocalAppData,0,nullptr,&value)),"default Local AppData resolution");
  const fs::path defaultLocal(value);CoTaskMemFree(value);
+#else
+ portable_test::Environment restoreXdg("XDG_DATA_HOME");
+ check(portable_test::environment("XDG_DATA_HOME",local),"Isolate default XDG base");
+ const auto defaultLocal=local;
+#endif
  rejects([&]{XeenSaveFile::createSlotDirectory(install,defaultLocal);},"Cannot save inside");
  for(const auto &base:{commercial,repository}) {
   rejects([&]{XeenSaveFile::createSlotDirectory(install,repository,base);},"Cannot save inside");
@@ -313,9 +370,11 @@ int main(int argc,char **argv) {
   directoryAliasTests(directory);
   managedStorage(directory);
   testTreeRemoval(directory);
-  const auto path=XeenSaveFile::resolve(directory/fs::path(L"space \u00e7 \u6e38.mmsave"),directory/"commercial");
-  check(XeenSaveFile::resolve(fs::path("save-file-tests")/fs::path(L"space \u00e7 \u6e38.mmsave"),directory/"commercial")==path,"relative save path resolution");
+  const auto path=XeenSaveFile::resolve(directory/fs::u8path(u8"space \u00e7 \u6e38.mmsave"),directory/"commercial");
+  check(XeenSaveFile::resolve(fs::path("save-file-tests")/fs::u8path(u8"space \u00e7 \u6e38.mmsave"),directory/"commercial")==path,"relative save path resolution");
+#ifdef _WIN32
   rejects([&]{XeenSaveFile::resolve(directory/"CON.mmsave",directory/"commercial");},"device");
+#endif
   fs::remove(path);
   legacyReplacement(path);
 
@@ -331,10 +390,11 @@ int main(int argc,char **argv) {
   rejects([&]{XeenSaveFile::write(path,old,[](Op op){return op==Op::Replace || op==Op::Cleanup;});},"cleanup failed");
   check(raw(path)==prior,"cleanup failure damaged target"); sameSnapshot(XeenSaveFile::read(path),next);
   unsigned leftovers=0;
-  for(const auto &entry:fs::directory_iterator(directory)) if(entry.path().wstring().find(L".tmp-")!=std::wstring::npos) {
+  for(const auto &entry:fs::directory_iterator(directory)) if(entry.path().u8string().find(".tmp-")!=std::string::npos) {
    ++leftovers; fs::remove(entry.path());
   }
   check(leftovers==1,"unexpected temporary cleanup behavior");
+#ifdef _WIN32
   HANDLE locked=CreateFileW(path.c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
   check(locked!=INVALID_HANDLE_VALUE,"could not lock target");
   bool failed=false; try{XeenSaveFile::write(path,old);}catch(const std::exception&){failed=true;}
@@ -342,19 +402,33 @@ int main(int argc,char **argv) {
   locked=CreateFileW(path.c_str(),GENERIC_READ,0,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
   check(locked!=INVALID_HANDLE_VALUE,"could not exclusively lock target");
   rejects([&]{XeenSaveFile::read(path);}); CloseHandle(locked);
+#else
+  {std::ifstream held(path);XeenSaveFile::write(path,old);sameSnapshot(XeenSaveFile::read(path),old);}
+  XeenSaveFile::write(path,next);
+#endif
   for(auto bad:std::vector<Bytes>{{1,2,3},Bytes(XeenSaveFormat::kMaximumSize+1),prior}) {
    if(bad==prior) bad[8]=27;
    put(path,bad); rejects([&]{XeenSaveFile::write(path,old);});check(raw(path)==bad,"unknown file overwritten");
   }
   put(path,prior);
   rejects([&]{XeenSaveFile::read(directory/"missing.mmsave");});
-  for(const auto &bad:std::vector<fs::path>{directory/"bad.txt",directory/"missing"/"a.mmsave",directory/"commercial"/"a.mmsave",directory/"a.mmsave:stream.mmsave"})
+  for(const auto &bad:std::vector<fs::path>{directory/"bad.txt",directory/"missing"/"a.mmsave",directory/"commercial"/"a.mmsave"
+#ifdef _WIN32
+   ,directory/"a.mmsave:stream.mmsave"
+#endif
+  })
    rejects([&]{XeenSaveFile::resolve(bad,directory/"commercial");});
+#ifndef _WIN32
+  for(const auto *leaf:{"CON.mmsave","a.mmsave:stream.mmsave"}) {
+   const auto ordinary=XeenSaveFile::resolve(directory/leaf,directory/"commercial");
+   XeenSaveFile::write(ordinary,old);sameSnapshot(XeenSaveFile::read(ordinary),old);
+  }
+#endif
   fs::create_directories(directory/"folder.mmsave");rejects([&]{XeenSaveFile::resolve(directory/"folder.mmsave",directory/"commercial");});
   const auto missing=directory/"uncreated.mmsave"; fs::remove(missing);
   rejects([&]{XeenSaveFile::write(missing,old,[](Op op){return op==Op::Write;});});check(!fs::exists(missing),"failed creation published");
   // Filesystem side of archive signatures, including Unicode, content and presence.
-  const auto archive=directory/fs::path(L"\u00e7.cc");put(archive,Bytes{'1','2','3','4','5','6','7','8','9'});
+  const auto archive=directory/fs::u8path(u8"\u00e7.cc");put(archive,Bytes{'1','2','3','4','5','6','7','8','9'});
   GameInstallation install{directory,archive,{},GameEdition::CloudsOfXeen};
   const auto signature=XeenSaveFile::fingerprint(install);check(signature.clouds==XeenArchiveFingerprint{9,0xcbf43926},"archive fingerprint");
   install.darkArchive=archive;check(XeenSaveFile::fingerprint(install).darkside==signature.clouds,"darkside presence");

@@ -1,3 +1,4 @@
+#include "XeenWrapSymbols.h"
 // M75 DOS Awaken order and witness policy: 1398 -> 1305.
 // M75 DOS Awaken order and witness policy: 1297 -> 1305.
 // M75 DOS Awaken order and witness policy: 2232520509 -> 1372052976.
@@ -38,7 +39,7 @@ extern "C" int __wrap_SDL_RenderCopy(SDL_Renderer *renderer,SDL_Texture *texture
 namespace mmodern { struct XeenTrainingTestAccess {static bool admitted(const XeenEventFlow &f){return f._smithUi && f._smithUi->phase!=XeenEventFlow::SmithUi::Phase::Preparation;} static std::string text(const XeenEventFlow &f){return f._smithUi?f.smithText():"none";}}; }
 using namespace mmodern;
 namespace fs=std::filesystem;
-#define PLAY_SYMBOL "_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjE"
+#define PLAY_SYMBOL XEEN_WRAP_PLAY_GAMEPLAY
 extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__real_" PLAY_SYMBOL);
 extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__wrap_" PLAY_SYMBOL);
 namespace {
@@ -390,7 +391,8 @@ extern "C" int wrappedPlay(const Application *app,const XeenGameplayServices &or
   // day/payment, or an extra Smith draw must fail independently of restore equality.
   const auto visit=[&](unsigned slot,std::uint32_t goldAfter){
    auto before=std::make_shared<XeenSaveSnapshot>();auto ac=std::make_shared<int>();
-   inspect([&,before,ac]{*before=XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world);
+   // Queued inspection runs after visit returns, so retain the selected slot.
+   inspect([&,before,ac,slot]{*before=XeenSaveState::capture(original.resources.signature,*party,*position,*flags,*world);
     beginSmith();
     // Independent Fix tariffs: base armor ID2=100; material38 cloakID10=40/4; divide by10 =>10 and1.
     const auto item=party->roster.at(1).armor[slot];check(item.id==(slot?10:2) && item.material==(slot?38:0) && item.state==128,"M71 paid Fix requires the ordinary broken body armor/cloak");

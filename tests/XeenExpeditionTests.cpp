@@ -1,3 +1,4 @@
+#include "XeenWrapSymbols.h"
 #include "XeenProbeFired.h"
 #include "XeenJourneyTestSupport.h"
 #include "XeenExpeditionTestSupport.h"
@@ -15,8 +16,8 @@ namespace expedition_test {
 std::vector<Draw> tape;
 unsigned cursor=0;
 bool taped=false;
-std::optional<std::uint32_t> realDraw(XeenCombatRandom *,std::uint32_t,std::uint32_t) asm("__real__ZN7mmodern16XeenCombatRandom4drawEjj");
-std::optional<std::uint32_t> wrappedDraw(XeenCombatRandom *,std::uint32_t,std::uint32_t) asm("__wrap__ZN7mmodern16XeenCombatRandom4drawEjj");
+std::optional<std::uint32_t> realDraw(XeenCombatRandom *,std::uint32_t,std::uint32_t) asm("__real_" XEEN_WRAP_RANDOM_DRAW);
+std::optional<std::uint32_t> wrappedDraw(XeenCombatRandom *,std::uint32_t,std::uint32_t) asm("__wrap_" XEEN_WRAP_RANDOM_DRAW);
 std::optional<std::uint32_t> wrappedDraw(XeenCombatRandom *r,std::uint32_t lo,std::uint32_t hi) {
  auto original=realDraw(r,lo,hi);if(!taped)return original;probe_fired::hit("XeenCombatRandom::draw");
  check(cursor<tape.size(),"literal tape exhausted");auto d=tape[cursor++];if(d.lo!=lo||d.hi!=hi)throw std::runtime_error("literal request endpoints at "+std::to_string(cursor)+" expected "+std::to_string(d.lo)+".."+std::to_string(d.hi)+" got "+std::to_string(lo)+".."+std::to_string(hi));return d.raw?std::optional<std::uint32_t>{}:d.value;

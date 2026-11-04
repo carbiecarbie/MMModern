@@ -1,3 +1,4 @@
+#include "XeenWrapSymbols.h"
 // Instrumented child of the real Application/CLI, driven through its SDL input handler.
 #include "XeenDecisionNine.h"
 #include "XeenProbeFired.h"
@@ -17,7 +18,7 @@
 
 using namespace mmodern;
 namespace fs=std::filesystem;
-#define PLAY_SYMBOL "_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjE"
+#define PLAY_SYMBOL XEEN_WRAP_PLAY_GAMEPLAY
 extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__real_" PLAY_SYMBOL);
 extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__wrap_" PLAY_SYMBOL);
 namespace {

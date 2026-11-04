@@ -8,8 +8,7 @@
 #include "formats/xeen/XeenAssetSource.h"
 #include "formats/xeen/XeenCutsceneData.h"
 #include "XeenTestInstallation.h"
-#include <windows.h>
-#include <bcrypt.h>
+#include "XeenSha256.h"
 #include <iomanip>
 #include <sstream>
 #include <iostream>
@@ -19,46 +18,7 @@
 using namespace mmodern;
 namespace {
 void check(bool ok,const char *message){if(!ok)throw std::runtime_error(message);}
-std::string sha256(const std::vector<std::uint8_t> &bytes) {
-	BCRYPT_ALG_HANDLE algorithm = nullptr;
-	BCRYPT_HASH_HANDLE hash = nullptr;
-	DWORD objectLength = 0, hashLength = 0, received = 0;
-	std::vector<std::uint8_t> object;
-	std::vector<std::uint8_t> digest;
-	auto cleanup = [&] {
-		if (hash) BCryptDestroyHash(hash);
-		if (algorithm) BCryptCloseAlgorithmProvider(algorithm, 0);
-	};
-	try {
-		check(BCryptOpenAlgorithmProvider(&algorithm, BCRYPT_SHA256_ALGORITHM,
-			nullptr, 0) >= 0, "cannot open SHA-256 provider");
-		check(BCryptGetProperty(algorithm, BCRYPT_OBJECT_LENGTH,
-			reinterpret_cast<PUCHAR>(&objectLength), sizeof(objectLength), &received, 0) >= 0,
-			"cannot query SHA-256 object length");
-		check(BCryptGetProperty(algorithm, BCRYPT_HASH_LENGTH,
-			reinterpret_cast<PUCHAR>(&hashLength), sizeof(hashLength), &received, 0) >= 0,
-			"cannot query SHA-256 digest length");
-		object.resize(objectLength);
-		digest.resize(hashLength);
-		check(BCryptCreateHash(algorithm, &hash, object.data(), objectLength,
-			nullptr, 0, 0) >= 0, "cannot create SHA-256 hash");
-		check(bytes.size() <= static_cast<std::size_t>(std::numeric_limits<ULONG>::max()),
-			"reference file is too large for SHA-256 check");
-		check(BCryptHashData(hash, const_cast<PUCHAR>(bytes.data()),
-			static_cast<ULONG>(bytes.size()), 0) >= 0, "cannot update SHA-256 hash");
-		check(BCryptFinishHash(hash, digest.data(), hashLength, 0) >= 0,
-			"cannot finish SHA-256 hash");
-		cleanup();
-	} catch (...) {
-		cleanup();
-		throw;
-	}
-	std::ostringstream out;
-	out << std::hex << std::setfill('0');
-	for (const auto byte : digest)
-		out << std::setw(2) << static_cast<unsigned>(byte);
-	return out.str();
-}
+std::string sha256(const std::vector<std::uint8_t> &bytes) { return test_hash::sha256(bytes); }
 
 
 void frames(XeenAssetSource &assets) {

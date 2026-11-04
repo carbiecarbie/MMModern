@@ -1,3 +1,4 @@
+#include "XeenPortableTestSupport.h"
 #include "XeenTestInstallation.h"
 #include "tools/XeenTestSave.h"
 #include "XeenTrainingTestSupport.h"
@@ -11,7 +12,9 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
+#ifdef _WIN32
 #include <windows.h>
+#endif
 #include <fstream>
 #include <iostream>
 #include "TestTreeRemoval.h"
@@ -31,7 +34,7 @@ namespace {
 void pulse(training_test::Fixture &f) {f.now+=125;f.flow->beginCycle(++f.cycle);if(auto frame=f.flow->updatePresentation())f.present(*frame);}
 struct TemporaryDirectory {
     fs::path path=fs::temp_directory_path()/
-        ("mmodern-test-save-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));
+        ("mmodern-test-save-"+std::to_string(child_test::processId())+"-"+std::to_string(child_test::ticks()));
     TemporaryDirectory() {check(fs::create_directory(path),"temporary directory already exists");}
     ~TemporaryDirectory() {removeTestTree(path);}
 };

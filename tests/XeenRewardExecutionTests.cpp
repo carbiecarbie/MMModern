@@ -4,7 +4,7 @@
 using namespace reward_test;
 void terminals(){
 	for(int terminal=0;terminal<5;++terminal){Execution e;
-		std::vector<XeenEventRecord> records{pause()};
+		std::vector<XeenEventRecord> records{pauseEvent()};
 		if(terminal==0)records.push_back(record(1,1,1,0x12));
 		if(terminal==2)records.push_back(record(1,1,1,0x07,{2,2,2}));
 		if(terminal==3)records.push_back(record(1,1,1,0x20,{0,1}));
@@ -26,7 +26,7 @@ void terminals(){
 }
 void continuations(){
 	Execution e;
-	auto s=e.seed({pause(),record(1,1,1,0x19,{2,2,0}),pause(2),record(1,1,3,0x12),
+	auto s=e.seed({pauseEvent(),record(1,1,1,0x19,{2,2,0}),pauseEvent(2),record(1,1,3,0x12),
 		record(2,2,0,0x1a)});
 	auto r=e.resume(s);s=pending(r);
 	check(xeenPrepareRewardReceipt(s.treasure).count==1&&s.reward.phase==XeenRewardPhase::Running&&s.callStack.empty()&&s.instructionCount==4,"Call/Return delivered early or lost staging");
@@ -34,7 +34,7 @@ void continuations(){
 	for(auto bad:std::vector<XeenEventRecord>{record(1,1,1,0x1a),
 		record(1,1,1,0x2c,{70}),record(1,1,1,12,{21,167,0,0}),
 		record(1,1,1,12,{104,30,0,0})}){
-		Execution x;auto state=x.seed({pause(),bad});state.workingGameFlags.set(7);
+		Execution x;auto state=x.seed({pauseEvent(),bad});state.workingGameFlags.set(7);
 		auto result=x.resume(state);const auto &error=std::get<XeenEventExecutionError>(result);
 		check(error.rewards.discarded==1&&error.rewards.discardReason==XeenRewardDiscard::ExecutionError&&
 			!x.f.initial.roster.at(0).miscellaneous[0].id&&!x.flags.isSet(7),"error delivered or lost accounting");
@@ -43,15 +43,15 @@ void continuations(){
 	check(!state.treasure.whoWill&&state.activeCharacterIndex==0,"initial reward preference present");
 	state=pending(who.resume(state,SelectedCharacter{1}));check(state.reward.receipt.entries[0].owner==1,"WhoWill reward preference");
 	Execution single;single.f.initial.party=XeenParty::fromRosterIds({0});
-	state=single.seed({pause(),record(1,1,1,0x20,{0,1}),record(1,1,2,0x12)});state.treasure.whoWill=6;
+	state=single.seed({pauseEvent(),record(1,1,1,0x20,{0,1}),record(1,1,2,0x12)});state.treasure.whoWill=6;
 	state=pending(single.resume(state));check(state.treasure.whoWill==6&&state.reward.receipt.entries[0].owner==0,"single WhoWill overwrote preference");
-	Execution reordered;state=reordered.seed({record(1,1,0,0x20,{0,1}),pause(1),record(1,1,2,0x12)});
+	Execution reordered;state=reordered.seed({record(1,1,0,0x20,{0,1}),pauseEvent(1),record(1,1,2,0x12)});
 	state=pending(reordered.resume(state,SelectedCharacter{1}));
 	reordered.f.initial.party=XeenParty::fromRosterIds({1,0,1});
 	state=pending(reordered.resume(state));check(state.reward.receipt.entries[0].owner==0,"preferred index did not resolve current membership");
 	// This direct interpreter fixture is the Event candidate; Journey publishes
 	// none of these immediate writes if its enclosing Event later refuses.
-	Execution immediate;state=immediate.seed({pause(),record(1,1,1,12,{0,0,21,99}),record(1,1,2,12,{0,0,104,2}),record(1,1,3,0xff)});
+	Execution immediate;state=immediate.seed({pauseEvent(),record(1,1,1,12,{0,0,21,99}),record(1,1,2,12,{0,0,104,2}),record(1,1,3,0xff)});
 	const auto failed=std::get<XeenEventExecutionError>(immediate.resume(state));
 	check(failed.rewards.discarded==2&&immediate.f.initial.questItems.at(17)==1&&immediate.f.initial.questFlags.isSet(2),"pre-delivery error changed its candidate grants");
 }
@@ -70,7 +70,7 @@ void production(){
 		Execution e;std::vector<XeenEventRecord> records;
 		for(int i=0;i<n;++i) records.push_back(record(1,1,i,0x2c,
 			{static_cast<std::uint8_t>(70+i%2),static_cast<std::uint8_t>(1+i),255,193}));
-		records.push_back(pause(n));
+		records.push_back(pauseEvent(n));
 		auto s=pending(begin(e,records));
 		check(s.instructionCount==n+1 && xeenPrepareRewardReceipt(s.treasure).count==std::min(n,10) && s.treasure.full(XeenRewardCategory::Miscellaneous)==(n>=10),"real production staging/overflow");
 		for(int i=0;i<std::min(n,10);++i) {
@@ -94,7 +94,7 @@ void production(){
 			!e.f.initial.roster.at(0).miscellaneous[0].id,"full staging operand validation/accounting");
 	}
 	for(int fault=0;fault<5;++fault) {
-		Execution e;auto s=pending(begin(e,{pause(),record(1,1,1,0x2c,{70,37})}));
+		Execution e;auto s=pending(begin(e,{pauseEvent(),record(1,1,1,0x2c,{70,37})}));
 		auto kind=XeenEventExecutionErrorKind::UnsupportedExecutionContext;
 		if(fault==0)s.logicalAddress.mapId.side=XeenSide::Darkside;
 		if(fault==1)s.workingCamera.mapId.side=XeenSide::Darkside;
@@ -126,13 +126,13 @@ void production(){
 			e.f.initial.questFlags.isSet(2),"quest take at zero stopped or did not wrap");
 	}
 	Execution call;auto s=pending(begin(call,{record(1,1,0,0x2c,{70,37,0,1}),record(1,1,1,0x19,{2,2,0}),
-		pause(2),record(2,2,0,0x2c,{71,73,123}),record(2,2,1,0x1a)}));
+		pauseEvent(2),record(2,2,0,0x2c,{71,73,123}),record(2,2,1,0x1a)}));
 	check(xeenPrepareRewardReceipt(s.treasure).count==2 && s.callStack.empty() && s.instructionCount==5,"real production Call/Return");
 	s=pending(call.resume(s));check(s.reward.receipt.delivered==2 && s.reward.receipt.entries[1].item.material==11,"call order/lifecycle");
 	for(int outcome=0;outcome<4;++outcome) {
 		Execution e;e.f.initial.questItems.increment(17);e.f.initial.questFlags.set(2);
 		auto s=pending(begin(e,{record(1,1,0,12,{21,99}),record(1,1,1,12,{104,2}),
-			record(1,1,2,0x2c,{70,37,0,1}),pause(3),record(1,1,4,outcome==0?0xff:0x12)}));
+			record(1,1,2,0x2c,{70,37,0,1}),pauseEvent(3),record(1,1,4,outcome==0?0xff:0x12)}));
 		check(e.f.initial.questItems.at(17)==0 && !e.f.initial.questFlags.isSet(2) && xeenPrepareRewardReceipt(s.treasure).count==1,"exchange effects not immediate");
 		if(outcome==0){const auto failure=std::get<XeenEventExecutionError>(e.resume(s));check(failure.rewards.discarded==1,"real production failure discard");}
 		else {
@@ -145,7 +145,7 @@ void production(){
 	}
 }
 void publication(){
-	for(bool automatic:{false,true}){Execution e;auto s=e.seed({pause(),record(1,1,1,0x07,{2,2,2})},10);
+	for(bool automatic:{false,true}){Execution e;auto s=e.seed({pauseEvent(),record(1,1,1,0x07,{2,2,2})},10);
 		s.workingGameFlags.set(7);XeenEventSystem events(e.scripts,e.texts);
 		if(automatic){auto r=events.resumeAutomaticEvent(s,XeenPresentationResponse::Acknowledged,e.world,e.f.initial,e.camera,e.flags);
 			check(std::holds_alternative<XeenEventExecutionSuspended>(r)&&e.camera.mapId==XeenMapIdentity(1)&&!e.flags.isSet(7),"automatic published early");
@@ -172,7 +172,7 @@ void publication(){
 }
 void individualPublication() {
  Execution e;e.f.initial.purse=XeenPurse{};
- auto state=e.seed({pause(),record(1,1,1,0x12)},2);state.treasure.gold+=31u;
+ auto state=e.seed({pauseEvent(),record(1,1,1,0x12)},2);state.treasure.gold+=31u;
  state=pending(e.resumeOne(state));
  check(state.reward.phase==XeenRewardPhase::Blank && state.reward.cursor==0 && state.reward.receipt.delivered==1 &&
   state.pendingPresentation->request.rewardWaitTicks==1 && e.f.initial.roster.at(0).miscellaneous.back().id==37 &&
@@ -192,7 +192,7 @@ void individualPublication() {
   "Final currency settlement failed");
  for(bool packsFull:{false,true}) {
   Execution quest;if(packsFull)full(quest.f.initial,true);
-  auto q=quest.seed({pause(),record(1,1,1,12,{0,0,21,99}),record(1,1,2,0x12)},0);
+  auto q=quest.seed({pauseEvent(),record(1,1,1,12,{0,0,21,99}),record(1,1,2,0x12)},0);
   const auto inventory=xeenInventoryInspection(quest.f.initial);q=pending(quest.resumeOne(q));
   check(quest.f.initial.questItems.at(17)==1 && xeenPrepareRewardReceipt(q.treasure).entries[0].quest,"Quest grant did not join Weapons treasure staging");
   if(packsFull){check(q.reward.phase==XeenRewardPhase::Warning,"Quest full-pack warning missing");q=pending(quest.resumeOne(q));}
@@ -276,12 +276,12 @@ void sharedStaging(){
 }
 // A timed reward hold that Flow answers on expiry is not player input.
 void timedHoldBudget(){
-	Execution e;auto s=pending(e.resumeOne(e.seed({pause(),record(1,1,1,0x12)})));
+	Execution e;auto s=pending(e.resumeOne(e.seed({pauseEvent(),record(1,1,1,0x12)})));
 	check(s.pendingPresentation->request.rewardWaitTicks>0,"expected a timed reward hold");
 	s.instructionCount=s.instructionsSinceInput=900;
 	const auto timed=pending(e.resumeOne(s,XeenPresentationResponse::timed(XeenPresentationResponse::Acknowledged)));
 	check(timed.instructionCount==900 && timed.instructionsSinceInput==900,"an expiring timed hold reset the dispatch budget");
-	Execution answered;auto t=pending(answered.resumeOne(answered.seed({pause(),record(1,1,1,0x12)})));
+	Execution answered;auto t=pending(answered.resumeOne(answered.seed({pauseEvent(),record(1,1,1,0x12)})));
 	t.instructionCount=t.instructionsSinceInput=900;
 	check(pending(answered.resumeOne(t)).instructionsSinceInput==0,"a player answer kept the dispatch budget");
 }

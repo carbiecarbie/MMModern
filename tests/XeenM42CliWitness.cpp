@@ -1,3 +1,4 @@
+#include "XeenWrapSymbols.h"
 // Earned original-resource application witness. Every mutation comes from a
 // successfully presented gameplay response; no live owner is rewritten.
 #include "XeenDecisionNine.h"
@@ -29,8 +30,8 @@ extern "C" int __real_SDL_RenderCopy(SDL_Renderer *,SDL_Texture *,const SDL_Rect
 extern "C" int __wrap_SDL_RenderCopy(SDL_Renderer *r,SDL_Texture *t,const SDL_Rect *s,const SDL_Rect *d) {probe_fired::hit("SDL_RenderCopy");
     if(failCopy){failCopy=false;nativeFailed=true;return SDL_SetError("M42 injected native copy failure");}return __real_SDL_RenderCopy(r,t,s,d);
 }
-#define ENEMY_SYMBOL "_ZN7mmodern24XeenEnemyAttackCandidateC1ERKNS_14XeenPartyLanesINS_13XeenCharacterEEERKNS1_INS_16XeenCombatInputsEEERKNS_17XeenMonsterRecordEjjRKSt5arrayIbLy6EENS_15XeenActorStatusE"
-#define PLAYER_SYMBOL "_ZN7mmodern27XeenPhysicalPlayerCandidateC1ERKNS_13XeenCharacterERKNS_16XeenCombatInputsERKNS_17XeenMonsterRecordEjjbNS_14XeenDifficultyENS_15XeenActorStatusE"
+#define ENEMY_SYMBOL XEEN_WRAP_ENEMY_CONSTRUCTOR
+#define PLAYER_SYMBOL XEEN_WRAP_PLAYER_CONSTRUCTOR
 // Executable-only probes of the actual combat constructors. They neither alter
 // returned candidates nor provide gameplay callbacks or mutation authority.
 struct RealConsumers {
@@ -58,13 +59,13 @@ void ProbeConsumers::player(const XeenCharacter &c,const XeenCombatInputs &i,con
     }
     reinterpret_cast<RealConsumers *>(this)->player(c,i,m,type,year,shoot,difficulty,status);
 }
-#define INTEREST_SYMBOL "_ZN7mmodern23xeenPrepareBankInterestERKNS_16XeenBankBalancesE"
+#define INTEREST_SYMBOL XEEN_WRAP_BANK_INTEREST
 XeenBankBalances realInterest(const XeenBankBalances &) asm("__real_" INTEREST_SYMBOL);
 XeenBankBalances wrappedInterest(const XeenBankBalances &) asm("__wrap_" INTEREST_SYMBOL);
 XeenBankBalances wrappedInterest(const XeenBankBalances &bank) {probe_fired::hit("xeenPrepareBankInterest");
     ++interestCalls;std::cout<<"INTEREST "<<bank.gold<<':'<<bank.gems<<'\n';return realInterest(bank);
 }
-#define PLAY_SYMBOL "_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjE"
+#define PLAY_SYMBOL XEEN_WRAP_PLAY_GAMEPLAY
 extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__real_" PLAY_SYMBOL);
 extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__wrap_" PLAY_SYMBOL);
 static const probe_fired::Expect playProbe{"Application::playGameplay","SDL_RenderCopy","SDL_UpdateTexture"};

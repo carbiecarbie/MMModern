@@ -150,7 +150,7 @@ void publicationFailureAndHud() {
 		Fixture f;character(f.initial.roster.at(0),0);character(f.initial.roster.at(1),1);f.initial.roster.at(0).armor[0]={105,10,0,0};
 		auto services=f.services();auto compose=services.compose;unsigned remaining=0,reports=0;XeenItem published{};
 		services.compose=[&](auto &w,const auto &p,const auto &c,std::uint64_t phase){if(remaining){--remaining;throw std::runtime_error("persistent equipment scene failure");}return compose(w,p,c,phase);};
-		const auto target=std::filesystem::current_path()/("equipment-fatal-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64())+".mmsave");
+		const auto target=std::filesystem::current_path()/("equipment-fatal-"+std::to_string(child_test::processId())+"-"+std::to_string(child_test::ticks())+".mmsave");
 		services.show=[&](const auto &,const auto &handle,const auto &,const auto &,const auto &){handle(InspectInventoryAction{});handle(DialogKeyAction{'a'});handle(SelectInventorySlotAction{0});remaining=2;
 			try{handle(EquipmentInventoryAction{});check(false,"fatal recovery did not throw");}catch(const std::runtime_error &){}
 			check(reports==1&&published.frame==9&&!handle(SaveGameAction{})&&!std::filesystem::exists(target),"fatal equipment flow remained saveable/replayed");return true;};
@@ -253,12 +253,12 @@ int persistenceChild(const std::filesystem::path &path, bool resume) {
 }
 
 void persistenceRestart(const std::filesystem::path &exe) {
-	const auto dir=std::filesystem::current_path()/("equipment-restart-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));
+	const auto dir=std::filesystem::current_path()/("equipment-restart-"+std::to_string(child_test::processId())+"-"+std::to_string(child_test::ticks()));
 	std::filesystem::create_directory(dir); const auto path=dir/"equipment.mmsave";
-	const auto producer=child_test::launch(exe,{L"equipment-producer",path.wstring()},dir/"producer.log");
+	const auto producer=child_test::launch(exe,{"equipment-producer",path.u8string()},dir/"producer.log");
 	check(producer.exit==0,"equipment producer failed");
 	std::ifstream input(path,std::ios::binary); const std::string bytes{std::istreambuf_iterator<char>(input),{}}; input.close();
-	const auto consumer=child_test::launch(exe,{L"equipment-consumer",path.wstring()},dir/"consumer.log");
+	const auto consumer=child_test::launch(exe,{"equipment-consumer",path.u8string()},dir/"consumer.log");
 	check(consumer.exit==0&&producer.pid!=consumer.pid,"fresh equipment consumer failed");
 	std::ifstream after(path,std::ios::binary);
 	check(bytes==std::string(std::istreambuf_iterator<char>(after),{}),"equipment consumer rewrote producer disk");

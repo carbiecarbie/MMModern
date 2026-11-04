@@ -1,3 +1,4 @@
+#include "XeenWrapSymbols.h"
 #ifndef MMODERN_TESTS_REGIONAL_COMBAT_SUPPORT_H
 #define MMODERN_TESTS_REGIONAL_COMBAT_SUPPORT_H
 #include "XeenProbeFired.h"
@@ -7,8 +8,8 @@
 namespace regional_combat_test {
 using namespace combat_test;
 inline XeenCombatRandom *tape=nullptr;
-std::optional<std::uint32_t> realDraw(XeenCombatRandom *,std::uint32_t,std::uint32_t) asm("__real__ZN7mmodern16XeenCombatRandom4drawEjj");
-std::optional<std::uint32_t> wrappedDraw(XeenCombatRandom *,std::uint32_t,std::uint32_t) asm("__wrap__ZN7mmodern16XeenCombatRandom4drawEjj");
+std::optional<std::uint32_t> realDraw(XeenCombatRandom *,std::uint32_t,std::uint32_t) asm("__real_" XEEN_WRAP_RANDOM_DRAW);
+std::optional<std::uint32_t> wrappedDraw(XeenCombatRandom *,std::uint32_t,std::uint32_t) asm("__wrap_" XEEN_WRAP_RANDOM_DRAW);
 std::optional<std::uint32_t> wrappedDraw(XeenCombatRandom *rng,std::uint32_t lo,std::uint32_t hi){
     auto value=realDraw(rng,lo,hi);
     if(tape)probe_fired::hit("XeenCombatRandom::draw");

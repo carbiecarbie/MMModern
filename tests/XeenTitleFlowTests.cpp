@@ -1,3 +1,4 @@
+#include "XeenPortableTestSupport.h"
 #include "SdlMouseTestSupport.h"
 #include "app/XeenTitleFlow.h"
 #include "app/Application.h"
@@ -6,7 +7,9 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
+#ifdef _WIN32
 #include <windows.h>
+#endif
 #include "app/XeenCutsceneFlow.h"
 #include "games/xeen/XeenWallClock.h"
 #include "formats/xeen/XeenAssetSource.h"
@@ -378,14 +381,13 @@ int main(int argc,char **argv){try {
  }
  {
   namespace fs=std::filesystem;
-  const auto directory=fs::temp_directory_path()/("mmodern-m106-title-"+std::to_string(GetCurrentProcessId()));fs::create_directories(directory);
-  const auto length=GetEnvironmentVariableW(L"MMODERN_SETTINGS_FILE",nullptr,0);std::wstring old(length,L'\0');
-  if(length){GetEnvironmentVariableW(L"MMODERN_SETTINGS_FILE",old.data(),length);old.resize(length-1);}
-  struct Cleanup {fs::path path;std::wstring old;~Cleanup(){SetEnvironmentVariableW(L"MMODERN_SETTINGS_FILE",old.empty()?nullptr:old.c_str());removeTestTree(path);}} cleanup{directory,old};
-  for(unsigned mask=0;mask<8;++mask) {
+  const auto directory=fs::temp_directory_path()/("mmodern-m106-title-"+std::to_string(child_test::processId()));fs::create_directories(directory);
+  portable_test::Environment restoreSettings("MMODERN_SETTINGS_FILE");
+ struct Cleanup {fs::path path;~Cleanup(){removeTestTree(path);}} cleanup{directory};
+ for(unsigned mask=0;mask<8;++mask) {
    const auto path=directory/(std::to_string(mask)+".ini");
    {std::ofstream out(path);out<<"won="<<bool(mask&1)<<"\ndarkside_intro_seen=1\ndarkside_won="<<bool(mask&2)<<"\nworld_won="<<bool(mask&4)<<"\n";}
-   check(SetEnvironmentVariableW(L"MMODERN_SETTINGS_FILE",path.c_str()),"Isolated title settings override");
+   check(portable_test::environment("MMODERN_SETTINGS_FILE",path),"Isolated title settings override");
    XeenProgramState program{XeenWallClock::fixed(0)};Application app(program,{},xeenSettingsFile());
    auto s=services();s.cloudsWon=program.cloudsWon;s.darksideWon=program.darksideWon;s.worldWon=program.worldWon;
    for(unsigned requested=0;requested<3;++requested) {

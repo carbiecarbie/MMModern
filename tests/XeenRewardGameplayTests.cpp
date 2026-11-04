@@ -16,7 +16,7 @@ void application(const fs::path &path,bool fullPacks){
 	fs::remove(path);Fixture f;if(fullPacks)full(f.initial,true);
 	f.initial.party=XeenParty::fromRosterIds({1,0,1});f.initial.roster.at(1).name="Live recipient";
 	f.initial.roster.at(29).miscellaneous[3]={255,254,253,252};
-	f.scripts[1]={pause(),record(1,1,1,12,{0,0,20,7}),record(1,1,2,0x12)};
+	f.scripts[1]={pauseEvent(),record(1,1,1,12,{0,0,20,7}),record(1,1,2,0x12)};
 	auto services=f.services();CaptureOutput output;bool reentrant=false;unsigned inspections=0;
  const XeenPartyState *live=nullptr;const XeenGameFlags *flags=nullptr;services.observeGameplay=[&](auto &,auto &,const auto &p,auto &,const auto &g){live=&p;flags=&g;};
 	services.show=[&](const auto&,const auto &handle,const auto &escape,const auto&,const auto &status){
@@ -44,7 +44,7 @@ void application(const fs::path &path,bool fullPacks){
 }
 void actualProducerGuards(){
 	Fixture f;f.initial.questItems.increment(17);f.initial.questFlags.set(2);
-	f.scripts[1]={pause(),record(1,1,1,12,{21,99}),record(1,1,2,12,{104,2}),record(1,1,3,0x2c,{70,37,0,1})};
+	f.scripts[1]={pauseEvent(),record(1,1,1,12,{21,99}),record(1,1,2,12,{104,2}),record(1,1,3,0x2c,{70,37,0,1})};
 	auto services=f.services();CaptureOutput output;
 	const XeenPartyState *live=nullptr;
 	services.observeGameplay=[&](XeenWorld&,XeenEventSystem&,const XeenPartyState&p,XeenCamera&,const XeenGameFlags&){live=&p;};
@@ -93,7 +93,7 @@ void setupOrder(){
 }
 void cleanupSaving(const fs::path &path){
 	for(bool automatic:{false,true})for(bool afterDelivery:{false,true}){
-		fs::remove(path);Fixture f;f.automatic=automatic;f.scripts[1]={pause(),pause(1),record(1,1,2,0x12)};
+		fs::remove(path);Fixture f;f.automatic=automatic;f.scripts[1]={pauseEvent(),pauseEvent(1),record(1,1,2,0x12)};
 		auto services=f.services();CaptureOutput output;const XeenPartyState *live=nullptr;services.observeGameplay=[&](auto &,auto &,const auto &p,auto &,const auto &){live=&p;};
 		services.show=[&](const auto&,const auto &handle,const auto&,const auto&,const auto &status){
 			if(!automatic)handle(InteractionAction{});XeenRewardTestAccess::seed(*f.flow,3);
@@ -118,7 +118,7 @@ void cleanupSaving(const fs::path &path){
 	}
 }
 void sdl(const fs::path &path,bool fullPacks){
-	fs::remove(path);Fixture f;if(fullPacks)full(f.initial,true);f.scripts[1]={pause(),record(1,1,1,0x12)};auto services=f.services();CaptureOutput output;
+	fs::remove(path);Fixture f;if(fullPacks)full(f.initial,true);f.scripts[1]={pauseEvent(),record(1,1,1,0x12)};auto services=f.services();CaptureOutput output;
 	unsigned refused=0,saved=0;bool seeded=false,delivered=false,receiptSeen=false;
  const XeenPartyState *live=nullptr;services.observeGameplay=[&](auto &,auto &,const auto &p,auto &,const auto &){live=&p;};
 	services.show=[&](const auto &first,const auto &handle,const auto &escape,const auto &idle,const auto &status){

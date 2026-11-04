@@ -17,7 +17,7 @@ struct XeenRewardTestAccess {
 namespace reward_test {
 using namespace gameplay_test;
 using remove_test::script;
-inline XeenEventRecord pause(int line = 0) { return record(1,1,line,9,{44,1,static_cast<std::uint8_t>(line+1)}); }
+inline XeenEventRecord pauseEvent(int line = 0) { return record(1,1,line,9,{44,1,static_cast<std::uint8_t>(line+1)}); }
 inline void full(XeenPartyState &p, bool global) {
 	for (auto id : p.party.activeRosterIds()) {
 		auto &c=p.roster.at(id); c.miscellaneous.back()={1,2,3,4};

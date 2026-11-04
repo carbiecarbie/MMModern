@@ -1,3 +1,5 @@
+#include "XeenPortableTestSupport.h"
+#include "XeenWrapSymbols.h"
 #include "SdlMouseTestSupport.h"
 #include "games/xeen/XeenMapView.h"
 // One original-data Application/SDL path for both New difficulties and title
@@ -14,7 +16,9 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
+#ifdef _WIN32
 #include <windows.h>
+#endif
 #include <chrono>
 #include <algorithm>
 #include <cstring>
@@ -29,11 +33,11 @@
 using namespace mmodern;
 namespace fs=std::filesystem;
 using save_test::check;
-#define PLAY_SYMBOL "_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjE"
-#define SHOW_SYMBOL "_ZNK7mmodern9SdlWindow15showInteractiveERKNS_12IndexedFrameERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEERKNS0_18FrameUpdateHandlerERKSt8functionIFbvEERKSF_IFSt8optionalIS1_EvEERKSF_IFS9_vEE"
-#define DIRECTORY_SYMBOL "_ZN7mmodern12XeenSaveFile19createSlotDirectoryERKNS_16GameInstallationERKNSt10filesystem7__cxx114pathERKSt8optionalIS6_E"
-#define TEXT_SYMBOL "_ZNK7mmodern16XeenTextRenderer6renderERKNS_12IndexedFrameERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEERKNS_21XeenTextRenderOptionsE"
-#define DATA_SYMBOL "_ZN7mmodern16XeenCutsceneData9installedERKNS_16GameInstallationE"
+#define PLAY_SYMBOL XEEN_WRAP_PLAY_GAMEPLAY
+#define SHOW_SYMBOL XEEN_WRAP_SHOW_INTERACTIVE
+#define DIRECTORY_SYMBOL XEEN_WRAP_SLOT_DIRECTORY
+#define TEXT_SYMBOL XEEN_WRAP_RENDER_TEXT
+#define DATA_SYMBOL XEEN_WRAP_CUTSCENE_DATA
 extern "C" XeenCutsceneData realEndingData(const GameInstallation &) asm("__real_" DATA_SYMBOL);
 extern "C" XeenCutsceneData wrappedEndingData(const GameInstallation &) asm("__wrap_" DATA_SYMBOL);
 extern "C" XeenTextRenderResult realTitleText(const XeenTextRenderer *,const IndexedFrame &,const std::string &,const XeenTextRenderOptions &) asm("__real_" TEXT_SYMBOL);
@@ -46,8 +50,8 @@ extern "C" bool wrappedTitleShow(const SdlWindow *,const IndexedFrame &,const st
  const std::function<bool()> &,const SdlWindow::IdleFrameHandler &,const std::function<std::string()> &) asm("__wrap_" SHOW_SYMBOL);
 extern "C" fs::path realTitleDirectory(const GameInstallation &,const fs::path &,const std::optional<fs::path> &) asm("__real_" DIRECTORY_SYMBOL);
 extern "C" fs::path wrappedTitleDirectory(const GameInstallation &,const fs::path &,const std::optional<fs::path> &) asm("__wrap_" DIRECTORY_SYMBOL);
-extern "C" std::uint64_t realTitleClock() asm("__real__ZN7mmodern9SdlWindow23presentationNanosecondsEv");
-extern "C" std::uint64_t wrappedTitleClock() asm("__wrap__ZN7mmodern9SdlWindow23presentationNanosecondsEv");
+extern "C" std::uint64_t realTitleClock() asm("__real_" XEEN_WRAP_PRESENTATION_CLOCK);
+extern "C" std::uint64_t wrappedTitleClock() asm("__wrap_" XEEN_WRAP_PRESENTATION_CLOCK);
 namespace mmodern {
 struct XeenTemplePriceStateTestAccess {
  static void seed(XeenTemplePriceState &prices,unsigned map) {
@@ -630,9 +634,8 @@ void endingControls(const char *game,const char *endingPreset,bool darksideOnly=
  // V reads the won store, plays the same program, and leaves save/store bytes intact.
  const auto readFile=[](const fs::path &p){std::ifstream f(p,std::ios::binary);return std::vector<std::uint8_t>((std::istreambuf_iterator<char>(f)),{});};
  const auto settings=state.base/"ending-settings.ini";{std::ofstream f(settings);f<<"won=1\n";}
- const auto previousSettings=xeenSettingsFile();
- struct RestoreSettings {std::optional<fs::path> previous;~RestoreSettings(){if(previous)SetEnvironmentVariableW(L"MMODERN_SETTINGS_FILE",previous->c_str());else SetEnvironmentVariableW(L"MMODERN_SETTINGS_FILE",nullptr);}} restoreSettings{previousSettings};
- if(darksideOnly)check(SetEnvironmentVariableW(L"MMODERN_SETTINGS_FILE",settings.c_str())!=0 && xeenSettingsFile()==std::optional<fs::path>(settings),"Isolated replay settings environment");
+ portable_test::Environment restoreSettings("MMODERN_SETTINGS_FILE");
+ if(darksideOnly)check(portable_test::environment("MMODERN_SETTINGS_FILE",settings)!=0 && xeenSettingsFile()==std::optional<fs::path>(settings),"Isolated replay settings environment");
  if(!darksideOnly)for(bool replay:{false,true})for(unsigned failure=0;failure<3;++failure) {
   if(!replay && !failure)continue; // Both successful gameplay entry modes above.
   XeenSaveFile::write(state.slot,XeenSaveFormat::decode(state.saved),{},true);const auto saved=readFile(state.slot),won=readFile(settings);
@@ -710,7 +713,7 @@ void titleApplicationControls(const char *game,const char *endingPreset,const st
  state.enabled=true;
  state.introsOnly=part=="--intros";
  const bool native=part!="--intros",intros=part!="--serial" && part!="--endings" && part!="--darkside-endings";
- state.base=fs::temp_directory_path()/("mmodern-m54-title-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));
+ state.base=fs::temp_directory_path()/("mmodern-m54-title-"+std::to_string(child_test::processId())+"-"+std::to_string(child_test::ticks()));
  fs::create_directory(state.base);
  struct Cleanup {~Cleanup(){state.enabled=false;removeTestTree(state.base);}} cleanup;
  if(native)for(auto difficulty:{XeenDifficulty::Adventurer,XeenDifficulty::Warrior}) {

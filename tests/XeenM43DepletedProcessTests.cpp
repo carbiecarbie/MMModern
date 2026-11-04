@@ -1,3 +1,4 @@
+#include "XeenPortableTestSupport.h"
 #include "XeenChildProcessTestSupport.h"
 #include "XeenM42Evidence.h"
 #include "platform/XeenSaveFile.h"
@@ -9,13 +10,13 @@ int main(int argc,char **argv) {
         child_test::require(argc==4,"usage: mmodern_m43_depleted_process_tests <m42-witness> <m43-witness> <original-installation>");
         const auto m42=fs::absolute(argv[1]),m43=fs::absolute(argv[2]),game=fs::absolute(argv[3]);
         const auto dir=child_test::freshDirectory(fs::temp_directory_path()/"mmodern-m43-depleted");
-        SetEnvironmentVariableW(L"SDL_VIDEODRIVER",L"dummy");
-        SetEnvironmentVariableW(L"SDL_RENDER_DRIVER",L"software");
-        SetEnvironmentVariableW(L"MMODERN_M42_CONTENT14",L"1");
-        SetEnvironmentVariableW(L"MMODERN_M42_STAGE",L"depleted");
+        portable_test::setEnvironment("SDL_VIDEODRIVER","dummy");
+        portable_test::setEnvironment("SDL_RENDER_DRIVER","software");
+        portable_test::setEnvironment("MMODERN_M42_CONTENT14","1");
+        portable_test::setEnvironment("MMODERN_M42_STAGE","depleted");
         const auto prefix=dir/"bought.mmsave";
         const auto buy=child_test::launch(m42,
-            {L"--journey-region",L"--combat-seed",L"7",game.wstring(),L"--save-file",prefix.wstring()},
+            {"--journey-region","--combat-seed","7",game.u8string(),"--save-file",prefix.u8string()},
             dir/"buy.log",false,false,180000);
         child_test::require(buy.exit==0 &&
             buy.output.find("M43 DEPLETED BUY PREFIX PASSED")!=std::string::npos &&
@@ -29,27 +30,27 @@ int main(int argc,char **argv) {
             original.journey->random->count==1065,
             "real bought checkpoint is not the exact content-14 depleted preimage");
         m42_test::sameCategory(original.journey->serviceEconomy->wares[0][0][1],m42_test::armorAfter());
-        SetEnvironmentVariableW(L"MMODERN_M42_CONTENT14",nullptr);
-        SetEnvironmentVariableW(L"MMODERN_M42_STAGE",nullptr);
-        for(const auto &branch:{L"depleted",L"depleted-unpaid",L"depleted-training"}) {
-            SetEnvironmentVariableW(L"MMODERN_M43_STAGE",branch);
-            const auto target=dir/(std::wstring(branch)+L".mmsave");
+        portable_test::setEnvironment("MMODERN_M42_CONTENT14",nullptr);
+        portable_test::setEnvironment("MMODERN_M42_STAGE",nullptr);
+        for(const auto &branch:{"depleted","depleted-unpaid","depleted-training"}) {
+            portable_test::setEnvironment("MMODERN_M43_STAGE",branch);
+            const auto target=dir/(std::string(branch)+".mmsave");
             fs::copy_file(b,target);
             const auto result=child_test::launch(m43,
-                {L"--load-game",game.wstring(),target.wstring()},dir/(std::wstring(branch)+L".log"),
+                {"--load-game",game.u8string(),target.u8string()},dir/(std::string(branch)+".log"),
                 false,false,120000);
             child_test::require(result.exit==0 &&
                 result.output.find("M43 RESTORE EXACT BEFORE INPUT")!=std::string::npos &&
                 result.output.find("M43 DEPLETED ORIGINAL BUY PREIMAGE")!=std::string::npos &&
-                result.output.find(branch==std::wstring(L"depleted-training") ?
+                result.output.find(branch==std::string("depleted-training") ?
                     "M43 DEPLETED TRAINING DAYS9/10/11/12 GOLD490 ALL1152 ONE GENERATION" :
-                    branch==std::wstring(L"depleted") ?
+                    branch==std::string("depleted") ?
                     "M43 DEPLETED PAID REPLACEMENT ALL1152 DAY11" :
                     "M43 DEPLETED UNPAID RETAINED DAY10")!=std::string::npos &&
                 std::make_pair(buy.pid,buy.created)!=std::make_pair(result.pid,result.created),
                 "fresh-process depleted Temple/Training continuation failed");
-            if(branch==std::wstring(L"depleted-training")) {
-                const auto trained=XeenSaveFile::read(fs::path(target.wstring()+L"-T.mmsave"));
+            if(branch==std::string("depleted-training")) {
+                const auto trained=XeenSaveFile::read(fs::path(target.u8string()+"-T.mmsave"));
                 m42_test::StockOracle oracle{original.journey->random->state,original.journey->random->count,{}};
                 const auto generated=oracle.generate();
                 child_test::require(trained.journey && trained.journey->context->day==12 &&
@@ -63,7 +64,7 @@ int main(int argc,char **argv) {
             child_test::require(XeenSaveFormat::encode(XeenSaveFile::read(b))==XeenSaveFormat::encode(original),
                 "source Buy checkpoint was changed by a continuation process");
         }
-        SetEnvironmentVariableW(L"MMODERN_M43_STAGE",nullptr);
+        portable_test::setEnvironment("MMODERN_M43_STAGE",nullptr);
         std::cout<<"M43 production Buy depletion, fresh-process Temple and Training continuations passed\n";
         child_test::removePassedRun(dir);return 0;
     }catch(const std::exception &error){std::cerr<<error.what()<<'\n';return 1;}

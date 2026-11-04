@@ -1,3 +1,4 @@
+#include "XeenPortableTestSupport.h"
 #include "XeenDosExportTestSupport.h"
 #include "XeenTrainingTestSupport.h"
 #include "XeenTestInstallation.h"
@@ -8,12 +9,52 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
+#ifdef _WIN32
 #include <windows.h>
+#endif
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <iterator>
 #include <sstream>
+#ifndef _WIN32
+#include <cerrno>
+#include <sys/stat.h>
+namespace dos_rename_test {
+struct Fault {
+ std::filesystem::path target;
+ bool publication=false,fired=false,progress=false,refused=false,restoredPermissions=false;
+ unsigned restoredFiles=0;
+};
+Fault *active=nullptr;
+}
+extern "C" int __real_rename(const char *,const char *);
+extern "C" int __wrap_rename(const char *from,const char *to) {
+ using namespace dos_rename_test;namespace fs=std::filesystem;
+ auto *fault=active;if(!fault)return __real_rename(from,to);
+ const fs::path source(from),destination(to);
+ const bool selected=fault->publication ? source.filename()=="dark.new" && destination==fault->target/"DARK01.WOX" :
+  source==fault->target/"DARK01.WOX" && destination.filename()=="dark.old";
+ if(!fault->fired && selected) {
+  fault->fired=true;const auto stage=fault->publication?source.parent_path():destination.parent_path();
+  fault->progress=fs::exists(stage/"xeen.old") && (fault->publication ?
+   fs::exists(stage/"dark.old") && fs::exists(fault->target/"XEEN01.WOX") && !fs::exists(fault->target/"DARK01.WOX") :
+   !fs::exists(fault->target/"XEEN01.WOX") && fs::exists(fault->target/"DARK01.WOX"));
+  struct stat mode{};
+  if(::stat(fault->target.c_str(),&mode)<0 || ::chmod(fault->target.c_str(),mode.st_mode&~0222)<0)return -1;
+  const int result=__real_rename(from,to),failure=errno;
+  // Restore before filesystem::rename throws so the real catch can roll back.
+  fault->restoredPermissions=::chmod(fault->target.c_str(),mode.st_mode&07777)==0;
+  fault->refused=result==-1 && failure==EACCES;errno=failure;return result;
+ }
+ const int result=__real_rename(from,to);
+ if(result==0 && fault->fired) {
+  if(source.filename()=="xeen.old")fault->restoredFiles|=1;
+  if(source.filename()=="dark.old")fault->restoredFiles|=2;
+ }
+ return result;
+}
+#endif
 namespace {
 using namespace mmodern;
 using namespace mmodern::developer;
@@ -139,6 +180,7 @@ void newGameEquality(const DosExportPair &out,const DosExportPair &base,const Xe
 	}
 	std::cout<<"New Game exceptions: NAM export metadata; live Clouds New Game roster/party instead of DARK's defaults; generated merchant wares on both sides; initial explored cell. Every byte checked against its source and every modeled value parsed back.\n";
 }
+#ifdef _WIN32
 struct Junction {
 	fs::path path;
 	Junction(fs::path p,const fs::path &target):path(std::move(p)) {
@@ -147,8 +189,16 @@ struct Junction {
 	}
 	~Junction(){RemoveDirectoryW(path.c_str());}
 };
+#else
+struct Junction {
+ fs::path path;
+ Junction(const fs::path &p,const fs::path &target):path(p){fs::create_directory_symlink(target,path);}
+ ~Junction(){fs::remove(path);}
+};
+#endif
+
 void original(const GameInstallation &installation) {
-	const auto dir=fs::temp_directory_path()/("mmodern-m97-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(GetTickCount64()));
+	const auto dir=fs::temp_directory_path()/("mmodern-m97-"+std::to_string(child_test::processId())+"-"+std::to_string(child_test::ticks()));
 	fs::create_directory(dir);
 	training_test::Inputs in(installation);auto s=newGame(in);const auto base=dosNewGame(installation);
 	list(base.clouds,false);list(base.darkside,true);
@@ -223,11 +273,13 @@ void original(const GameInstallation &installation) {
 		rejects([&]{exportDosSave(installation,input,p,1,"Good");},"installation");
 	{Junction alias(dir/"game-link",installation.root);
 		rejects([&]{exportDosSave(installation,input,alias.path/"m97-must-not-exist",1,"Good");},"installation");}
+#ifdef _WIN32
 	std::wstring lower=installation.root.wstring();std::transform(lower.begin(),lower.end(),lower.begin(),::towlower);
 	rejects([&]{exportDosSave(installation,input,fs::path(lower)/"m97-must-not-exist",1,"Good");},"installation");
 	wchar_t shortName[32768];const DWORD shortLength=GetShortPathNameW(installation.root.c_str(),shortName,32768);
 	check(shortLength && shortLength<32768,"Resolve short installation path");
 	rejects([&]{exportDosSave(installation,input,fs::path(shortName)/"m97-must-not-exist",1,"Good");},"installation");
+#endif
 	std::cout<<"Input and resolved-path refusals passed\n";
 	const auto target=dir/"pair";fs::create_directory(target);raw(target/"DARK01.WOX",{7,8,9});
 	rejects([&]{exportDosSave(installation,input,target,1,"Good");},"exists");
@@ -241,12 +293,33 @@ void original(const GameInstallation &installation) {
 	rejects([&]{readDosPair(target,"11");},"1..10");
 	exportDosSave(installation,input,target,1,"Good",true);
 	check(firstX==read(target/"XEEN01.WOX") && firstD==read(target/"DARK01.WOX"),"CLI-support determinism and overwrite");
+#ifdef _WIN32
 	const HANDLE locked=CreateFileW((target/"DARK01.WOX").c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
 	check(locked!=INVALID_HANDLE_VALUE,"Lock second target for pair rollback");
 	try {rejects([&]{exportDosSave(installation,input,target,1,"Good",true);},"");}
 	catch(...) {CloseHandle(locked);throw;}
 	CloseHandle(locked);
 	check(firstX==read(target/"XEEN01.WOX") && firstD==read(target/"DARK01.WOX"),"Failed second backup rolls back the first without changing either slot file");
+#else
+ {std::ifstream held(target/"DARK01.WOX",std::ios::binary);
+ exportDosSave(installation,input,target,1,"Good",true);
+ check(firstX==read(target/"XEEN01.WOX") && firstD==read(target/"DARK01.WOX"),"POSIX overwrite with open files");}
+ for(bool publication:{false,true}) {
+  if(::geteuid()==0) {
+   std::cout<<"SKIP: POSIX DOS second-file "<<(publication?"publication":"backup")<<" rollback; root bypasses directory write permissions (geteuid()==0)\n";
+   continue;
+  }
+  dos_rename_test::Fault fault;fault.target=fs::canonical(target);fault.publication=publication;
+  struct Scope {~Scope(){dos_rename_test::active=nullptr;}} scope;dos_rename_test::active=&fault;
+  rejects([&]{exportDosSave(installation,input,target,1,"Rollback",true);},"");
+  check(fault.fired && fault.progress && fault.refused && fault.restoredPermissions,"Expected second-file kernel permission failure did not occur");
+  check(fault.restoredFiles==(publication?3u:1u),"Second-file failure did not restore the backed-up slots");
+  check(firstX==read(target/"XEEN01.WOX") && firstD==read(target/"DARK01.WOX"),"POSIX failure changed slot bytes");
+  for(const auto &entry:fs::directory_iterator(target))check(entry.path().filename().native().rfind(".dos-export-",0)!=0,"POSIX rollback left a stage");
+  std::cout<<"POSIX DOS second-file "<<(publication?"publication":"backup")<<" rollback: EACCES, both slots unchanged, no stage\n";
+ }
+
+#endif
 	fs::create_directory(target/"XEEN02.WOX");
 	rejects([&]{exportDosSave(installation,input,target,2,"Good",true);},"ordinary file");
 	check(!fs::exists(target/"DARK02.WOX"),"Non-file target left a partial pair");
@@ -260,6 +333,7 @@ void original(const GameInstallation &installation) {
 	dos_export_test::compare(openPair,base,open);
 	const auto opened=XeenMapFormat::parseMob(bytes(openPair.clouds,"maze0009.mob"));
 	check(opened.objects.at(1).x==15 && opened.objects.at(1).y==11 && opened.objects.at(1).tableIndex==4 && opened.objectTable[4]==62,"Strong-party preset exports original open chest");
+#ifdef _WIN32
 	{
 		wchar_t executable[32768];check(GetModuleFileNameW(nullptr,executable,32768)!=0,"Locate test executable");
 		const auto box=dir/"box";
@@ -271,12 +345,14 @@ void original(const GameInstallation &installation) {
 			const auto text=read(box/file);
 			for(std::size_t i=0;i<text.size();++i)if(text[i]=='\n')check(i && text[i-1]=='\r',"DOSBox launcher and profile CRLF");
 		}
+#ifdef _WIN32
 		fs::create_directories(box/"overlay"/"WORLD");raw(box/"overlay"/"WORLD"/"saved.wox",{1,2,3});
 		const auto command=L"powershell.exe -NoProfile -ExecutionPolicy Bypass -File \""+(box/"start.ps1").wstring()+L"\" >NUL";
 		check(_wsystem(command.c_str())==0,"DOSBox launcher reset");
 		check(fs::exists(box/"overlay"/"WORLD"/"XEEN01.WOX") && !fs::exists(box/"overlay"/"WORLD"/"saved.wox"),"DOSBox overlay reset");
 		unsigned backups=0;for(const auto &entry:fs::directory_iterator(box/"runs")) {check(read(entry.path()/"WORLD"/"saved.wox")==DosBytes({1,2,3}),"DOSBox backup contents");++backups;}
 		check(backups==1,"DOSBox one dated backup");
+#endif
 		rejects([&]{exportDosBoxSave(installation,input,box,1,"Box",false,std::nullopt,executable,std::nullopt);},"exists");
 		const auto custom=dir/"custom.cfg";raw(custom,{9,8,7});
 		exportDosBoxSave(installation,input,box,1,"Box",true,std::nullopt,executable,custom);
@@ -284,12 +360,14 @@ void original(const GameInstallation &installation) {
 		exportDosBoxSave(installation,input,box,1,"Box",true,std::nullopt,executable,std::nullopt);
 		check(!fs::exists(world/"XEEN.CFG"),"Default removes prior CFG seed");
 		const auto beforeX=read(world/"XEEN01.WOX"),beforeD=read(world/"DARK01.WOX"),beforeCur=read(world/"DARK.CUR"),beforeCmd=read(box/"start.cmd");
+#ifdef _WIN32
 		const HANDLE lockedCur=CreateFileW((world/"DARK.CUR").c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
 		check(lockedCur!=INVALID_HANDLE_VALUE,"Lock CUR for DOSBox rollback");
 		try {rejects([&]{exportDosBoxSave(installation,input,box,1,"Changed",true,std::nullopt,executable,std::nullopt);},"");}
 		catch(...) {CloseHandle(lockedCur);throw;}
 		CloseHandle(lockedCur);
 		check(read(world/"XEEN01.WOX")==beforeX && read(world/"DARK01.WOX")==beforeD && read(world/"DARK.CUR")==beforeCur && read(box/"start.cmd")==beforeCmd,"DOSBox publication failure rolls back all files");
+#endif
 		{Junction alias(dir/"box-game-link",installation.root);
 			rejects([&]{exportDosBoxSave(installation,input,alias.path/"bad",1,"Box",false,std::nullopt,executable,std::nullopt);},"installation");}
 		const auto redirected=dir/"box-redirect";fs::create_directory(redirected);
@@ -298,22 +376,44 @@ void original(const GameInstallation &installation) {
 			check(!fs::exists(redirected/"pristine"),"Redirected overlay leaves no seed");}
 		const auto runtime=dir/"box-runtime";
 		exportDosBoxSave(installation,input,runtime,1,"Box",false,std::nullopt,executable,std::nullopt);
+#ifdef _WIN32
 		{Junction alias(runtime/"overlay",installation.root);
 			const auto guard=L"powershell.exe -NoProfile -ExecutionPolicy Bypass -File \""+(runtime/"start.ps1").wstring()+L"\" >NUL 2>&1";
 			check(_wsystem(guard.c_str())!=0,"Launcher refuses redirected overlay");}
+#endif
 		rejects([&]{exportDosBoxSave(installation,input,dir/"missing-cfg-box",1,"Box",false,std::nullopt,executable,dir/"missing.cfg");},"CFG");
 		check(!fs::exists(dir/"missing-cfg-box"),"Missing CFG leaves no seed");
 		auto wrong=installation;wrong.edition=GameEdition::CloudsOfXeen;
 		rejects([&]{exportDosBoxSave(wrong,input,dir/"wrong-profile",1,"Box",false,std::nullopt,executable,std::nullopt);},"CD World");
 		rejects([&]{exportDosBoxSave(installation,input,dir/"missing-box",1,"Box",false,std::nullopt,dir/"absent.exe",std::nullopt);},"DOSBox executable");
 		check(!fs::exists(dir/"wrong-profile") && !fs::exists(dir/"missing-box"),"Invalid DOSBox profile leaves no seed");
+#ifdef _WIN32
 		const auto cli=fs::path(executable).parent_path()/"mmodern_dos_export.exe", cliBox=dir/"cli-box";
 		const auto cliCommand=L"\"\""+cli.wstring()+L"\" \""+installation.root.wstring()+L"\" \""+input.wstring()+L"\" \""+cliBox.wstring()+L"\" --slot 1 --name CLI --place darkside 29 10 10 north --dosbox \""+std::wstring(executable)+L"\" --cfg \""+custom.wstring()+L"\" >NUL\"";
 		check(_wsystem(cliCommand.c_str())==0 && read(cliBox/"pristine"/"WORLD"/"XEEN.CFG")==DosBytes({9,8,7}),"CLI placement, DOSBox and CFG options");
 		const auto cliPair=readDosPair(cliBox/"pristine"/"WORLD","1");
 		auto named=cliPair.darkside;nameDosMembers(named);
 		check(bytes(named,"maze.pty")[13]==29 && bytes(named,"maze.nam")[29]==1,"CLI Darkside destination");
+#endif
 	}
+#else
+ {
+  const auto rejected=dir/"posix-dosbox";
+  rejects([&]{exportDosBoxSave(installation,input,rejected,1,"Box",false,std::nullopt,fs::canonical("/proc/self/exe"),std::nullopt);},"DOSBox launchers are Windows-only");
+  check(!fs::exists(rejected),"POSIX --dosbox refusal created output");
+  const auto cli=fs::canonical("/proc/self/exe").parent_path()/"mmodern_dos_export",cliOut=dir/"cli-pair";
+  const auto run=[&](std::vector<std::string> args,const char *log){return child_test::launch(cli,args,dir/log,false,false,300000,false,false);};
+  const auto made=run({installation.root.native(),input.native(),cliOut.native(),"--slot","1","--name","CLI","--place","darkside","29","10","10","north"},"cli.log");
+  check(made.exit==0,"POSIX CLI argv export failed");
+  auto pair=readDosPair(cliOut,"1");auto named=pair.darkside;nameDosMembers(named);
+  check(bytes(named,"maze.pty")[13]==29 && bytes(named,"maze.nam")[29]==1,"POSIX CLI Darkside destination");
+  const auto nonAscii=run({"--diff",cliOut.native(),std::string("\x80"),cliOut.native(),"1"},"non-ascii.log");
+  check(nonAscii.exit==1 && nonAscii.output.find("Invalid slot")!=std::string::npos,"POSIX CLI accepted a non-ASCII slot byte");
+  const auto unsupported=run({installation.root.native(),input.native(),rejected.native(),"--slot","1","--name","CLI","--dosbox","unused"},"dosbox.log");
+  check(unsupported.exit==1 && unsupported.output.find("DOSBox launchers are Windows-only")!=std::string::npos && !fs::exists(rejected),"POSIX CLI --dosbox refusal");
+ }
+#endif
+
 	std::cout<<"Original New Game, canonical DOS order, DARK reader, chest, restore/path refusals, atomic pair and determinism passed\n";
 	check(removeTestTree(dir),"M97 test working tree cleanup");
 }

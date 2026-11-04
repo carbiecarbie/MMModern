@@ -1,10 +1,6 @@
 #ifndef MMODERN_TEST_M40_EVIDENCE_H
 #define MMODERN_TEST_M40_EVIDENCE_H
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
-#include <bcrypt.h>
+#include "XeenSha256.h"
 #include <iomanip>
 #include <filesystem>
 #include <fstream>
@@ -19,24 +15,7 @@ inline std::vector<std::uint8_t> diskBytes(const std::filesystem::path &path) {
     std::ifstream input(path,std::ios::binary);check(bool(input),"M40 previous disk read failed");
     return {std::istreambuf_iterator<char>(input),std::istreambuf_iterator<char>()};
 }
-inline std::string sha256(const std::vector<std::uint8_t> &bytes) {
-    BCRYPT_ALG_HANDLE algorithm=nullptr; BCRYPT_HASH_HANDLE hash=nullptr;
-    DWORD objectLength=0,hashLength=0,received=0;
-    const auto cleanup=[&]{if(hash)BCryptDestroyHash(hash);if(algorithm)BCryptCloseAlgorithmProvider(algorithm,0);};
-    std::vector<std::uint8_t> object,digest;
-    try {
-        check(BCryptOpenAlgorithmProvider(&algorithm,BCRYPT_SHA256_ALGORITHM,nullptr,0)>=0,"M40 SHA-256 provider");
-        check(BCryptGetProperty(algorithm,BCRYPT_OBJECT_LENGTH,reinterpret_cast<PUCHAR>(&objectLength),sizeof(objectLength),&received,0)>=0,"M40 hash object length");
-        check(BCryptGetProperty(algorithm,BCRYPT_HASH_LENGTH,reinterpret_cast<PUCHAR>(&hashLength),sizeof(hashLength),&received,0)>=0,"M40 digest length");
-        object.resize(objectLength);digest.resize(hashLength);
-        check(BCryptCreateHash(algorithm,&hash,object.data(),objectLength,nullptr,0,0)>=0,"M40 create hash");
-        check(BCryptHashData(hash,const_cast<PUCHAR>(bytes.data()),static_cast<ULONG>(bytes.size()),0)>=0,"M40 hash bytes");
-        check(BCryptFinishHash(hash,digest.data(),hashLength,0)>=0,"M40 finish hash");cleanup();
-    }catch(...){cleanup();throw;}
-    std::ostringstream result;result<<std::hex<<std::setfill('0');
-    for(auto value:digest)result<<std::setw(2)<<unsigned(value);
-    return result.str();
-}
+inline std::string sha256(const std::vector<std::uint8_t> &bytes) { return test_hash::sha256(bytes); }
 inline std::vector<std::uint8_t> stockBytes(const XeenServiceEconomy &economy) {
     std::vector<std::uint8_t> bytes;bytes.reserve(1152);
     for(const auto &side:economy.wares.records)for(const auto &shop:side)for(const auto &category:shop)for(const auto &item:category)

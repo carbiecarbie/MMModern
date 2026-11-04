@@ -1,3 +1,4 @@
+#include "XeenWrapSymbols.h"
 // Original initialization, ordinary owners, concrete SDL frames and actual F9.
 // Seed, typed input, native injection and fault controls are test-only evidence.
 #include "XeenDecisionNine.h"
@@ -47,9 +48,9 @@ namespace fs=std::filesystem;
 // Transparent executable-only probes: the opaque private response is merely
 // forwarded. Tests cannot manufacture a production casting capability.
 static unsigned castBegins=0,castResponses=0,castServices=0;
-#define CAST_BEGIN "_ZN7mmodern10XeenCombat9beginCastERNS0_12CastResponseERKSt8functionIFNS_21XeenLearnedSpellNamesEvEE"
-#define CAST_RESPOND "_ZN7mmodern10XeenCombat11respondCastERNS0_12CastResponseENS_19XeenCombatCastInputEjRKSt8functionIFNS_21XeenLearnedSpellNamesEvEE"
-#define CAST_SERVICE "_ZN7mmodern10XeenCombat11serviceCastERKNS0_6TicketEy"
+#define CAST_BEGIN XEEN_WRAP_BEGIN_CAST
+#define CAST_RESPOND XEEN_WRAP_RESPOND_CAST
+#define CAST_SERVICE XEEN_WRAP_SERVICE_CAST
 extern "C" XeenCombatResult realBegin(XeenCombat *,void *,const std::function<XeenLearnedSpellNames()> &) asm("__real_" CAST_BEGIN);
 extern "C" XeenCombatResult wrapBegin(XeenCombat *,void *,const std::function<XeenLearnedSpellNames()> &) asm("__wrap_" CAST_BEGIN);
 extern "C" XeenCombatResult wrapBegin(XeenCombat *c,void *r,const std::function<XeenLearnedSpellNames()> &p){probe_fired::hit("XeenCombat::beginCast");++castBegins;return realBegin(c,r,p);}
@@ -60,7 +61,7 @@ extern "C" XeenCombatResult realService(XeenCombat *,const XeenCombat::Ticket &,
 extern "C" XeenCombatResult wrapService(XeenCombat *,const XeenCombat::Ticket &,std::uint64_t) asm("__wrap_" CAST_SERVICE);
 extern "C" XeenCombatResult wrapService(XeenCombat *c,const XeenCombat::Ticket &t,std::uint64_t n){probe_fired::hit("XeenCombat::serviceCast");++castServices;return realService(c,t,n);}
 
-#define PLAY_SYMBOL "_ZNK7mmodern11Application12playGameplayERKNS_20XeenGameplayServicesENS_10XeenCameraERKSt8optionalINSt10filesystem7__cxx114pathEEbNS_18XeenEncounterEntryES5_IjE"
+#define PLAY_SYMBOL XEEN_WRAP_PLAY_GAMEPLAY
 extern "C" int realPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__real_" PLAY_SYMBOL);
 extern "C" int wrappedPlay(const Application *,const XeenGameplayServices &,XeenCamera,const std::optional<fs::path> &,bool,XeenEncounterEntry,std::optional<std::uint32_t>) asm("__wrap_" PLAY_SYMBOL);
 namespace {
