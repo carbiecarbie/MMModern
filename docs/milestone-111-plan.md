@@ -1,9 +1,10 @@
 # Milestone 111 plan - Xeen Slayer selector and whole-Event discard
 
-**Tier A. Status: planned (2026-11-03); not started.** The two Tier A items
-the [roadmap](roadmap.md#darkside-arc) kept waiting for a fitting milestone,
-chosen by the maintainer on 2026-11-03. Amended after the independent plan
-review (2026-11-03). Save v26 and Journey schema 9 / content 14 stay
+**Tier A. Status: in progress; Part 0 settled (2026-11-03).** The two Tier A
+items the [roadmap](roadmap.md#darkside-arc) kept waiting for a fitting
+milestone, chosen by the maintainer on 2026-11-03. Amended after the
+independent plan review (2026-11-03) and after
+[Part 0](rules/evidence.md#m111-part-0) (empty shots keep the selector). Save v26 and Journey schema 9 / content 14 stay
 unchanged: nothing in either Part is saved. The M44 digests should not change.
 
 ## Goal
@@ -36,10 +37,18 @@ Two remaining differences from DOS go away:
   high confidence.
 - [Selector writers known so far](original-quirks.md#sv-unarmed-weapon-selector):
   the weapon helper clears DS `0x96ee` at `0x2dfff` and assigns the equipped
-  ID at `0x2e0ee`, so unarmed melee leaves 0, Shoot leaves the missile's ID
-  (30-33) and Poison Volley runs the same helper. The second bypass, nonzero
+  ID at `0x2e0ee`, so unarmed melee leaves 0. The second bypass, nonzero
   range with a nonzero effect selector DS `0x972e`, is cleared by melee and
   Shoot ([combat rules](rules/combat.md)). Neither selector is saved.
+- [Part 0](rules/evidence.md#m111-part-0) (calibrated DOS static, high):
+  those are the only gameplay writers of DS `0x96ee`; only process start
+  zeroes it, not New Game, Load or combat. Shoot and Poison Volley replace it
+  (missile ID or 0) only when target delivery reaches the weapon helper; a
+  Shoot with no eligible shooter, or a Shoot or Poison Volley with no target,
+  keeps the previous ID, including 34. Every physical cast writes effect 0, so
+  only the exact-ID test can bypass for it; the six physical routes (Flying
+  Fist, Pain, Shrapmetal, Deadly Swarm, Dancing Sword, Prismatic Light's type
+  0) match MMModern's list, items included.
 - MMModern keeps DS `0x96ee` as `XeenProgramState::attackWeaponFx` (process
   lifetime, app layer), written only through `XeenConsequenceDraw::weaponSelected`,
   which all eight construction sites already bind.
@@ -57,7 +66,8 @@ Two remaining differences from DOS go away:
 
 ### Part 0 - DOS check of the selectors (read-only)
 
-Calibrated static analysis of `WORLD/XEEN.DAT`, recorded in
+Done 2026-11-03: [evidence](rules/evidence.md#m111-part-0); results in
+"Evidence already settled" above. Its scope was calibrated static analysis of `WORLD/XEEN.DAT`, recorded in
 [evidence](rules/evidence.md) and [combat rules](rules/combat.md):
 
 - Every write to DS `0x96ee`, including program start, new game, load and
@@ -81,8 +91,12 @@ If Part 0 contradicts the settled evidence, stop and report before Part A.
   never receives `XeenProgramState`.
 - `XeenSpellDamageCandidate` reads the selector at attack2, in the step where
   it reduces physical damage today, and applies `xeenPhysicalAttackDamage`
-  (ID exactly 34 bypasses; the effect selector as Part 0 settles), so melee
-  and spells share one rule. Spell candidates built ahead of time (combat's
+  (ID exactly 34 bypasses; effect 0, as Part 0 settled), so melee and spells
+  share one rule.
+- The selector is written only where DOS reaches the weapon helper: melee and
+  delivered Shoot and Poison Volley shots. Part A checks that a Shoot with no
+  eligible shooter and a Shoot or Poison Volley with no target write nothing
+  in MMModern, and fixes any site that does. Spell candidates built ahead of time (combat's
   next targets) therefore see the value current at damage time. No constructor
   argument; the `XeenPhysicalPlayerCandidate` constructor that
   `tests/XeenConsequenceOriginal.cpp` wraps by its mangled name stays as is.
@@ -171,9 +185,12 @@ needed.
   resistance; Clouds Lord Xeen (resource 89) still refused before damage.
   Original-data cases: a Slayer Sword melee round, then Pain on a physically
   resistant monster deals unreduced damage; the same cast after unarmed melee,
-  another weapon or Shoot is reduced; multi-target Pain through the pre-built
-  candidates; a journey (out-of-combat) physical spell after a Slayer fight;
-  Poison Volley unchanged; Poison Volley then Pain as Part 0 settles.
+  another weapon or a delivered Shoot is reduced; after a Slayer attack, an
+  empty Shoot (no eligible shooter, or no target) or a no-target Poison Volley
+  leaves Pain unreduced; a delivered Poison Volley then Pain is reduced;
+  multi-target Pain through the pre-built candidates; a journey
+  (out-of-combat) physical spell after a Slayer fight; Poison Volley's own
+  damage unchanged.
 - **Part B.** Synthetic Events that grant gold, items, quest items, quest and
   game flags, time and a draw, then refuse (execution error, unsupported
   interaction, refused transition, permanent presentation failure), in

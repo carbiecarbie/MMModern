@@ -3434,3 +3434,147 @@ above. Scripts and outputs (`decode.py`, `match.py`, `timing.py`,
 `audio.py`, `model-matches.json`, `timing.json`, `audio-onsets*.txt`) remain
 under `D:/Projetos/MModern/MModern-re/m107/capture/`; no image or audio
 derived from the capture is in the repository.
+
+## M111 Part 0
+
+**Calibrated DOS static, high confidence (2026-11-03).** Baseline MMModern
+`a8edc40b8b33b6a9491eb9dcf9e9431c6506ba1c`, clean `main`; installed English
+CD `WORLD/XEEN.DAT`, 353,511 bytes, SHA-256
+`8bf78b4850d5973cbb063c7dd96b9aaef4e94791d748334187eef74acf528d27`.
+WSL Python 3 / Capstone 5.0.7 decoded the original read-only. Calibration
+reproduced the weapon helper's zero at `0x2dfe4..0x2dfff`, equipped-ID
+assignment at `0x2e0e9..0x2e0ee`, and the range/effect and exact-ID-34
+resistance gates at `0x2beab..0x2bf2b` before extending the search. Address
+conversion is as in [Exact baseline](#exact-baseline): Ghidra linear address
+equals file offset plus `0xa940`; module segment:offset maps to
+`0x56c0 + segment * 16 + offset`. DS is module segment `0x481d`.
+
+### Weapon selector writers and lifetime
+
+**Verdict: two gameplay stores, plus process-start initialization.** The
+whole-image search finds six literal references to byte DS `0x96ee`: reads
+at `0x2be58`, `0x2beb6`, `0x2c0ba`, `0x2c0ef`, and stores at `0x2dfff`
+(zero) and `0x2e0ee` (selected equipped weapon ID). Neither instruction takes
+the selector's address. The helper clears it even when no weapon qualifies;
+unarmed melee leaves 0. When target delivery invokes the helper, Shoot and
+Poison Volley replace the previous ID with the selected missile ID, or 0 if
+no weapon qualifies. Issuing either command alone is not a selector reset.
+
+Shoot with no eligible shooter exits at `0x1d920..0x1d928` after the
+eligibility loop `0x1d8df..0x1d908`, without calling the weapon helper.
+Poison Volley instead arms every lane (`0x1d8a0..0x1d8bb`). Both still
+require an actual target: the four target-delivery gates are
+`0x1dae1..0x1db12`, `0x1dc08..0x1dc36`, `0x1dd28..0x1dd56`,
+`0x1de48..0x1de76`. With no target, cleanup `0x1de9e -> 0x2ed14..0x2ede0`
+only clears sprite/flight state. The old weapon ID survives a no-shooter
+Shoot or a no-target Shoot/Poison Volley, including ID 34.
+
+The MZ entry `0x564dc..0x564e6` returns to module entry `0x56c0` through its
+relocated far jump. Startup establishes DS at `0x56c0..0x56d4`, then the
+successful allocation path clears DS `[0x8c4c,0xfd78)` at
+`0x576c..0x577c`, including **both** selectors. This is the additional bulk
+writer; it is not a New Game, Load or combat reset.
+
+The search also checked adjacent/overlapping stores and runtime fill spans,
+not just the two literal addresses. The fill at `0x1fdf8..0x1fe00` starts
+at DS `0x96ef`, one byte after the weapon selector, and ends at `0x96fb`.
+Combat setup fills DS `[0x9720,0x9729)`, `[0x9707,0x9713)` and
+`[0x96fb,0x9707)` at `0x2e69a..0x2e6c3`; round resets
+`0x2ea1a..0x2ea32` touch the latter two arrays. None reaches either selector.
+Combat exit `0x2ebc5..0x2ec3c` does not reset them. The already settled
+[save/load and New Game ranges](#save-and-load-boundary) also exclude them:
+the saved DS `0x96c5` span ends at `0x96e4`, before the weapon selector;
+the party span starts at `0xed8c`. There is no additional selector writer
+on those paths. A running process retains its weapon selector through Load,
+New Game and combat entry/exit; a fresh process starts it at 0.
+
+### Effect selector writes on the spell path
+
+**Verdict: a physical spell explicitly sets word DS `0x972e` to 0; it does
+not inherit the previous effect.** There are 38 stores in the spell/item
+handlers. Grouped by the value assigned, their complete inventory is:
+
+| Assigned selector | Store file offsets |
+| --- | --- |
+| 0 | `0x2f468`, `0x2f5ef`, `0x3032b`, `0x30a35`, `0x30ffb` |
+| 2 | `0x30064`, `0x30625`, `0x30b5e`, `0x30cc9`, `0x30d32`, `0x30f13` |
+| 3 | `0x2f567`, `0x2fc30`, `0x30ca6` |
+| 4 | `0x2fc7d`, `0x30284`, `0x308e0`, `0x30eb2` |
+| 5 | `0x2f612`, `0x30242` |
+| 6 | `0x2f5a9`, `0x30a85`, `0x30cec`, `0x30d0f` |
+| 7, 8, 9, 10, 11 | `0x2f5cc`, `0x3056e`, `0x30bd1`, `0x30ae6`, `0x2f720`, respectively |
+| 12, 13, 14, 15, 16 | `0x30df9`, `0x30e8f`, `0x30ecd`, `0x30ef0`, `0x30f36`, respectively |
+| 17, 18 | `0x30fc9`, `0x30fae`, respectively |
+| One random type 0..6 (Prismatic Light) | `0x30a58..0x30a64` |
+| One random type 2..5 (Elemental Storm) | `0x30b81..0x30b8d` |
+
+Projectile entry converts Poison Volley's selector 17 to 5 at
+`0x1d899..0x1d8a0`, before delivering it through the shooter helper
+(`0x2cb6b..0x2cb7c`). Ordinary spell delivery calls attack2 at
+`0x2cf94..0x2cf9f` without a selector store. Melee clears the effect at
+`0x2c8b2`; party Shoot clears it at `0x1f99a`. Outside this spell path,
+terrain damage also writes it at `0xc962`, `0xc96d`, `0xc9a1`; startup's
+bulk zero is described above. These account for all 44 direct stores among
+the 57 literal references to DS `0x972e`.
+
+Consequently **Poison Volley followed by Pain does not retain the
+range-and-effect bypass**: Pain writes 0 at `0x2f5ef`, so the nonzero-range
+test at `0x2beab..0x2beb4` cannot bypass resistance through the effect.
+If Poison Volley's delivery reached the weapon helper, that helper has also
+replaced any earlier Slayer ID. A no-target Poison Volley can retain ID 34;
+Pain then still bypasses through the weapon test, **not** the effect test.
+Pain after a Slayer melee attack likewise retains weapon 34 and bypasses
+through the independent exact-ID test at `0x2beb6..0x2bebb`.
+
+### Every physical spell and item route
+
+**Verdict: no missing or extra entry in MMModern's physical-damage list.**
+The 76 learned dispatch entries are at `[0x3382b,0x338c3)`, selected by
+`0x332bb..0x332c7`, with CS file base `0x31010`; the 73 item entries are
+at `[0x3a114,0x3a1a6)`, selected by `0x39e4b..0x39e5c`, with CS file base
+`0x39ca0`. Following those destinations yields exactly these type-0 casts:
+
+| Spell (global ID); item power | Learned / item call sites | Type-0 preparation |
+| --- | --- | --- |
+| Flying Fist (27); 5 | `0x33422` / `0x39e81` | Damage 6; effect 0 at `0x2f462..0x2f468` |
+| Pain (50); 15 | `0x33558` / `0x39ed1` | Damage 8; effect 0 at `0x2f5e9..0x2f5ef` |
+| Shrapmetal (60); 11 | `0x335a8` / `0x39eb1` | Twice caster level; effect 0 at `0x30fe6..0x30ffb` |
+| Deadly Swarm (14); 47 | `0x3333c` / `0x3a00d` | Damage 40; effect 0 at `0x30325..0x3032b` |
+| Dancing Sword (11); 59 | `0x33324` / `0x3a0aa` | `R(6,14)` times caster level; effect 0 at `0x30a10..0x30a35` |
+| Prismatic Light (54); 62 | `0x33578` / `0x3a0bf` | Damage 80; physical only when the type draw at `0x30a58..0x30a64` is 0 |
+
+The item calls share the corresponding learned handler. Elemental Storm's
+draw starts at 2, so it is not an additional physical route. In
+`src/games/xeen/XeenCombatRules.cpp`, `XeenSpellDamageCandidate` names
+Flying Fist, Pain and Shrapmetal; its prepared-type-0 branch covers Deadly
+Swarm, Dancing Sword and Prismatic Light's physical result. This confirms
+the classification, not implementation of the retained-ID bypass, which
+is still absent at this baseline.
+
+### Intervening actions and confidence boundary
+
+**Verdict: no hidden weapon-selector reset between an attack and a later
+spell's damage.** Monster turns (`0x2d22d..0x2dcf2`), Block
+(`0x2e205..0x2e210`), Run (`0x2e1c0..0x2e204`) and the item-use wrapper
+(`0x3145c..0x314d3`) add no selector write. An item's spell handler can
+write the effect as inventoried above; Poison Volley can also replace the
+weapon ID. The selectors therefore have different lifetimes: spell
+preparation writes the effect, while the last weapon helper supplies the
+weapon ID. Target iteration (`0x1daef..0x1debf`) clears hit/flight scratch
+at DS `0x973c` and `0x9744`, and ordinary attack2 delivery does not change
+either selector between targets. Poison Volley remains the shooter-helper
+exception. Terrain's effect writes do not change the retained weapon ID.
+
+All four verdicts have high confidence for this identified program's normal
+paths: calibrated instruction/control-flow checks, whole-image literal and
+overlapping-store searches, runtime-fill inspection and dispatch inventory.
+This is static evidence, not a DOSBox observation or a runtime watchpoint
+trace, and does not claim to exclude arbitrary corrupted-pointer writes.
+The exact-ID and physical-effect-zero rules are confirmed. The no-shooter
+and no-target cases qualify M111's unconditioned statement that Shoot leaves
+a missile ID: a delivered shot replaces the ID; an empty shot or cast
+retains it. A selector-replacement witness must reach the weapon helper.
+Scripts, full inventories and instruction slices remain only
+under `D:/Projetos/MModern/MModern-re/m111-part0/`, including
+`calibrate.py`, `query.py`, `physical-casts.py`, `dispatch-inventory.txt`,
+`alias-sweep.py`, `memset.txt` and `selector-sweep/`.

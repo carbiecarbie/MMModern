@@ -200,21 +200,38 @@ become 20 and 51, respectively.
 
 ### Applying weapon damage
 
-**Evidence: DOS static (`WORLD/XEEN.DAT` `0x2be0c..0x2bf2b`) for the entry and
-physical-resistance gates; the elemental and ordinary-save details below remain
-from the pinned reference.** A zero accumulated input skips the positive branch:
-no elemental addition and no monster save. Clouds Lord Xeen also takes this zero
-exit for non-melee input, before waking or saving.
+**Evidence: calibrated DOS static, high confidence (`WORLD/XEEN.DAT`
+`0x2be0c..0x2bf2b`; [M111 Part 0](evidence.md#m111-part-0)) for the entry,
+physical-resistance gates and selector lifetime; the elemental and ordinary-save
+details below remain from the pinned reference.** A zero accumulated input
+skips the positive branch: no elemental addition and no monster save. Clouds
+Lord Xeen also takes this zero exit for non-melee input, before waking or saving.
 
 For an ordinary positive melee input, physical resistance applies first:
 `physical = total * (100 - physical resistance) / 100`; resistance 100 sets it to
 zero. Exactly the Xeen Slayer Sword (weapon 34) bypasses it (`0x2beb6`), as does
 nonzero range with a nonzero current attack/spell effect selector DS `0x972e`
 (`0x2beab..0x2beb4`). Melee clears that unsaved selector (`0x2c8b2`), and so
-does party Shoot at its entry (`0x1f994..0x1f99a`), so a preceding ranged spell
-never carries into Shoot; ranged spell dispatch sets it, including Poison
-Volley. Larger weapon IDs do not bypass
-resistance. Lord Xeen's bonus precedes this reduction; see below.
+does party Shoot at its entry (`0x1f994..0x1f99a`). Physical spells explicitly
+set it to 0, including Pain at `0x2f5ef`; Poison Volley's 17 becomes 5 at
+`0x1d899..0x1d8a0`. Poison Volley followed by Pain therefore does not preserve
+the effect-based bypass. Larger weapon IDs do not bypass resistance.
+Lord Xeen's bonus precedes this reduction; see below.
+
+The independent weapon selector is byte DS `0x96ee`: its only gameplay stores
+are the weapon helper's clear at `0x2dfff` and equipped-ID assignment at
+`0x2e0ee`. Unarmed melee leaves 0; Shoot and Poison Volley replace it when
+target delivery invokes that helper. Shoot with no eligible shooter
+(`0x1d920..0x1d928`), or either action with no target, retains the previous
+weapon ID; projectile cleanup at `0x2ed14..0x2ede0` does not clear it.
+Startup zeroes both selectors (`0x576c..0x577c`), but New Game,
+Load, combat entry/exit, monster turns, Block and Run do not reset the weapon
+ID. Ordinary spell and item-spell delivery retain it, including between
+targets. A physical spell after a Slayer attack therefore bypasses physical
+resistance through ID 34, despite its effect selector being 0. Neither selector
+is saved. **Baseline implementation gap:** MMModern retains the weapon ID for
+presentation, but `XeenSpellDamageCandidate` still reduces physical spells
+without consulting it; M111 Part A covers that change.
 
 Add the elemental weapon contribution once per applied action, after physical
 resistance. It is `ELEMENTAL_DAMAGE[material] * (100 - elemental resistance) / 100`,
@@ -255,9 +272,10 @@ dice 3 clamps to 0 and draws no save. Effectiveness never applies to Shoot.
 
 ### Spell interactions and retained DOS evidence
 
-**Evidence: DOS static (retained evidence) for the three explicitly named rules;
-Reference only for general pipeline context.** These are summaries of already
-recorded analysis, not fresh binary verification by this chapter.
+**Evidence: DOS static (retained evidence) for the first three rules;
+calibrated DOS static, high confidence (M111 Part 0, 2026-11-03) for the
+selector and physical-cast inventory; Reference only for general pipeline
+context.**
 
 - Monster elemental resistance does not reduce the base damage of elemental
   spells: `getMonsterResistance` starts its spell-path contribution at zero.
@@ -267,8 +285,16 @@ recorded analysis, not fresh binary verification by this chapter.
   change its 8 damage. Retained offsets `0x30fa8`, `0x2cde4`, `0x2c037`, `0x2c59a`.
 - Pain prepares 8 physical damage in DOS, while the pinned spell implementation
   prepares zero. Retained offsets `0x33558`, `0x2f5e9`, `0x2cd81`.
+- Every physical cast writes effect 0 and retains the last weapon ID:
+  Flying Fist (`0x2f468`), Pain (`0x2f5ef`), Shrapmetal (`0x30ffb`),
+  Deadly Swarm (`0x3032b`), Dancing Sword (`0x30a35`), and Prismatic Light
+  when its one type draw is 0 (`0x30a58..0x30a64`). Item powers 5, 15, 11,
+  47, 59 and 62 share those respective handlers. Elemental Storm draws only
+  types 2..5 (`0x30b81..0x30b8d`), so it cannot produce physical damage.
+  MMModern's named and prepared-type-0 cases cover exactly this list.
+  [Full writer and dispatch inventory](evidence.md#m111-part-0).
 
-All three findings and their implementation locations are recorded in
+These findings and their implementation boundaries are recorded in
 [original quirks](../original-quirks.md). Spell admission, target selection and
 spell costs must be consulted separately; these exceptions do not establish all
 spell behavior.
