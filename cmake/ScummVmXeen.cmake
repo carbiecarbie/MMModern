@@ -30,11 +30,12 @@ function(add_mmodern_scummvm_xeen_bridge target_name)
 	# SpriteResource's stream decoder shares a translation unit with engine-only
 	# path loading. MinGW resolves those unused references before gc-sections, so
 	# build a private filtered object exactly as the proven xeen_probe does.
+	if(WIN32)
 	add_custom_command(
 		OUTPUT "${sprite_stream_object}"
 		COMMAND "${CMAKE_COMMAND}" -E make_directory "${sprite_object_dir}"
 		COMMAND "${CMAKE_CXX_COMPILER}"
-			-std=gnu++11 -DWIN32 -DUNICODE -D_UNICODE
+			-std=gnu++11 ${MMODERN_SCUMMVM_DEFINE_FLAGS}
 			-ffunction-sections -fdata-sections
 			-I "${SCUMMVM_BUILD_DIR}" -I "${SCUMMVM_SOURCE_DIR}"
 			-I "${SCUMMVM_SOURCE_DIR}/engines"
@@ -59,6 +60,14 @@ function(add_mmodern_scummvm_xeen_bridge target_name)
 		DEPENDS "${sprite_source}"
 		VERBATIM
 	)
+ else()
+ add_custom_command(OUTPUT "${sprite_stream_object}"
+  COMMAND "${CMAKE_COMMAND}" -E make_directory "${sprite_object_dir}"
+  COMMAND "${CMAKE_CXX_COMPILER}" -std=gnu++11 ${MMODERN_SCUMMVM_DEFINE_FLAGS}
+   -ffunction-sections -fdata-sections -I "${SCUMMVM_BUILD_DIR}" -I "${SCUMMVM_SOURCE_DIR}"
+   -I "${SCUMMVM_SOURCE_DIR}/engines" -c "${sprite_source}" -o "${sprite_stream_object}"
+  DEPENDS "${sprite_source}" VERBATIM)
+ endif()
 	set_source_files_properties("${sprite_stream_object}" PROPERTIES
 		GENERATED TRUE
 		EXTERNAL_OBJECT TRUE
@@ -69,9 +78,10 @@ function(add_mmodern_scummvm_xeen_bridge target_name)
 	set(nuked_source "${SCUMMVM_SOURCE_DIR}/audio/softsynth/opl/nuked.cpp")
 	set(nuked_full "${sprite_object_dir}/nuked.full.o")
 	set(nuked_core "${sprite_object_dir}/nuked.core.o")
+	if(WIN32)
 	add_custom_command(OUTPUT "${nuked_core}"
 		COMMAND "${CMAKE_COMMAND}" -E make_directory "${sprite_object_dir}"
-		COMMAND "${CMAKE_CXX_COMPILER}" -std=gnu++11 -DWIN32 -DUNICODE -D_UNICODE
+		COMMAND "${CMAKE_CXX_COMPILER}" -std=gnu++11 ${MMODERN_SCUMMVM_DEFINE_FLAGS}
 			-O2 -ffunction-sections -fdata-sections
 			-I "${SCUMMVM_BUILD_DIR}" -I "${SCUMMVM_SOURCE_DIR}"
 			-c "${nuked_source}" -o "${nuked_full}"
@@ -82,6 +92,14 @@ function(add_mmodern_scummvm_xeen_bridge target_name)
 		COMMAND "${CMAKE_COMMAND}" -E rm -f "${nuked_full}"
 		DEPENDS "${nuked_source}" "${SCUMMVM_SOURCE_DIR}/audio/softsynth/opl/nuked.h"
 		VERBATIM)
+ else()
+ add_custom_command(OUTPUT "${nuked_core}"
+  COMMAND "${CMAKE_COMMAND}" -E make_directory "${sprite_object_dir}"
+  COMMAND "${CMAKE_CXX_COMPILER}" -std=gnu++11 ${MMODERN_SCUMMVM_DEFINE_FLAGS}
+   -O2 -ffunction-sections -fdata-sections -I "${SCUMMVM_BUILD_DIR}" -I "${SCUMMVM_SOURCE_DIR}"
+   -c "${nuked_source}" -o "${nuked_core}"
+  DEPENDS "${nuked_source}" "${SCUMMVM_SOURCE_DIR}/audio/softsynth/opl/nuked.h" VERBATIM)
+ endif()
 	set_source_files_properties("${nuked_core}" PROPERTIES GENERATED TRUE EXTERNAL_OBJECT TRUE)
 
 	add_library(${target_name} STATIC
@@ -101,16 +119,15 @@ function(add_mmodern_scummvm_xeen_bridge target_name)
 		PRIVATE "${SCUMMVM_BUILD_DIR}" "${SCUMMVM_SOURCE_DIR}"
 			"${SCUMMVM_SOURCE_DIR}/engines"
 	)
-	target_compile_definitions(${target_name} PRIVATE WIN32 UNICODE _UNICODE)
+	target_compile_definitions(${target_name} PRIVATE ${MMODERN_SCUMMVM_DEFINES})
 	target_compile_options(${target_name} PRIVATE -ffunction-sections -fdata-sections)
 	target_link_libraries(${target_name} PUBLIC mmodern_core PRIVATE
 		${scummvm_link_files}
 		ZLIB::ZLIB
 	)
 
-	if(MINGW)
-		target_link_libraries(${target_name} PRIVATE
-			winmm gdi32 ole32 uuid winspool sapi
-		)
-	endif()
+	if(CMAKE_EXECUTABLE_FORMAT STREQUAL "ELF")
+  target_link_options(${target_name} INTERFACE -Wl,--gc-sections)
+ endif()
+	target_link_libraries(${target_name} PRIVATE mmodern_platform_libs)
 endfunction()

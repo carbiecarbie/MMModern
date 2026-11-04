@@ -13,11 +13,19 @@ case "$step" in
 	configure)
 		mkdir -p "$build"
 		cd "$build"
+		if [ "$(uname -s)" = Linux ]; then
+			"$source/configure" \
+				--backend=sdl \
+				--disable-all-engines \
+				--disable-detection-full \
+				--disable-ogg --disable-vorbis
+		else
 		SDL_CONFIG=/ucrt64/bin/sdl2-config \
 			"$source/configure" \
 			--backend=sdl \
 			--disable-all-engines \
 			--disable-detection-full
+		fi
 		;;
 	build)
 		cd "$build"

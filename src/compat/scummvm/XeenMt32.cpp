@@ -4,8 +4,7 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-#include <windows.h>
-#include <shlobj.h>
+#include "platform/XeenUserFolders.h"
 #include <algorithm>
 #include <array>
 #include <fstream>
@@ -36,10 +35,15 @@ template struct PrivateMember<QueuePosition,&MT32Emu::MidiEventQueue::startPosit
 template struct PrivateMember<QueueMask,&MT32Emu::MidiEventQueue::ringBufferMask>;
 
 std::filesystem::path playerRomDirectory() {
- PWSTR value=nullptr;
- if(FAILED(SHGetKnownFolderPath(FOLDERID_LocalAppData,0,nullptr,&value))){CoTaskMemFree(value);return {};}
- const std::filesystem::path path(value);CoTaskMemFree(value);
- return path.empty()?std::filesystem::path{}:path/"MMModern"/"roms";
+#ifdef _WIN32
+ try {
+  const auto path=xeenWindowsAppData();
+  return path.empty()?std::filesystem::path{}:path/"MMModern"/"roms";
+ }catch(...){return {};}
+#else
+ try{return xeenUserFolder()/"roms";}catch(...){return {};}
+#endif
+
 }
 struct ImageDelete {void operator()(const MT32Emu::ROMImage *image) const {if(image)MT32Emu::ROMImage::freeROMImage(image);}};
 using Image=std::unique_ptr<const MT32Emu::ROMImage,ImageDelete>;

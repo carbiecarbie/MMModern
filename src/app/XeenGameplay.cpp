@@ -1,3 +1,5 @@
+#include "core/PathText.h"
+#include "platform/XeenFileOperations.h"
 #include "app/Application.h"
 #include "app/XeenAudio.h"
 #include "app/XeenGameplayServices.h"
@@ -421,7 +423,7 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
       if(!flow.encounterFrameCurrent())throw;
       panelTicket=flow.encounter()->ticket();checkPanel();
       auto message=std::string(e.what());
-      if(message.find("Windows error 112")!=std::string::npos || message.find("Windows error 39")!=std::string::npos)
+      if(xeenIsOutOfSpace(e))
        message=std::string(flow.dosText().scalar("SAVE_AS_SPACE"));
       panel->panelResult(message);
      }

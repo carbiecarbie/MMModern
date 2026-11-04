@@ -1,3 +1,4 @@
+#include "platform/XeenFileOperations.h"
 #include "app/XeenEventFlow.h"
 #include "app/XeenAudio.h"
 #include "games/xeen/XeenJourneyCapture.h"
@@ -13,7 +14,7 @@ namespace {
 struct InnBusy {bool &value;explicit InnBusy(bool &v):value(v){value=true;}~InnBusy(){value=false;}};
 std::string forcedSaveError(const XeenDosText &text,const std::exception &error) {
     const auto message=std::string(error.what());
-    return message.find("Windows error 112")!=std::string::npos || message.find("Windows error 39")!=std::string::npos?
+    return xeenIsOutOfSpace(error)?
         std::string(text.scalar("SAVE_AS_SPACE")):message;
 }
 }

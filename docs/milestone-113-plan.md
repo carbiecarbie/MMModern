@@ -182,7 +182,10 @@ with throwaway shims in a WSL clone (`~/m113-measure`, reference only):
     installation, its archive folders and the repository are only resolved
     and compared by `(st_dev, st_ino)` along the target's resolved
     ancestors, never refused for being remote. The comparison by identity,
-    not path text, catches case-insensitive volumes and bind mounts. On
+    not path text, catches case-insensitive volumes and a bind mount of a
+    whole protected root. A bind mount of one of its subdirectories is not
+    detected; creating one needs root, so this limitation is accepted and
+    documented at the check (maintainer, 2026-11-04). On
     Windows a remote protected root still fails every save; on Linux, game
     data on a network share or on `/mnt/f` stays playable.
   - **Publication:**
@@ -266,6 +269,12 @@ with throwaway shims in a WSL clone (`~/m113-measure`, reference only):
     - `.github/ci/scummvm.sh` adds the flags only on Linux, so the Windows
       configure command and its install order stay as they are.
     - MMModern still links the system's `vorbisfile` for CD speech.
+    - System Vorbis builds can decode a few CD samples 1 LSB apart from the
+      Windows static build (measured in Part A: 4 of 88,200). So
+      `xeen_audio_golden` keeps its full-mix hash on Windows only; every
+      platform keeps the exact register, gain, timing, OPL and digital
+      goldens, and elsewhere the CD and full mix are checked by sample count
+      and CD audibility (maintainer, 2026-11-04).
 - **One item-catalog generator.** `tools/GenerateXeenItemCatalog.ps1` and
   `tests/XeenItemCatalogGenerationTests.ps1` become CMake scripts run with
   `cmake -P` on every platform, still at configure time and on every build:
@@ -362,7 +371,9 @@ independent implementation review and its own commit after maintainer
 authorization.
 - Until Part B, the targets that cannot build on Linux are registered
   `if(WIN32)` behind one named list, so the Linux suite is complete for
-  what Part A delivers. Part B empties that list down to the Windows-only
+  what Part A delivers. The list also holds the tests that only Part B's
+  `--wrap` names make pass on Linux (`xeen_completed_restore`,
+  `xeen_m86_presentation`). Part B empties that list down to the Windows-only
   tests.
 - Part A changes no Windows test source except a named list, which the
   part's report gives: the new tests and the disk-full callers.

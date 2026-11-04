@@ -1,3 +1,5 @@
+#include "core/PathText.h"
+#include "platform/XeenFileOperations.h"
 #include "app/Application.h"
 #include "app/XeenAudio.h"
 #include "app/XeenTitleFlow.h"
@@ -72,7 +74,7 @@ int Application::run(const std::filesystem::path &gameDirectory) const {return r
 int Application::runTitle(const std::filesystem::path &gameDirectory,std::optional<std::uint32_t> endingScore,bool startup,XeenSessionOutcome::Kind endingKind) const {
  try {
   const auto installation=XeenInstallationDetector(_uiData,_cfg,_translation).detect(gameDirectory);
-  if(!installation) {std::cerr<<"No Xeen installation found: "<<gameDirectory.u8string()<<'\n';return 2;}
+  if(!installation) {std::cerr<<"No Xeen installation found: "<<xeenPathText(gameDirectory)<<'\n';return 2;}
   const std::filesystem::path repository=MMODERN_REPOSITORY_ROOT;
   const auto directory=XeenSaveFile::createSlotDirectory(*installation,repository);
   const auto signature=XeenSaveFile::fingerprint(*installation);
@@ -231,7 +233,7 @@ int Application::runTitle(const std::filesystem::path &gameDirectory,std::option
       check();return true;
      }catch(const std::exception &e) {
       check();std::string message=e.what();
-      if(message.find("Windows error 112")!=std::string::npos || message.find("Windows error 39")!=std::string::npos)
+      if(xeenIsOutOfSpace(e))
        message=std::string(assets.uiText().scalar("NEW_SPACE"));
       title->publicationFailure(message);const auto retry=showTitle(*title,assets,*_program.audio);check();
       if(!retry){exitRequested=true;return false;}

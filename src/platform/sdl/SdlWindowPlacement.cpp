@@ -6,8 +6,7 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-#include <windows.h>
-#include <shlobj.h>
+#include "platform/XeenUserFolders.h"
 
 #include <algorithm>
 #include <charconv>
@@ -98,15 +97,8 @@ bool writeWindowPlacement(const std::filesystem::path &file, const WindowPlaceme
 }
 
 std::optional<std::filesystem::path> windowPlacementFile() {
-	PWSTR value = nullptr;
-	if (FAILED(SHGetKnownFolderPath(FOLDERID_LocalAppData, 0, nullptr, &value))) {
-		CoTaskMemFree(value);
-		return std::nullopt;
-	}
-	const std::filesystem::path base(value);
-	CoTaskMemFree(value);
-	if (base.empty() || !base.is_absolute()) return std::nullopt;
-	return base / "MMModern" / "window.ini";
+ try{return xeenUserFolder()/"window.ini";}catch(...){return {};}
+
 }
 
 int initialWindowScale(int usableWidth, int usableHeight, int frameWidth, int frameHeight) {

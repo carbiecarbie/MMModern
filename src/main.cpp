@@ -1,3 +1,4 @@
+#include "core/PathText.h"
 #include "app/Application.h"
 #include "app/XeenPlayerSupport.h"
 #include "formats/xeen/XeenRussianTranslation.h"
@@ -14,8 +15,10 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
+#ifdef _WIN32
 #include <windows.h>
 #include <shellapi.h>
+#endif
 
 namespace {
 
@@ -86,6 +89,7 @@ bool parseDirection(const std::string &text, mmodern::XeenDirection &direction) 
 } // namespace
 
 int main(int argc, char *argv[]) {
+#ifdef _WIN32
 	// The CRT narrow argv loses non-ASCII Windows paths. Decode the native
 	// command line once, and use UTF-8 explicitly at filesystem boundaries.
 	int wideCount = 0;
@@ -102,6 +106,10 @@ int main(int argc, char *argv[]) {
 	std::vector<char *> pointers;
 	for (auto &argument : arguments) pointers.push_back(argument.data());
 	argc = wideCount; argv = pointers.data();
+#else
+ std::vector<std::string> arguments(argv,argv+argc);
+ std::vector<char *> pointers;
+#endif
  // UI data is a global source option, removed before entry-mode parsing.
  std::optional<std::filesystem::path> uiData;
  for(std::size_t i=1;i<arguments.size();) {
@@ -367,7 +375,7 @@ int main(int argc, char *argv[]) {
 
 	return 1;
  } catch(const std::exception &e) {
-  std::cerr<<"MMModern failed: "<<e.what()<<'\n';return 1;
+  std::cerr<<"MMModern failed: "<<mmodern::xeenDiagnosticText(e.what())<<'\n';return 1;
  } catch(...) {
   std::cerr<<"MMModern failed: unknown exception\n";return 1;
  }

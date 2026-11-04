@@ -29,7 +29,8 @@ Path child(const Path &directory,const std::string &name,bool directoryWanted=fa
  return result;
 }
 Path relativeImage(const Path &cue,const std::string &name,bool missingAllowed=false) {
- const auto relative=std::filesystem::u8path(name);
+ auto normalized=name;std::replace(normalized.begin(),normalized.end(),'\\','/');
+ const auto relative=std::filesystem::u8path(normalized);
  if(relative.is_absolute()) throw std::runtime_error("Cue image must be relative to its cue");
  auto resolved=cue.parent_path();
  for(auto part=relative.begin();part!=relative.end();++part) {

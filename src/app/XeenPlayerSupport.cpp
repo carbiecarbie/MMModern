@@ -1,3 +1,4 @@
+#include "core/PathText.h"
 #include "formats/xeen/XeenRussianTranslation.h"
 #include "app/XeenPlayerSupport.h"
 #include "MMModernVersion.h"
@@ -12,8 +13,9 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-#include <windows.h>
-#include <shlobj.h>
+#include "platform/XeenUserFolders.h"
+#include "platform/XeenPlayerPlatform.h"
+#include "platform/XeenFileOperations.h"
 #include <algorithm>
 #include <fstream>
 #include <iomanip>
@@ -26,15 +28,6 @@
 namespace mmodern {
 namespace {
 using Path=std::filesystem::path;
-Path environment(const wchar_t *name) {
- const auto size=GetEnvironmentVariableW(name,nullptr,0);if(!size)return {};
- std::wstring value(size,L'\0');GetEnvironmentVariableW(name,value.data(),size);value.resize(size-1);return Path(value).make_preferred();
-}
-Path localAppData() {
- PWSTR value=nullptr;
- if(FAILED(SHGetKnownFolderPath(FOLDERID_LocalAppData,0,nullptr,&value)))throw std::runtime_error("Cannot resolve Local AppData");
- Path path(value);CoTaskMemFree(value);return path;
-}
 std::vector<std::uint8_t> readCfg(const Path &path) {
  std::ifstream input(path,std::ios::binary);
  if(!input)throw std::runtime_error("Cannot read XEEN.CFG: "+path.u8string());
@@ -44,50 +37,42 @@ std::vector<std::uint8_t> readCfg(const Path &path) {
  return bytes;
 }
 std::string hex(unsigned value) {std::ostringstream s;s<<"0x"<<std::hex<<value;return s.str();}
-std::string windowsVersion() {
- // RtlGetVersion is independent of the executable's compatibility manifest.
- using Version=LONG (WINAPI *)(OSVERSIONINFOW *);
- const auto function=reinterpret_cast<Version>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"),"RtlGetVersion"));
- OSVERSIONINFOW v{};v.dwOSVersionInfoSize=sizeof(v);
- if(!function || function(&v))return "unknown";
- return std::to_string(v.dwMajorVersion)+"."+std::to_string(v.dwMinorVersion)+" (build "+std::to_string(v.dwBuildNumber)+")";
-}
-void replacePath(std::string &text,const Path &path,const char *replacement) {
- if(path.empty())return;
- const auto count=MultiByteToWideChar(CP_UTF8,0,text.data(),static_cast<int>(text.size()),nullptr,0);
- std::wstring wide(count,L'\0');
- MultiByteToWideChar(CP_UTF8,0,text.data(),static_cast<int>(text.size()),wide.data(),count);
- auto needle=path.wstring(),normalized=wide;
- std::replace(needle.begin(),needle.end(),L'/',L'\\');
- std::replace(normalized.begin(),normalized.end(),L'/',L'\\');
- std::wstring token;for(const char *p=replacement;*p;++p)token+=wchar_t(*p);
- for(std::size_t pos=0;pos+needle.size()<=normalized.size();) {
-  if(CompareStringOrdinal(normalized.data()+pos,static_cast<int>(needle.size()),needle.data(),static_cast<int>(needle.size()),TRUE)!=CSTR_EQUAL) {++pos;continue;}
-  const auto end=pos+needle.size();
-  if(end<normalized.size() && normalized[end]!=L'\\' && normalized[end]!=L'\n' && normalized[end]!=L'\r' && normalized[end]!=L'"' && normalized[end]!=L'\'' && normalized[end]!=L';' && normalized[end]!=L' ') {pos=end;continue;}
-  wide.replace(pos,needle.size(),token);normalized.replace(pos,needle.size(),token);pos+=token.size();
-  // Use Windows separators in abbreviated profile paths, even for UTF-8 argv.
-  for(auto i=pos;i<wide.size() && wide[i]!=L'\n' && wide[i]!=L'\r' && wide[i]!=L'"';++i)if(wide[i]==L'/')wide[i]=L'\\';
- }
- const auto size=WideCharToMultiByte(CP_UTF8,0,wide.data(),static_cast<int>(wide.size()),nullptr,0,nullptr,nullptr);
- text.resize(size);WideCharToMultiByte(CP_UTF8,0,wide.data(),static_cast<int>(wide.size()),text.data(),size,nullptr,nullptr);
-}
+
 }
 Path xeenPlayerDirectory() {
- auto path=environment(L"MMODERN_PLAYER_DIR");
- if(path.empty())return localAppData()/"MMModern";
+ auto path=xeenEnvironment("MMODERN_PLAYER_DIR");
+ if(path.empty()) {
+#ifdef _WIN32
+  return xeenWindowsAppData(true)/"MMModern";
+#else
+  return xeenUserFolder();
+#endif
+ }
  if(!path.is_absolute())throw std::runtime_error("MMODERN_PLAYER_DIR must be absolute");
  return path;
 }
 Path xeenLogFile() {
- auto path=environment(L"MMODERN_LOG_FILE");
+ auto path=xeenEnvironment("MMODERN_LOG_FILE");
  return path.empty()?xeenPlayerDirectory()/"logs"/"mmodern.log":path;
 }
 std::string xeenPrivatePaths(std::string text,const Path &local,const Path &profile) {
- replacePath(text,local,"%LOCALAPPDATA%");replacePath(text,profile,"%USERPROFILE%");return text;
+ #ifdef _WIN32
+ replacePath(text,local,"%LOCALAPPDATA%");replacePath(text,profile,"%USERPROFILE%");
+#else
+ const auto xdg=xeenEnvironment("XDG_DATA_HOME");
+ const bool usesXdg=xdg.is_absolute() && local==xdg.lexically_normal()/"MMModern";
+ replacePath(text,local,usesXdg?"$XDG_DATA_HOME/MMModern":"~/.local/share/MMModern");replacePath(text,profile,"~");
+#endif
+ return xeenDiagnosticText(text);
 }
 std::string xeenPrivatePaths(std::string text) {
- return xeenPrivatePaths(std::move(text),localAppData(),environment(L"USERPROFILE"));
+ return xeenPrivatePaths(std::move(text),
+#ifdef _WIN32
+ xeenWindowsAppData(true),xeenEnvironment("USERPROFILE")
+#else
+ xeenUserFolder(),xeenEnvironment("HOME")
+#endif
+ );
 }
 
 std::optional<Path> xeenPlayerCfg(const std::optional<Path> &explicitCfg) {
@@ -97,29 +82,16 @@ std::optional<Path> xeenPlayerCfg(const std::optional<Path> &explicitCfg) {
  if(std::filesystem::symlink_status(path).type()==std::filesystem::file_type::not_found)return {};
  readCfg(path);return path;
 }
-void xeenWriteOwnedCfg(const Path &path,const std::vector<std::uint8_t> &bytes) {
- xeenValidateSetupBase(bytes);std::filesystem::create_directories(path.parent_path());
- // Exclusive sibling creation avoids clobbering another setup process's temp.
- Path temporary;HANDLE file=INVALID_HANDLE_VALUE;
- for(unsigned n=0;n<100 && file==INVALID_HANDLE_VALUE;++n) {
-  temporary=path;temporary+=L".tmp-"+std::to_wstring(GetCurrentProcessId())+L"-"+std::to_wstring(n);
-  file=CreateFileW(temporary.c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
-  if(file==INVALID_HANDLE_VALUE && GetLastError()!=ERROR_FILE_EXISTS)break;
- }
- if(file==INVALID_HANDLE_VALUE)throw std::runtime_error("Cannot create temporary CFG beside "+path.u8string());
- DWORD written=0;bool ok=WriteFile(file,bytes.data(),static_cast<DWORD>(bytes.size()),&written,nullptr) && written==bytes.size();
- ok=FlushFileBuffers(file) && ok;ok=CloseHandle(file) && ok;
- if(ok)ok=MoveFileExW(temporary.c_str(),path.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH)!=0;
- if(!ok) {DeleteFileW(temporary.c_str());throw std::runtime_error("Cannot replace owned CFG: "+path.u8string());}
-}
-void xeenResetOwnedCfg(const Path &path) {
- if(!DeleteFileW(path.c_str()) && GetLastError()!=ERROR_FILE_NOT_FOUND && GetLastError()!=ERROR_PATH_NOT_FOUND)
-  throw std::runtime_error("Cannot reset owned CFG: "+path.u8string());
-}
 std::string xeenDiagnostics(const Path &root,const std::optional<Path> &explicitCfg,const Path &ui) {
  std::ostringstream out;
  const auto line=[&](const char *key,const auto &value){out<<key<<": "<<value<<'\n';};
- line("version",std::string("MMModern ")+MMODERN_VERSION);line("windows",windowsVersion());line("game.folder",root.u8string());
+ line("version",std::string("MMModern ")+MMODERN_VERSION);
+#ifdef _WIN32
+ line("windows",windowsVersion());
+#else
+ line("os",windowsVersion());
+#endif
+ line("game.folder",root.u8string());
  try {
   // Detection of the data is independent of whether the owned CFG is damaged.
   auto selected=explicitCfg;std::string source=selected?"explicit":"installed";
@@ -146,12 +118,17 @@ std::string xeenDiagnostics(const Path &root,const std::optional<Path> &explicit
   try{XeenCutsceneData::installed(*installation);line("game.exe","usable for intros and Clouds ending");}
   catch(const std::exception &e){line("game.exe",std::string("unusable: ")+e.what());}
   const auto id=XeenSaveFile::dataId(XeenSaveFile::fingerprint(*installation));line("game.data-id",id);
-  const auto saves=localAppData()/"MMModern"/"Saves"/id;line("saves.folder",saves.u8string());
+#ifdef _WIN32
+  const auto saves=xeenWindowsAppData(true)/"MMModern"/"Saves"/id;
+#else
+  const auto saves=xeenUserFolder()/"Saves"/id;
+#endif
+  line("saves.folder",saves.u8string());
   unsigned used=0;for(unsigned n=0;n<10;++n)if(std::filesystem::exists(XeenSaveFile::slotPath(saves,n)))++used;
   line("saves.used-slots",used);
  }catch(const std::exception &e){line("game.status",std::string("unusable: ")+e.what());}
  try {
-  const auto roms=XeenMt32::identify(environment(L"MMODERN_MT32_ROM_DIR"));
+  const auto roms=XeenMt32::identify(xeenEnvironment("MMODERN_MT32_ROM_DIR"));
   line("roms.folder",roms.directory.u8string());line("roms.control",roms.control);line("roms.pcm",roms.pcm);
  }catch(const std::exception &e){line("roms.error",e.what());}
  {
@@ -277,17 +254,15 @@ struct XeenPlayerLog::Impl {
  std::unique_ptr<Tee> output,error;
  Impl() {
   try {
-   const auto path=xeenLogFile();std::filesystem::create_directories(path.parent_path());
-   auto previous=path.parent_path()/(path.stem().wstring()+L"-previous"+path.extension().wstring());
-   if(std::filesystem::exists(path)) {
-    if(!std::filesystem::is_regular_file(path))return;
-    if(!MoveFileExW(path.c_str(),previous.c_str(),MOVEFILE_REPLACE_EXISTING))return;
-   }
-   file.open(path,std::ios::binary|std::ios::trunc);if(!file)return;
-   local=localAppData();profile=environment(L"USERPROFILE");
+   xeenOpenLog(file);if(!file.is_open())return;
+   #ifdef _WIN32
+   local=xeenWindowsAppData(true);profile=xeenEnvironment("USERPROFILE");
+#else
+   local=xeenUserFolder();profile=xeenEnvironment("HOME");
+#endif
    output=std::make_unique<Tee>(out,file,mutex,local,profile);error=std::make_unique<Tee>(err,file,mutex,local,profile);
    std::cout.rdbuf(output.get());std::cerr.rdbuf(error.get());diagnosticNoticeSink=noticeToLog;
-   const auto now=std::time(nullptr);std::tm date{};localtime_s(&date,&now);
+   const auto now=std::time(nullptr);std::tm date{};xeenLocalTime(date,now);
    std::cout<<"date: "<<std::put_time(&date,"%Y-%m-%d %H:%M:%S")<<'\n';
   }catch(...) {}
  }

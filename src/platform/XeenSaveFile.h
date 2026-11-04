@@ -6,8 +6,8 @@
 namespace mmodern {
 class XeenSaveFile {
 public:
- enum class Operation { Open, Write, ShortWrite, Flush, Close, Replace, Revalidate, Cleanup };
- // Test-only failure points around the real local Windows operations.
+ enum class Operation { Open, Write, ShortWrite, Flush, Close, Replace, Revalidate, Cleanup, Publish };
+ // Test-only failure points around the real local file operations.
  using Fault = std::function<bool(Operation)>;
  static std::filesystem::path resolve(const std::filesystem::path &path,
    const std::filesystem::path &installation);

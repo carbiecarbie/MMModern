@@ -14,10 +14,18 @@ std::vector<std::uint8_t> read(const std::filesystem::path &p){std::ifstream f(p
 }
 int main(int argc,char **argv){try{
  check(argc==4,"usage: sound setup tests <data> <scratch> <roms>");
+#ifdef _WIN32
  const std::filesystem::path profile=L"C:\\Users\\Jos\u00e9",local=profile/"AppData"/"Local";
  check(xeenPrivatePaths(u8"file: C:/Users/JOS\u00c9/config with spaces/XEEN.CFG\n",local,profile)=="file: %USERPROFILE%\\config with spaces\\XEEN.CFG\n","Unicode/case/profile redaction");
  check(xeenPrivatePaths(u8"C:/Users/JOS\u00c9ph/config",local,profile)==u8"C:/Users/JOS\u00c9ph/config","Profile boundary redaction");
  check(xeenPrivatePaths(u8"C:/Users/JOS\u00c9/AppData/Local/MMModern/XEEN.CFG",local,profile)=="%LOCALAPPDATA%\\MMModern\\XEEN.CFG","Local AppData precedence");
+#else
+ const std::filesystem::path profile=u8"/home/Jos\u00e9",local=profile/".local/share/MMModern";
+ check(xeenPrivatePaths(local.native()+"/XEEN.CFG",local,profile)=="~/.local/share/MMModern/XEEN.CFG","fallback base label");
+ check(xeenPrivatePaths(profile.native()+"/config with spaces/XEEN.CFG",local,profile)=="~/config with spaces/XEEN.CFG","POSIX profile redaction");
+ check(xeenPrivatePaths(u8"/home/JOS\u00c9/config",local,profile)==u8"/home/JOS\u00c9/config","POSIX case-sensitive redaction");
+ check(xeenPrivatePaths(profile.native()+"ph/config",local,profile)==profile.native()+"ph/config","POSIX profile boundary");
+#endif
  const unsigned digital[]{0,2,1,6,7,8,5,9,10,6},music[]{0,1,7,2,3,6,5,4,8,9};
  const unsigned ports[]{0,0x388,0,0x388,0x220,0x388,0x330,0x330,0x330,0};
  for(unsigned n=0;n<10;++n) {

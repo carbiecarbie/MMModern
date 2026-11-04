@@ -1,3 +1,4 @@
+#include "platform/XeenFileOperations.h"
 #include "app/XeenEventFlow.h"
 #include "games/xeen/XeenJourneyRules.h"
 #include "games/xeen/XeenJourneyCapture.h"
@@ -144,7 +145,7 @@ void XeenEventFlow::saveCreateReturn() {
     catch(const std::exception &e) {
         _encounter->journeySavePreimage().check();
         const std::string error=e.what();
-        ui.feedback=error.find("Windows error 112")!=std::string::npos || error.find("Windows error 39")!=std::string::npos?
+        ui.feedback=xeenIsOutOfSpace(e)?
             std::string(dosText().scalar("SAVE_AS_SPACE")):error;return;
     }
     ui.top=0;ui.townOnly=false;ui.phase=InnUi::Phase::FadeFromCreate;

@@ -17,6 +17,15 @@
 #include "games/xeen/XeenCharacterRules.h"
 #include <iostream>
 using namespace training_test;
+namespace {
+const char *diskFullError() {
+#ifdef _WIN32
+ return "Windows error 112";
+#else
+ return "Write save file failed (POSIX error 28)";
+#endif
+}
+}
 namespace mmodern {
 struct XeenInnTestAccess {
  static std::optional<unsigned> woundAndStage(XeenEventFlow &f) {
@@ -380,7 +389,7 @@ void createFlow(Inputs &in,const GameInstallation &installation) {
     check(c.slots==std::vector<std::uint8_t>{21} && c.slot==0 && !c.committed && v.w.sessionState().journeyRandom()->count>beforeSuccess->count,"success rebuilds slots, clears choice and rolls anew");
     check(v.p.roster.combatInputs(12)->might.permanent==originalValues[0],"committed rolls reach supplement");
     unsigned attempts=0;const auto save=v.flow->saveInn;
-    v.flow->saveInn=[&]{++attempts;if(attempts==1)throw std::runtime_error("Windows error 112");save();};
+    v.flow->saveInn=[&]{++attempts;if(attempts==1)throw std::runtime_error(diskFullError());save();};
     nameCharacter(v,"Second");const auto lastRandom=v.w.sessionState().journeyRandom();
     check(attempts==1 && v.p.roster.at(21).name=="Second" && v.dialog()->anyKey,"last creation publishes before failed return write");
     v.key(InputKey::Enter);v.wait([&]{return XeenInnTestAccess::menu(*v.flow);},"last slot returns");
@@ -436,7 +445,7 @@ void createReturnRecovery(Inputs &in) {
     enterCreate(v);XeenInnTestAccess::staleRoll(*v.flow);v.present(XeenInnTestAccess::refresh(*v.flow));
     v.key('r');v.key(InputKey::Space);const auto ending=v.w.sessionState().journeyRandom();
     auto before=v.saves.back();before.journey->random=ending;unsigned attempts=0;const auto save=v.flow->saveInn;
-    v.flow->saveInn=[&]{++attempts;if(attempts==1)throw std::runtime_error("Windows error 112");save();};
+    v.flow->saveInn=[&]{++attempts;if(attempts==1)throw std::runtime_error(diskFullError());save();};
     v.key(InputKey::Escape);
     check(v.dialog()->anyKey && attempts==1 && v.saves.size()==1 && v.w.sessionState().journeyRandom()==ending,"cancel saves advanced rolls and retains state on failed write");
     v.key(InputKey::Enter);v.wait([&]{return XeenInnTestAccess::menu(*v.flow);},"Create failed-write recovery");
@@ -463,7 +472,7 @@ void createReturnRecovery(Inputs &in) {
     noSlots.flow->loadCreateScreen=[&]{++createScreens;return frame();};
     check(xeenInnList(noSlots.p,28).size()==6,"global-full fixture still admits local Create");
     unsigned noSlotAttempts=0;const auto noSlotSave=noSlots.flow->saveInn;
-    noSlots.flow->saveInn=[&]{++noSlotAttempts;if(noSlotAttempts==1)throw std::runtime_error("Windows error 112");noSlotSave();};
+    noSlots.flow->saveInn=[&]{++noSlotAttempts;if(noSlotAttempts==1)throw std::runtime_error(diskFullError());noSlotSave();};
     noSlots.key('c');noSlots.wait([&]{return noSlots.dialog()->anyKey;},"no-free-slot write failure");
     const auto &failedFrame=noSlots.flow->frame();bool visibleError=false;
     for(int y=0;y<200;++y)for(int x=0;x<320;++x) {
@@ -556,7 +565,7 @@ void deleteRecords(Inputs &in,const GameInstallation &installation) {
     v.key(InputKey::Enter);v.key(InputKey::Space);v.key('n');check(v.saves.size()==1,"cancel and unmatched confirmation never save");
     v.key('d');v.key('3');v.key(InputKey::Escape);check(v.p.roster.at(2).name==s.characters[2].name,"confirmation Escape cancels");
     unsigned attempts=0;const auto save=v.flow->saveInn;
-    v.flow->saveInn=[&]{++attempts;if(attempts==1)throw std::runtime_error("Windows error 112");save();};
+    v.flow->saveInn=[&]{++attempts;if(attempts==1)throw std::runtime_error(diskFullError());save();};
     v.key('d');v.key('3');v.key('y');
     check(v.p.roster.at(2).name.empty() && attempts==1 && v.saves.size()==1,"lodged Delete publishes before failed write");
     const auto cleared=v.p.roster.at(2);const auto members=v.p.party.activeRosterIds();
@@ -637,7 +646,7 @@ void fullAndFailures(Inputs &in,const GameInstallation &installation) {
     Visit v(in,s);v.programState.audio=XeenAudio::installed(installation,in.assets,0,false,std::filesystem::path("mmodern-nonexistent-rom-fixture"));
     std::vector<unsigned> effects;v.programState.audio->effectSink([&](unsigned effect){effects.push_back(effect);});
     unsigned attempts=0;const auto saving=v.flow->saveInn;
-    v.flow->saveInn=[&]{++attempts;if(attempts==1)throw std::runtime_error("Windows error 112");saving();};
+    v.flow->saveInn=[&]{++attempts;if(attempts==1)throw std::runtime_error(diskFullError());saving();};
     v.act(InteractionAction{});v.wait([&]{return v.dialog() && bool(v.dialog()->key('s'));},"failure fixture Tavern");v.key('s');
     v.wait([&]{return attempts==1;},"Sign In write attempted");const auto day=*v.p.encounterContext;
     for(unsigned n=0;n<20;++n)v.pulse();check(attempts==1 && v.saves.empty(),"failed save waits for player retry");

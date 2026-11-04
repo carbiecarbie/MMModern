@@ -2,22 +2,29 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
+#include "platform/XeenUserFolders.h"
+#include "platform/XeenFileOperations.h"
+#ifdef _WIN32
 #include <windows.h>
-#include <shlobj.h>
+#endif
 #include <fstream>
 #include <iterator>
 namespace mmodern {
 std::optional<std::filesystem::path> xeenSettingsFile() {
- const auto size=GetEnvironmentVariableW(L"MMODERN_SETTINGS_FILE",nullptr,0);
- if(size) {
-  std::wstring value(size,L'\0');GetEnvironmentVariableW(L"MMODERN_SETTINGS_FILE",value.data(),size);value.resize(size-1);
-  const std::filesystem::path path(value);return path.is_absolute()?std::optional<std::filesystem::path>{path}:std::nullopt;
- }
- PWSTR value=nullptr;
- if(FAILED(SHGetKnownFolderPath(FOLDERID_LocalAppData,0,nullptr,&value))){CoTaskMemFree(value);return {};}
- const std::filesystem::path base(value);CoTaskMemFree(value);
- if(base.empty() || !base.is_absolute())return {};
- return base/"MMModern"/"settings.ini";
+ try {
+#ifdef _WIN32
+  const auto size=GetEnvironmentVariableW(L"MMODERN_SETTINGS_FILE",nullptr,0);
+  if(size) {
+   std::wstring value(size,L'\0');GetEnvironmentVariableW(L"MMODERN_SETTINGS_FILE",value.data(),size);value.resize(size-1);
+   const std::filesystem::path path(value);return path.is_absolute()?std::optional<std::filesystem::path>{path}:std::nullopt;
+  }
+#else
+  const auto path=xeenEnvironment("MMODERN_SETTINGS_FILE");
+  if(!path.empty())return path.is_absolute()?std::optional<std::filesystem::path>{path}:std::nullopt;
+#endif
+  return xeenUserFolder()/"settings.ini";
+ }catch(...){return {};}
+
 }
 XeenSettings xeenReadSettings(const std::filesystem::path &path) noexcept {
  try {
@@ -67,7 +74,11 @@ bool writeSettings(const std::filesystem::path &path,XeenSettings settings) noex
     <<"\nlanguage="<<(settings.language==XeenLanguage::Russian?"russian":"english")<<"\nrussian_translation="<<settings.translation.u8string()<<"\n";
    if(!output.flush()){output.close();std::filesystem::remove(temporary,error);return false;}
   }
+  #ifdef _WIN32
   if(MoveFileExW(temporary.c_str(),path.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH))return true;
+  #else
+  if(xeenReplaceSmallFile(temporary,path))return true;
+  #endif
   std::filesystem::remove(temporary,error);return false;
  } catch(...) {return false;}
 }

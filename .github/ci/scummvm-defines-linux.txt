@@ -1,0 +1,8 @@
+HAVE_CONFIG_H
+SDL_BACKEND
+USE_SDL2
+POSIX
+HAS_POSIX_SPAWN
+HAS_FSEEKO_OFFT_64
+DATA_PATH="${datarootdir}/scummvm"
+PLUGIN_DIRECTORY="${exec_prefix}/lib/scummvm"
