@@ -1,10 +1,12 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. M111 is the latest
-completed and accepted milestone (2026-11-04; [plan](milestone-111-plan.md)):
-after a Xeen Slayer Sword attack, physical spells ignore physical resistance
-as in DOS, and an Event MMModern has to refuse is discarded whole. Before it,
-M109 made every push build the project on a clean machine on GitHub and run
+This describes what can be played and done now. M112 is the latest
+completed and accepted milestone (2026-11-04; [plan](milestone-112-plan.md)):
+the Windows package plays on a Steam Deck through Proton, and the README
+explains the setup and a Steam Input layout. Before it, M111
+([plan](milestone-111-plan.md)) made physical spells ignore physical
+resistance after a Xeen Slayer Sword attack, as in DOS, and discarded whole
+an Event MMModern has to refuse, M109 made every push build the project on a clean machine on GitHub and run
 the tests that need no original data ([plan](milestone-109-plan.md)), M110 made the game playable in
 Russian with the old-games.ru fan translation installed beside the CD
 ([plan](milestone-110-plan.md)), M108 turned the invariants of the Darkside
@@ -330,9 +332,11 @@ from a window. Its sound setup writes an MMModern-owned
 `%LOCALAPPDATA%\MMModern\XEEN.CFG` with the original installer's choices,
 which the player entry prefers to the installed one
 ([approved deviation](original-quirks.md#dev-owned-sound-cfg)). The player
-entry also writes `%LOCALAPPDATA%\MMModern\logs\mmodern.log`, and
+entry also writes `%LOCALAPPDATA%\MMModern\logs\mmodern.log` with
+diagnostics, notices, warnings and support stops, and
 `mmodern --diagnostics <game-dir>` prints the report the launcher copies for
-bug reports. Developer modes start a new game
+bug reports. On a Steam Deck the same package runs through Proton: Steam starts `mmodern.exe` with the game folder, without the
+launcher ([README](../README.md#steam-deck-proton)). Developer modes start a new game
 directly, open the prepared test region at map 23 `(9,11)` used by the
 automated scenarios, load a save file, explore or inspect any Clouds map, and
 run isolated monster or Event fixtures; the
@@ -432,5 +436,7 @@ original data; it never replaces the complete local suite
 - Darkside: the [census](coverage.md#darkside-largest-gaps) lists no
   Darkside gap.
 - Russian: a reader of Russian has not yet checked the text in play.
+- Linux: there is no native build yet; the Windows package runs through
+  Proton, where the launcher's Sound setup and Language windows do not run.
 
 Next steps are in the [roadmap](roadmap.md).

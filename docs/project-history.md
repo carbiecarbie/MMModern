@@ -394,3 +394,10 @@ the selector's writers. An Event MMModern has to refuse is now discarded
 whole: party, items, flags, position, time and random state return to their
 pre-Event values, an approved deviation, since DOS never stops an Event. Save
 v26 unchanged. [Plan](milestone-111-plan.md).
+
+**M112 - Steam Deck through Proton** (Tier B). The Windows package plays on
+a Steam Deck through Proton, started from Game Mode with the game folder as
+a launch option and a Steam Input layout that the README gives. The Deck
+play-test showed that every exploration input wrote the whole Journey state
+to the player log; title sessions now keep it out. Save v26 unchanged.
+[Plan](milestone-112-plan.md).

@@ -54,6 +54,49 @@ The launcher stays open while you play. The game opens in front without a
 console window. If it fails, the launcher shows the error and offers to open
 its log.
 
+## Steam Deck (Proton)
+
+Copy your World of Xeen game folder to the Deck, or install the GOG game with
+a launcher such as Heroic. Unpack the Windows zip outside that folder. In
+Steam, add the unpacked `mmodern.exe` as a non-Steam game and, in its
+Properties, select Proton under **Compatibility**. Set the launch options to
+the game folder, for example (including the quotes):
+
+```text
+"Z:\home\deck\Games\Might and Magic 4-5"
+```
+
+Replace the example with your actual folder. Start the shortcut from Game Mode.
+The Windows launcher and its **Sound setup** and **Language** dialogs do not
+run under Proton; direct play uses the installed sound configuration.
+
+MMModern uses keyboard and mouse input. In the shortcut's controller
+settings, start from the **Keyboard (WASD) and Mouse** template and change it
+to this layout, which was played on a Steam Deck:
+
+| Deck control | Keyboard or mouse action |
+| --- | --- |
+| A / B / X / Y | Enter / Escape / Space / Tab (control panel) |
+| D-pad and left stick | Arrow keys: forward, back, turn left and right |
+| Left stick click / R1 | W (wait) / B (bash or block) |
+| L4 / L5 / R4 / R5 | A (attack) / C (cast) / S (shoot) / R (rest or run) |
+| Left trackpad, pressed at an edge | Up M (map), down I (info), right Q (quick reference), left F (quick fight) |
+| Right trackpad or right stick / triggers | Mouse / left mouse click |
+| L1 | Alt+Enter: window or fullscreen |
+| Menu / View | Escape / Tab |
+
+Click a portrait in place of F1-F6; touching the screen also clicks.
+Steam+X opens the on-screen keyboard for names and number keys. The other
+keys are in the
+[controls](https://github.com/carbiecarbie/MMModern/blob/main/docs/controls.md).
+
+The shortcut's Proton prefix is under
+`~/.local/share/Steam/steamapps/compatdata/<shortcut-id>/pfx/`. Within it,
+`drive_c/users/steamuser/AppData/Local/MMModern/` contains `window.ini`,
+`logs/` and `Saves/<game-data-id>/`. In `window.ini`, `aspect=square` fills
+the 1280x800 screen; the default `aspect=4:3` leaves side borders. Change it
+while the game is closed.
+
 ## Russian
 
 MMModern can show the old-games.ru Russian fan translation (Clouds of Xeen

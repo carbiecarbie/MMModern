@@ -1,8 +1,8 @@
 # MMModern - Roadmap
 
-**M111 is the latest completed and accepted milestone**
-([plan](milestone-111-plan.md)), after M109 and M110
-([M109 plan](milestone-109-plan.md), [M110 plan](milestone-110-plan.md)).
+**M112 is the latest completed and accepted milestone**
+([plan](milestone-112-plan.md)), after M111
+([plan](milestone-111-plan.md)).
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records each completed milestone.
 Reference provenance belongs to [dependencies](dependencies.md).
@@ -237,8 +237,9 @@ Roughly in this order, each with its own decision and plan:
 2. Optionally, a public announcement that World of Xeen plays from start to
    end, inviting players to report defects with the launcher's diagnostics
    and the issue template. The releases are already public.
-3. Steam Deck through Proton (M112, Tier B, [plan](milestone-112-plan.md)),
-   then a native Linux build and its distribution.
+3. Steam Deck through Proton: done, M112 (Tier B,
+   [plan](milestone-112-plan.md), accepted 2026-11-04). Next, a native Linux
+   build and its distribution (Tier A).
    A first attempt (2026-10-31) found that the build needs a POSIX platform
    layer (saves, settings, paths), a portable item-catalog generator and
    Linux object filtering for the ScummVM parts, not only narrow guards.
