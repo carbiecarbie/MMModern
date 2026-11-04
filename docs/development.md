@@ -41,7 +41,9 @@ Player entry uses `%LOCALAPPDATA%\MMModern\XEEN.CFG` when present, with
 startup and names the file; `--sound-setup <game-directory> --reset` removes it.
 Developer entry modes ignore the owned CFG and keep their terminal output.
 Only player entry writes a line-flushed log, rotating the previous run to
-`mmodern-previous.log`. `MMODERN_LOG_FILE` redirects the log; failure to write
+`mmodern-previous.log`. It records diagnostics, notices, warnings and
+support stops; the per-input encounter notice and Journey inspection stay in
+developer entry modes. `MMODERN_LOG_FILE` redirects the log; failure to write
 it does not prevent play. Reports and logs abbreviate profile paths.
 
 Developer modes use a fixed DOS wall clock of zero seconds. Supply

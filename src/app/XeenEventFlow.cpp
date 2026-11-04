@@ -1300,7 +1300,10 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, boo
 	_acquiredCosmeticFrame.reset();
 	if (!cosmetic) { _actionableFrame.reset(); _cosmeticPending = false; }
 	if (journey() && !_encounter->combat()) {
-		report=report || (!_death && _encounter->state().phase()==XeenEncounterPhase::SupportStopped);
+		const bool supportStopped=!_death && _encounter->state().phase()==XeenEncounterPhase::SupportStopped;
+		report=report || supportStopped;
+		// A player session reports a support stop, never ordinary inputs.
+		report=report && (reportJourneyState || supportStopped);
 		if (!cosmetic) _encounter->holdJourneyFrame();
 		for (unsigned attempt=0;attempt<2;++attempt) {
 			IndexedFrame returned;
@@ -1418,7 +1421,10 @@ IndexedFrame XeenEventFlow::renderEncounter(bool report, bool cosmeticInput, boo
 			const auto notice = _encounter->combat() && _encounter->combat()->cast() ? std::string{} : _encounter->notice();
 			auto rendered = journey() ? drawMainScreenNotice(composed.frame,notice) :
                 noticeFrame(composed.frame, _inventoryFont, notice, _encounter->combat(),journey());
-			if (report && !attempt && reportText) reportText(notice);
+			const auto *combat=_encounter->combat();
+			const bool stopReport=_encounter->state().phase()==XeenEncounterPhase::SupportStopped ||
+				(combat && (combat->phase()==XeenCombatPhase::SupportStopped || combat->phase()==XeenCombatPhase::Failed));
+			if (report && !attempt && reportText && (reportJourneyState || !journey() || stopReport)) reportText(notice);
             drawPartyPresentation(rendered);
             if(_encounter->combat() && _encounter->combat()->cast())rendered=drawCasting(rendered);
                 if(_encounter->_needsRestNotice)rendered=drawXeenErrorScroll(rendered,_inventoryFont,std::string(xeenDialogText(dosText(),XeenDialogText::PartyNeedsRest)));

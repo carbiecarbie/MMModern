@@ -39,6 +39,21 @@ XeenSaveSnapshot source(Inputs &in,unsigned spell,bool indoor) {
  s.journey->purse->gems=100;s.journey->context->ctr24=23;
  return s;
 }
+// Title sessions clear reportJourneyState: ordinary inputs write neither the
+// encounter notice nor the Journey inspection, which developer entries keep.
+void playerLogInputs(Inputs &in) {
+ for(const bool developer:{true,false}) {
+  Fixture f(in,source(in,33,false));
+  unsigned notices=0;f.flow->reportText=[&](const std::string &){++notices;};
+  f.flow->reportJourneyState=developer;
+  std::ostringstream out;auto *old=std::cout.rdbuf(out.rdbuf());
+  try{for(unsigned i=0;i<3;++i){f.act(WaitAction{});quiet(f);}}catch(...){std::cout.rdbuf(old);throw;}
+  std::cout.rdbuf(old);
+  const bool inspected=out.str().find("Context profile=")!=std::string::npos;
+  if(developer)check(inspected && notices,"Developer entry lost the per-input Journey report");
+  else check(!inspected && !notices,"Title session reports the Journey state after every input");
+ }
+}
 template<class F> void begin(F &f) {
  f.act(CastSpellAction{});f.act(SelectMemberAction{4});
  check(!f.flow->canSave(),"Cast selector permits saving");
@@ -696,7 +711,7 @@ void jump(Inputs &in) {
 int main(int argc,char **argv) {try {
  check(argc==2,"usage: m60-exploration <installation>");auto install=xeenTestInstallationDetector().detect(argv[1]);check(bool(install),"Missing installation");Inputs in(*install);
  std::ostringstream captured;auto *old=std::cout.rdbuf(captured.rdbuf());
- try {m111CombatPain(in);m111JourneyPain(in);m111ProjectileChains(in,*install);effects(in);emptySelector(in);retainedPain(in);blockedProjectiles(in);eyeExpiry(in);refunds(in);jump(in);jumpEvent(in);targets(in);impacts(in);m74Empty(in);
+ try {playerLogInputs(in);m111CombatPain(in);m111JourneyPain(in);m111ProjectileChains(in,*install);effects(in);emptySelector(in);retainedPain(in);blockedProjectiles(in);eyeExpiry(in);refunds(in);jump(in);jumpEvent(in);targets(in);impacts(in);m74Empty(in);
   try{m73Live(in);}catch(const std::exception &e){throw std::runtime_error(std::string("M73 live: ")+e.what());}
   try{m73DeadDragonRecovery(in);m73LiveDragon(in);}catch(const std::exception &e){throw std::runtime_error(std::string("M73 Dragon: ")+e.what());}
   try{m73Guild(in);}catch(const std::exception &e){throw std::runtime_error(std::string("M73 Guild: ")+e.what());}}catch(...){std::cout.rdbuf(old);throw;}

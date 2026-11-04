@@ -166,6 +166,11 @@ public:
 	std::function<void(const XeenManualEventResult &)> reportManual;
 	std::function<void(const XeenAutomaticEventResult &)> reportAutomatic;
 	std::function<void(const std::string &)> reportText;
+	// Per-input developer status: the encounter notice through reportText and
+	// the Journey inspection on stdout. Sessions started from the original
+	// title clear it, so the player log keeps diagnostics, notices and support
+	// stops instead of the whole state after every input.
+	bool reportJourneyState = true;
 	std::function<void(const XeenTransferResult &)> reportInventory;
 	std::function<void(const XeenEquipmentResult &)> reportEquipment;
 	std::function<void(XeenMovementResult)> reportMovement;

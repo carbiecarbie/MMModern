@@ -540,6 +540,8 @@ int Application::gameplay(const std::filesystem::path &gameDirectory, XeenCamera
                 flow.reportManual = printManualEventResult;
                 flow.reportAutomatic = requireAutomaticEventSuccess;
                 flow.reportText = [](const std::string &message) { std::cerr << "Text warning: " << message << '\n'; };
+                // Title sessions write the player log; developer entries keep the per-input report.
+                flow.reportJourneyState = !managed;
                 flow.reportMovement = [&position](XeenMovementResult result) {
                     if (const char *reason = blockedReason(result))
                         std::cout << "Movement blocked: " << reason << ". Camera: map " << position.mapId
