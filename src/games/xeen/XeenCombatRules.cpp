@@ -369,7 +369,8 @@ bool XeenSpellDamageCandidate::service(XeenConsequenceDraw &draw) {
         }
         if(step==Step::Save && !damagePrepared) {
             status=xeenActorStatusAfterDamage(status,entersDamage);
-            if(physicalDamage) acceptedDamage=physicalChecked(std::int64_t(acceptedDamage)*(100-physicalResistance)/100);
+            if(physicalDamage) acceptedDamage=xeenPhysicalAttackDamage(acceptedDamage,physicalResistance,
+                draw.weaponSelector ? draw.weaponSelector() : 0,1,0);
             damagePrepared=true;
         }
         const auto accepted=draw.draw(1,step==Step::Resistance ? levelBound : saveBound);

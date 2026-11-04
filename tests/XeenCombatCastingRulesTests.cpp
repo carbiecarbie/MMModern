@@ -164,6 +164,32 @@ void spellDamage() {
         XeenSpellDamageCandidate freeGate(7,0,0,6,spell);XeenConsequenceDraw freeDraw{noGate};
         check(freeGate.service(freeDraw) && freeGate.damage==base/2 && noGate.position()==1,"Zero magic resistance drew gate");
     }
+    // The reader is consulted at damage time, not at candidate construction.
+    for(unsigned weapon:{0u,34u,35u}) for(unsigned physical:{50u,100u}) {
+        XeenCombatRandom random(std::vector<D>{{1,107,50},{1,56,7}});
+        XeenSpellDamageCandidate candidate(5,2,50,6,S::Pain,physical);
+        unsigned selector=0;
+        XeenConsequenceDraw gate{random,1};
+        gate.weaponSelector=[&]{return selector;};
+        check(!candidate.service(gate),"Pain gate must yield before damage");
+        selector=weapon;
+        XeenConsequenceDraw finish{random};finish.weaponSelector=[&]{return selector;};
+        check(candidate.service(finish) && candidate.damage==(weapon==34?8:int(8*(100-physical)/100)) && random.position()==2,
+            "Physical spell retained weapon selector");
+    }
+    {
+        XeenCombatRandom random(std::vector<D>{{1,56,7}});
+        XeenSpellDamageCandidate candidate(7,0,0,6,S::MagicArrow,100);
+        XeenConsequenceDraw draw{random};draw.weaponSelector=[] {return 34u;};
+        check(candidate.service(draw) && candidate.damage==8,"Selector changed nonphysical damage");
+    }
+    {
+        XeenCombatRandom random(std::vector<D>{});
+        XeenSpellDamageCandidate candidate(7,0,0,89,S::Pain,100,XeenActorStatus::Sleep);
+        XeenConsequenceDraw draw{random};draw.weaponSelector=[] {return 34u;};
+        check(candidate.service(draw) && !candidate.damage && !candidate.impact && candidate.status==XeenActorStatus::Sleep && random.position()==0,
+            "Clouds Lord Xeen must be refused before physical damage");
+    }
     for(auto spell:{S::Shrapmetal}) {
         XeenCombatRandom random(std::vector<D>{{1,100,50}});
         XeenSpellDamageCandidate zero(-3,2,50,6,spell);XeenConsequenceDraw draw{random};
@@ -252,6 +278,16 @@ void m74Spells() {
             int expected=type==0?base*(100-physical)/100:base;if(save<=6)expected/=2;if(gate<50)expected=0;
             check(hit.damage==expected && hit.resisted==(gate<50) && random.position()==tape.size(),"M74 preparation/gate/physical/save order differs");
             check(hit.impact==(gate==50 && base!=0),"M74 zero-level/immunity entry differs");
+            if(base && gate==50) {
+                XeenCombatRandom retainedRandom(tape);XeenConsequenceDraw retainedDraw{retainedRandom};
+                retainedDraw.weaponSelector=[] {return 34u;};
+                XeenSpellDamagePreparation retainedPrep(r.spell,level);
+                check(retainedPrep.service(retainedDraw),"Retained-selector preparation incomplete");
+                XeenSpellDamageCandidate retainedHit(level,0,50,6,r.spell,physical,XeenActorStatus::Sleep,0,&retainedPrep);
+                check(retainedHit.service(retainedDraw) && retainedHit.damage==(save<=6?base/2:base),
+                    "Selector changed prepared spell damage or failed physical bypass");
+            }
+
         }
     }
     XeenPartyState party;party.party=XeenParty::fromRosterIds({0,1,2});

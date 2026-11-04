@@ -860,7 +860,7 @@ void XeenEventFlow::prepareTerrainTransition() {
  XeenCombatRandom random(*work->world->sessionState().journeyRandom());
  XeenTerrainArrivalCandidate arrival(rule,characters,inputs,*work->party.encounterContext,&*work->party.serviceEconomy);
  work->fallEffects.reserve(6);
- XeenConsequenceDraw draw{random,64,[&] {_eventPublication->check();},[&](unsigned id){work->fallEffects.push_back(id);},[this](unsigned id){_encounter->fmSelectWeapon(id);}};
+ XeenConsequenceDraw draw{random,64,[&] {_eventPublication->check();},[&](unsigned id){work->fallEffects.push_back(id);},[this](unsigned id){_encounter->fmSelectWeapon(id);},{},[this]{return _encounter->weaponSelector();}};
  if(!arrival.service(draw))throw std::logic_error("Physical terrain fall requested random continuation");
  work->world->publishTerrainArrival(work->party,arrival,random.continuation());
  work->guard=std::make_unique<XeenRestoreGuard>(*work->world,work->party,work->camera,work->flags);
@@ -984,7 +984,7 @@ bool XeenEventFlow::serviceManualStep() {
   step.remaining=1+unsigned(_encounter->state().pending()!=0);work.manualStep.emplace(std::move(step));
  }
  auto &step=*work.manualStep;
- XeenConsequenceDraw draw{step.random,64,[&] {_eventPublication->check();work.guard->check();},[this](unsigned id){_encounter->fmEffect(id);},[this](unsigned id){_encounter->fmSelectWeapon(id);}};
+ XeenConsequenceDraw draw{step.random,64,[&] {_eventPublication->check();work.guard->check();},[this](unsigned id){_encounter->fmEffect(id);},[this](unsigned id){_encounter->fmSelectWeapon(id);},{},[this]{return _encounter->weaponSelector();}};
  if(!step.timeDone) {
   if(!step.time->service(draw))return false;
   const auto ctr=step.context.ctr24;step.context=step.time->context;step.context.ctr24=ctr;
@@ -2090,7 +2090,7 @@ void XeenEventFlow::prepareDetachedResult(const XeenManualEventResult &result) t
 		if(work.falling)work.fallEffects.reserve(6);
 		XeenConsequenceDraw draw{random,64,[&] {_eventPublication->check();},[&](unsigned id){
             if(work.falling)work.fallEffects.push_back(id);else _encounter->fmEffect(id);
-        },[this](unsigned id){_encounter->fmSelectWeapon(id);}};
+        },[this](unsigned id){_encounter->fmSelectWeapon(id);},{},[this]{return _encounter->weaponSelector();}};
 		if(!work.terrain->service(draw)) {work.world->retainEventRandom(random.continuation());
 			work.guard=std::make_unique<XeenRestoreGuard>(*work.world,work.party,work.camera,work.flags);return;}
 		work.terrain->context.ctr24=(work.terrain->context.ctr24+1)%24;

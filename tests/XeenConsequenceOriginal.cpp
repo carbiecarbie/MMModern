@@ -194,6 +194,31 @@ void combatPublicationFaults(Source &source) {
  }
 }
 
+void selectorMelee(Source &source) {
+ Domain original(source);const auto baseline=original.save();
+ for(unsigned weapon:{34u,1u,0u}) {
+  auto saved=baseline;
+  for(auto id:kXeenCombatOwners) {
+   saved.characters[id].currentHp=1000;saved.characters[id].characterClass=XeenCharacterClass::Knight;saved.characters[id].weapons={};
+   for(auto &item:saved.characters[id].armor)item.frame=0;
+   if(weapon)saved.characters[id].weapons[0]={0,std::uint8_t(weapon),0,std::uint8_t(weapon==34?13:1)};
+  }
+  auto &a=saved.map(23).monsters->slots[9];a.x=8;a.y=11;
+  Domain d(source,saved);d.programState.attackWeapon=34;
+  d.flow->journeyAction(d.flow->ticket(),XeenEncounterAction::Forward);
+  if(d.flow->state().phase()==XeenEncounterPhase::Exploring)d.flow->journeyPulse(d.flow->ticket());
+  check(d.flow->attachJourney(d.flow->ticket(),[]{}),"Selector melee fixture attaches");
+  auto &combat=*d.flow->combat();unsigned limit=0;
+  while(combat.phase()!=XeenCombatPhase::PlayerReady){check(++limit<20,"Selector melee ready");combat.service(combat.ticket());}
+  combat.command(combat.ticket(),XeenCombatCommand::Attack);
+  XeenCombatResult result;do {result=combat.service(combat.ticket());}while(result.status==XeenCombatStatus::Pending);
+  check(result.status==XeenCombatStatus::Advanced && d.programState.attackWeapon==weapon,"Melee did not publish its selected weapon");
+  XeenCombatRandom random(std::vector<XeenCombatRandom::Draw>{{1,56,7}});
+  XeenSpellDamageCandidate pain(1,0,0,6,XeenLearnedSpell::Pain,50);
+  XeenConsequenceDraw draw{random};draw.weaponSelector=[&]{return d.programState.attackWeapon;};
+  check(pain.service(draw) && pain.damage==(weapon==34?8:4),"Pain did not use melee's retained selector");
+ }
+}
 void restoreConsequences(Source &source,const std::optional<std::filesystem::path> &fixture) {
  Domain original(source);const auto saved=original.save();
  for(unsigned mode=0;mode<7;++mode){auto bad=saved;
@@ -276,7 +301,7 @@ void shootOrder(Source &source) {
  Domain original(source);auto saved=original.save();
  for(unsigned n=0;n<3;++n){auto &a=saved.map(23).monsters->slots[9-n];a.x=8-n;a.y=11;}
  saved.characters[0].weapons[8]={0,30,0,4};
- Domain d(source,saved);
+ Domain d(source,saved);d.programState.attackWeapon=34;
  tape.clear();for(unsigned shot=0;shot<4;++shot){for(unsigned die=0;die<3;++die)tape.push_back({1,2,1});tape.push_back({1,20,shot<2?1u:19u});if(shot>=2)tape.push_back({1,56,56});}
  cursor=0;taped=true;check(d.flow->handle(ShootAction{}),"Artificial mixed-target Shoot starts through typed action");d.present();
  const auto finishVisuals=[](Domain &v,unsigned distance){
@@ -303,6 +328,7 @@ void shootOrder(Source &source) {
   check(v.party.encounterContext->minutes==490&&v.flow->state().pending()==3,"Visuals preserve charge and owed opportunity");
  };
  finishVisuals(d,2);taped=false;
+ check(d.programState.attackWeapon!=34,"Delivered Shoot must replace Slayer selector");
  check(cursor==18 && d.world.sessionState().journeyRandom()->count==18,"Two misses then two hits in active-member order");
  check(d.world.sessionState().monsters(23)[9].hp==25 && d.world.sessionState().monsters(23)[8].hp==7 && d.world.sessionState().monsters(23)[7].hp==25,"Miss advances original target order; each successful shooter spends once");
  check(d.party.encounterContext->minutes==490 && !d.flow->canSave(),"Volley charges after every impact; capture remains excluded for owed movement");
@@ -607,7 +633,7 @@ int main(int argc,char **argv){try{
  Source source(*i);source.signature=XeenSaveFile::fingerprint(*i);
  freshSaveControls(source);titlePublicationControls(source);freshFailureControls(source);freshDifficultyHits(source);
  if(std::getenv("MMODERN_M49_IMPACT_ONLY")) {
-  cartographerCombatExits(source);
+  selectorMelee(source);cartographerCombatExits(source);
   chargedWait(source);stagedVolleyDefeat(source);stagedRotationVolley(source);
   zeroHitVolley(source);shootOrder(source);shootLethalPreparation(source);indoorShoot(source);indoorChangedShoot(source);blockReset(source);individualMonsterTreasure(source);disengagementMrWizard(source);
   std::cout<<"M49 original-resource impact/rotation controls PASS\n";return 0;

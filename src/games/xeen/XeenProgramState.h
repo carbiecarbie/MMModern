@@ -21,7 +21,7 @@ struct XeenProgramState {
     bool cloudsWon=false; // Title gate only; never a party completion source.
     bool eventCallSkipped=false; // DOS DS:9756: process lifetime, never saved.
     bool innSongStarted=false; // DOS DS:8d28: process lifetime, never saved.
-    unsigned attackWeaponFx=0; // DS:96ee is retained even across ordinary spell impacts.
+    unsigned attackWeapon=0; // DS:96ee: process-lifetime rule input, retained across spells and Load/New Game.
     unsigned steppingFx=0; // DAT DS:9775; process presentation state, never saved.
 	XeenTemplePriceState templePrices;
 	XeenTreasureStagingState treasure;

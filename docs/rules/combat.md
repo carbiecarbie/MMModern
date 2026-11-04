@@ -229,9 +229,7 @@ Load, combat entry/exit, monster turns, Block and Run do not reset the weapon
 ID. Ordinary spell and item-spell delivery retain it, including between
 targets. A physical spell after a Slayer attack therefore bypasses physical
 resistance through ID 34, despite its effect selector being 0. Neither selector
-is saved. **Baseline implementation gap:** MMModern retains the weapon ID for
-presentation, but `XeenSpellDamageCandidate` still reduces physical spells
-without consulting it; M111 Part A covers that change.
+is saved.
 
 Add the elemental weapon contribution once per applied action, after physical
 resistance. It is `ELEMENTAL_DAMAGE[material] * (100 - elemental resistance) / 100`,

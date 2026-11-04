@@ -59,7 +59,7 @@ bool XeenEventFlow::serviceBarrier() {
 		_encounter->journeySavePreimage().check();work.guard->check();
 	};
 	check();
-	XeenConsequenceDraw draw{work.random,64,check,[this](unsigned id){_encounter->fmEffect(id);},[this](unsigned id){_encounter->fmSelectWeapon(id);}};
+	XeenConsequenceDraw draw{work.random,64,check,[this](unsigned id){_encounter->fmEffect(id);},[this](unsigned id){_encounter->fmSelectWeapon(id);},{},[this]{return _encounter->weaponSelector();}};
 	if(work.time) {
 		if(!work.time->service(draw))return true;
 		work.characters=work.time->characters;work.inputs=work.time->inputs;work.context=work.time->context;

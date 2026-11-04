@@ -52,6 +52,8 @@ struct XeenConsequenceDraw {
     std::function<void(unsigned)> fmEffect;
     std::function<void(unsigned)> weaponSelected;
     std::function<void()> playerMiss;
+    // An empty reader means DS 0x96ee is 0; bind it for every draw that can reach spell damage.
+    std::function<unsigned()> weaponSelector;
     void effect(unsigned id) const noexcept {xeenEmitFmEffect(fmEffect,id);}
     void miss() const {if(playerMiss)playerMiss();else effect(6);}
 	std::optional<unsigned> draw(unsigned lo, unsigned hi);

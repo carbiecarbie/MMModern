@@ -150,7 +150,7 @@ bool XeenEncounterFlow::serviceRest() {
     if(rule.falling) {_terrainFall=rule;rule.damage=0;}
     rest.terrain.emplace(rule,recovery.characters,recovery.inputs,recovery.context,&*_party.serviceEconomy);
    }
-   XeenConsequenceDraw draw{rest.random,64,check,[this](unsigned id){fmEffect(id);},[this](unsigned id){fmSelectWeapon(id);}};if(!rest.terrain->service(draw))return true;
+   XeenConsequenceDraw draw{rest.random,64,check,[this](unsigned id){fmEffect(id);},[this](unsigned id){fmSelectWeapon(id);},{},[this]{return weaponSelector();}};if(!rest.terrain->service(draw))return true;
    recovery.context=rest.terrain->context;recovery.characters=rest.terrain->characters;recovery.inputs=rest.terrain->inputs;
    check();
    for(unsigned n=0;n<rest.owners.size();++n) {
@@ -177,7 +177,7 @@ bool XeenEncounterFlow::serviceRest() {
   if(rest.phase==P::Remainder) {
    if(!rest.time)rest.time.emplace(*_party.encounterContext,rest.shelter?480:outdoor?380:470,
     members(_party,rest.owners),supplements(_party,rest.owners),&*_party.serviceEconomy,XeenTimeMode::Sleeping);
-   XeenConsequenceDraw draw{rest.random,64,check,[this](unsigned id){fmEffect(id);},[this](unsigned id){fmSelectWeapon(id);}};if(!rest.time->service(draw))return true;
+   XeenConsequenceDraw draw{rest.random,64,check,[this](unsigned id){fmEffect(id);},[this](unsigned id){fmSelectWeapon(id);},{},[this]{return weaponSelector();}};if(!rest.time->service(draw))return true;
    const auto dream=draw.draw(1,20);if(!dream)return true;
    rest.phase=*dream==1 && _party.encounterContext->profile==XeenBehaviorProfile::WorldOfXeen?P::Dream:P::Recovery;
    check();

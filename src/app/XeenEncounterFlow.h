@@ -193,7 +193,8 @@ private:
     void digitalStop();
     void digitalMiss();
     void eventVoice(unsigned);
-    void fmSelectWeapon(unsigned id) noexcept {_program.attackWeaponFx=id;}
+    void fmSelectWeapon(unsigned id) noexcept {_program.attackWeapon=id;}
+    unsigned weaponSelector() const noexcept {return _program.attackWeapon;}
 	void recordJourneyStep();
 	friend class XeenEventFlow;
     friend struct XeenInnTestAccess;

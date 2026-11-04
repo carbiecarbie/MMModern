@@ -284,7 +284,7 @@ bool XeenEncounterFlow::publishCastingTarget() {
         }
 		XeenSpellPreparation preparedEffect;
         if(_casting->spell==XeenLearnedSpell::PowerCure && targetIndex) {
-            XeenConsequenceDraw draw{_casting->random,64,[&]{_journeyPreimage->check();},[this](unsigned id){fmEffect(id);},[this](unsigned id){fmSelectWeapon(id);}};
+            XeenConsequenceDraw draw{_casting->random,64,[&]{_journeyPreimage->check();},[this](unsigned id){fmEffect(id);},[this](unsigned id){fmSelectWeapon(id);},{},[this]{return weaponSelector();}};
             const auto effect=XeenLearnedSpellRules::preparePowerCure(_party,*targetIndex,_party.encounterContext->year,
                 _party.roster.at(_casting->casterOwner).currentLevel(),draw,&_casting->fmRequested);
             if(!effect)return true;
@@ -430,7 +430,7 @@ bool XeenEncounterFlow::serviceSpellItem() {
     if(!work.selected)return false;
     _journeyPreimage->check();
     auto &random=_casting?_casting->random:_itemUse->opportunity->random;
-    XeenConsequenceDraw draw{random,64,[&]{_journeyPreimage->check();},[this](unsigned id){fmEffect(id);},[this](unsigned id){fmSelectWeapon(id);}};
+    XeenConsequenceDraw draw{random,64,[&]{_journeyPreimage->check();},[this](unsigned id){fmEffect(id);},[this](unsigned id){fmSelectWeapon(id);},{},[this]{return weaponSelector();}};
     if(work.preparation && !work.preparation->service(draw))return true;
     auto prepared=std::make_shared<XeenRestoreGuard>(_world,_party,_camera,_flags);
     prepared->retainResources(*_journeyPreimage);
@@ -468,7 +468,7 @@ bool XeenEncounterFlow::serviceCasting() {
 		auto &work=*_casting;
         if(!work.effectDone)return publishCastingTarget();
 		if (!work.time) work.time.emplace(*_party.encounterContext,(_world.map(_camera.mapId).geometry.isOutdoors()?10:1),activeCharacters(_party,work.owners),activeInputs(_party,work.owners),&*_party.serviceEconomy);
-		XeenConsequenceDraw draw{work.random,64,[&] { _journeyPreimage->check(); },[this](unsigned id){fmEffect(id);},[this](unsigned id){fmSelectWeapon(id);}};
+		XeenConsequenceDraw draw{work.random,64,[&] { _journeyPreimage->check(); },[this](unsigned id){fmEffect(id);},[this](unsigned id){fmSelectWeapon(id);},{},[this]{return weaponSelector();}};
 		if (!work.time->service(draw)) return true;
         if(!work.terrain) {
             auto rule=_world.prepareTerrainArrival(_camera,work.time->characters,work.time->context,_flags.isSet(XeenSide::Darkside,118));

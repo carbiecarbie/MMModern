@@ -22,7 +22,7 @@ void XeenEncounterFlow::fmEffect(unsigned id) noexcept {
     catch(...) {} // An FM output failure cannot abort a gameplay action.
 }
 void XeenEncounterFlow::fmWeaponEffect() {
-    if(_program.audio){_program.audio->observeOptions(_party.soundOptions);_program.audio->weaponEffect(_program.attackWeaponFx,_lastNanoseconds);}
+    if(_program.audio){_program.audio->observeOptions(_party.soundOptions);_program.audio->weaponEffect(_program.attackWeapon,_lastNanoseconds);}
 }
 void XeenEncounterFlow::digitalSample(const std::string &name,XeenSceneArchive archive,std::optional<std::uint64_t> now) {
     if(_program.audio){_program.audio->observeOptions(_party.soundOptions);_program.audio->startDigital(name,archive,now.value_or(_lastNanoseconds));}
@@ -481,7 +481,7 @@ bool XeenEncounterFlow::settleItemUse(const Ticket &entry,std::uint64_t generati
             if(spell==XeenLearnedSpell::PowerCure && targetIndex) {
                 _itemUse->targetPending=true;_itemUse->targetIndex=targetIndex;
                 _itemUse->selectorFrame.reset();_itemUse->selectorTicket.reset();
-                XeenConsequenceDraw draw{_itemUse->opportunity->random,64,[&]{_journeyPreimage->check();},[this](unsigned id){fmEffect(id);},[this](unsigned id){fmSelectWeapon(id);}};
+                XeenConsequenceDraw draw{_itemUse->opportunity->random,64,[&]{_journeyPreimage->check();},[this](unsigned id){fmEffect(id);},[this](unsigned id){fmSelectWeapon(id);},{},[this]{return weaponSelector();}};
                 const auto healing=XeenLearnedSpellRules::preparePowerCure(_party,*targetIndex,_party.encounterContext->year,
                     _party.roster.at(_itemUse->sourceOwner).currentLevel(),draw,&_itemUse->fmRequested);
                 if(!healing)return true;
@@ -1085,7 +1085,7 @@ bool XeenEncounterFlow::attachJourney(const Ticket &entry, const std::function<v
 		_journeyPreimage->check();
 		_combat.reset(new XeenCombat(_world,_party,_camera,_boundary,_flags,_state,_journeyStatistics,_events));
         _fmAttackGeneration.reset(); // Combat generations are local to this new instance.
-        _combat->fmEffects([this](unsigned id){fmEffect(id);},[this]{fmWeaponEffect();},[this](unsigned weapon){fmSelectWeapon(weapon);},[this](unsigned id){fmEffectAfterFrame(id);},[this]{digitalMiss();});
+        _combat->fmEffects([this](unsigned id){fmEffect(id);},[this]{fmWeaponEffect();},[this](unsigned weapon){fmSelectWeapon(weapon);},[this](unsigned id){fmEffectAfterFrame(id);},[this]{digitalMiss();},[this]{return weaponSelector();});
         _combat->inheritResources(_combat->ticket(),*_journeyPreimage);
 		++_generation;
 		if (!acceptCombatResult(_combat->beginCombat(_combat->ticket()))) return false;

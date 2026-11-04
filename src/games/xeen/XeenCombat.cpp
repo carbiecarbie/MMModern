@@ -155,6 +155,7 @@ struct XeenCombat::Impl {
     std::function<void()> fmWeaponEffect;
     std::function<void()> playerMiss;
     std::function<void(unsigned)> weaponSelected;
+    std::function<unsigned()> weaponSelector;
 	bool servicingPresented=false;
 	std::array<int,9> order{};
 	std::array<bool,9> acted{};
@@ -503,10 +504,10 @@ struct XeenCombat::Impl {
 
 };
 
-void XeenCombat::fmEffects(std::function<void(unsigned)> effect,std::function<void()> impact,std::function<void(unsigned)> selected,std::function<void(unsigned)> afterFrame,std::function<void()> playerMiss) {
+void XeenCombat::fmEffects(std::function<void(unsigned)> effect,std::function<void()> impact,std::function<void(unsigned)> selected,std::function<void(unsigned)> afterFrame,std::function<void()> playerMiss,std::function<unsigned()> weaponSelector) {
     impl->fmEffect=std::move(effect);impl->fmWeaponEffect=std::move(impact);impl->weaponSelected=std::move(selected);
     impl->fmAfterFrame=std::move(afterFrame);
-    impl->playerMiss=std::move(playerMiss);
+    impl->playerMiss=std::move(playerMiss);impl->weaponSelector=std::move(weaponSelector);
 }
 
 XeenCombat::XeenCombat(XeenWorld &w, XeenPartyState &p, XeenCamera &c, XeenCombatBoundary &b,
@@ -1191,14 +1192,14 @@ XeenCombatResult XeenCombat::settleCast(const Ticket &t,std::optional<unsigned> 
             ++d.generation;return d.adopt(c.operation,Status::Pending);
         }
         if(c.itemPreparation) {
-            XeenConsequenceDraw draw{c.random,64,[&]{d.probeFor(t);d.checkCastReservation(t,reserved,true);},d.fmEffect,d.weaponSelected,d.playerMiss};
+            XeenConsequenceDraw draw{c.random,64,[&]{d.probeFor(t);d.checkCastReservation(t,reserved,true);},d.fmEffect,d.weaponSelected,d.playerMiss,d.weaponSelector};
             if(!c.itemPreparation->service(draw)) {++d.generation;return d.adopt(c.operation,Status::Pending);}
         }
         XeenCombatCastResult result=c.view.result;result.spell=reserved.spell;
         result.spBefore=reserved.originalSp;result.spAfter=reserved.originalSp-int(reserved.cost);
         XeenSpellPreparation effect;
         if(reserved.spell==unsigned(XeenLearnedSpell::PowerCure) && target) {
-            XeenConsequenceDraw draw{c.random,64,[&]{d.probeFor(t);d.checkCastReservation(t,reserved,true);},d.fmEffect,d.weaponSelected,d.playerMiss};
+            XeenConsequenceDraw draw{c.random,64,[&]{d.probeFor(t);d.checkCastReservation(t,reserved,true);},d.fmEffect,d.weaponSelected,d.playerMiss,d.weaponSelector};
             const auto healing=XeenLearnedSpellRules::preparePowerCure(d.party,*target,d.party.encounterContext->year,
                 d.character(reserved.participant).currentLevel(),draw,&c.fmRequested);
             if(!healing) {
@@ -1210,7 +1211,7 @@ XeenCombatResult XeenCombat::settleCast(const Ticket &t,std::optional<unsigned> 
             reserved.spell==42 && d.world.sceneIsBlack(d.party,d.camera));
         if(reserved.spell==unsigned(XeenLearnedSpell::MoonRay)) {
             if(d.world.scenePresentation().feedbackActive())return d.adopt(c.operation,Status::Pending);
-            XeenConsequenceDraw draw{c.random,64,[&]{d.probeFor(t);d.checkCastReservation(t,reserved,true);},d.fmEffect,d.weaponSelected,d.playerMiss};
+            XeenConsequenceDraw draw{c.random,64,[&]{d.probeFor(t);d.checkCastReservation(t,reserved,true);},d.fmEffect,d.weaponSelected,d.playerMiss,d.weaponSelector};
             if(c.healing.member<d.party.party.size()) {
                 if(!c.healing.serviceMember(draw,d.party,d.party.encounterContext->year)) {
                     ++d.generation;return d.adopt(c.operation,Status::Pending);
@@ -1354,7 +1355,7 @@ XeenCombatResult XeenCombat::serviceCast(const Ticket &t,std::uint64_t now) {
         const bool ranged=XeenLearnedSpellRules::target(reserved.spell)==XeenSpellTarget::Contact;
         if(!ranged)return settleCast(t,c.partyTarget);
         if(!c.targetsPrepared) {
-            XeenConsequenceDraw draw{c.random,64,[&]{d.probeFor(t);d.checkCastReservation(t,reserved,true);},d.fmEffect,d.weaponSelected,d.playerMiss};
+            XeenConsequenceDraw draw{c.random,64,[&]{d.probeFor(t);d.checkCastReservation(t,reserved,true);},d.fmEffect,d.weaponSelected,d.playerMiss,d.weaponSelector};
             if(!c.preparation->service(draw)){++d.generation;return d.adopt(c.operation,Status::Pending);}
             c.preparation->requestFmEffect(draw,c.sourceItem?unsigned(c.sourceItem->id):0);
             c.targets=xeenSpellTargets(d.world,d.camera,d.actors,d.selected,XeenLearnedSpellRules::range(reserved.spell));
@@ -1401,7 +1402,7 @@ XeenCombatResult XeenCombat::serviceCast(const Ticket &t,std::uint64_t now) {
         }
         require(c.arrow && reserved.enemy,"Missing bound Arrow candidate");
         const auto &bound=*reserved.enemy;
-        XeenConsequenceDraw draw{c.random,64,[&]{d.probeFor(t);d.checkCastReservation(t,reserved,true);},d.fmEffect,d.weaponSelected,d.playerMiss};
+        XeenConsequenceDraw draw{c.random,64,[&]{d.probeFor(t);d.checkCastReservation(t,reserved,true);},d.fmEffect,d.weaponSelected,d.playerMiss,d.weaponSelector};
         if(!c.arrowDone) {
             if(!c.arrow->service(draw)){++d.generation;return d.adopt(c.operation,Status::Pending);}
             c.impactRandom=c.random.continuation();
@@ -1604,7 +1605,7 @@ XeenCombatResult XeenCombat::serviceConsequences(const Ticket &t) {
 			}
 		}
 		auto &c=*d.consequences;
-		XeenConsequenceDraw draw{c.rng,64,[&]{d.probeFor(t);},d.fmEffect,d.weaponSelected,d.playerMiss};
+		XeenConsequenceDraw draw{c.rng,64,[&]{d.probeFor(t);},d.fmEffect,d.weaponSelected,d.playerMiss,d.weaponSelector};
 		auto pending=[&] { ++d.generation;return d.adopt(c.result,Status::Pending); };
 		if(c.sequenced && c.result.attackStage==XeenCombatAttackStage::MonsterPose1) {
 			c.result.attackStage=XeenCombatAttackStage::MonsterPose2;c.attackPresented=false;return pending();
