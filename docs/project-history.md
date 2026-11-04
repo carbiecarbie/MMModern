@@ -386,3 +386,11 @@ the tests that need no original data. A new switch,
 `MMODERN_ORIGINAL_DATA_TESTS`, leaves the data tests out there, while the
 local default keeps every test. No game behavior changes.
 [Plan](milestone-109-plan.md).
+
+**M111 - Xeen Slayer selector and whole-Event discard** (Tier A). After a
+Xeen Slayer Sword attack, physical spells ignore physical resistance, because
+DOS keeps the last weapon attack's ID; calibrated program analysis settled
+the selector's writers. An Event MMModern has to refuse is now discarded
+whole: party, items, flags, position, time and random state return to their
+pre-Event values, an approved deviation, since DOS never stops an Event. Save
+v26 unchanged. [Plan](milestone-111-plan.md).

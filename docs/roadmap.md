@@ -1,6 +1,7 @@
 # MMModern - Roadmap
 
-**M109 is the latest completed and accepted milestone**, after M110
+**M111 is the latest completed and accepted milestone**
+([plan](milestone-111-plan.md)), after M109 and M110
 ([M109 plan](milestone-109-plan.md), [M110 plan](milestone-110-plan.md)).
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records each completed milestone.
@@ -182,10 +183,12 @@ analysis, because the reference was wrong in comparable Clouds cases (M80).
 | 4. Darkside and World wins, Darkside ending ([M106](milestone-106-plan.md)) | Opcodes 57 and 58, the ending mirror words on both sides, the Darkside and World completion words and won states, the title replay rows, and the Darkside presentation | A | Done 2026-11-02 |
 | 5. World ending presentation ([M107](milestone-107-plan.md)) | The `XEEN.EXE` World ending after the win, `genesis` and the W replay | B | Done 2026-11-02 |
 
-[M111](milestone-111-plan.md) implements whole-Event discard on a runtime or
-permanent presentation refusal ([approved deviation](original-quirks.md#dev-event-presentation-abandon))
-and the Xeen Slayer Sword selector for subsequent physical spells. A sweep of
-the original data found no Event that reaches the refusal rule today. The sky
+[M111](milestone-111-plan.md) (Tier A, accepted 2026-11-04) made a refused
+Event discard the whole Event
+([approved deviation](original-quirks.md#dev-event-presentation-abandon))
+and made physical spells after a Xeen Slayer Sword attack ignore physical
+resistance, as in DOS. A sweep of the original data found no Event that
+reaches the refusal rule today. The sky
 and the Darkside entrance scenes
 reading night from the clock, where DOS caches it, is no longer pending: the
 maintainer kept it as an

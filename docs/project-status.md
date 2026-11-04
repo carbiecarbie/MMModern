@@ -1,9 +1,11 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. M109 is the latest
-completed and accepted milestone (2026-11-03; [plan](milestone-109-plan.md)):
-every push builds the project on a clean machine on GitHub and runs the
-tests that need no original data. Before it, M110 made the game playable in
+This describes what can be played and done now. M111 is the latest
+completed and accepted milestone (2026-11-04; [plan](milestone-111-plan.md)):
+after a Xeen Slayer Sword attack, physical spells ignore physical resistance
+as in DOS, and an Event MMModern has to refuse is discarded whole. Before it,
+M109 made every push build the project on a clean machine on GitHub and run
+the tests that need no original data ([plan](milestone-109-plan.md)), M110 made the game playable in
 Russian with the old-games.ru fan translation installed beside the CD
 ([plan](milestone-110-plan.md)), M108 turned the invariants of the Darkside
 audit into original-data tests, M107 played the original World of Xeen ending after the World win, the
@@ -144,6 +146,8 @@ give none. Event treasure shares the monster treasure, including the
 original's duplicate of pending items ([treasure rules](rules/items.md)).
 
 Only the Xeen Slayer Sword hurts Lord Xeen, with the original's +100 per hit.
+After a Slayer Sword attack, physical spells also ignore physical resistance
+until another weapon attack, as in DOS.
 His death gives the Scepter and every active member the "Defeated Lord Xeen"
 award. Scripted deaths work as in DOS: the Clan King completes Gunther's
 quest, Count Draco's death makes the Nightshadow well grant ten levels, Ice
@@ -382,7 +386,8 @@ linked ScummVM components).
 - Rules (pure, in `games/xeen`): combat, monsters, treasure, items, services,
   spells, terrain, Rest and time.
 - Events: `XeenEventSystem` decodes and runs the original Event scripts;
-  unsupported effects refuse visibly without publishing anything partial.
+  unsupported effects refuse visibly and discard the whole Event, so the
+  party, flags, position, time and random state are as before it.
 - Cutscenes: `XeenCutscene` and `XeenCutsceneFlow` play the Darkside intro
   and the Clouds intro and ending and the Darkside and World endings of
   `WORLD/XEEN.EXE`, with tables, frames
