@@ -30,8 +30,8 @@ Out of scope, both by maintainer decision (2026-11-04):
   bundle in Acceptance is not a package.
 
 Also out of scope: macOS, Android, other CPU architectures, Clang,
-controller support and other opt-in extras, and changing the pinned ScummVM
-revision or its configure command.
+controller support and other opt-in extras, changing the pinned ScummVM
+revision, and changing the Windows configure command.
 
 ## Current state (measured 2026-11-04)
 
@@ -258,9 +258,14 @@ with throwaway shims in a WSL clone (`~/m113-measure`, reference only):
   - The stripping of test and tool debug information, today
     `if(MINGW ...)`, also applies to GCC on ELF. `mmodern` and
     `MMODERN_TEST_DEBUG_INFO` keep their rules.
-  - As on Windows, ScummVM is configured before the Vorbis and Ogg
-    development packages are installed: in CI by the step order, which a
-    check enforces, and locally by the order `dependencies.md` gives.
+  - On Linux, ScummVM's configure adds `--disable-ogg --disable-vorbis`
+    (maintainer, 2026-11-04). With those libraries installed it would
+    otherwise detect them; the measurement had configured ScummVM before
+    they were installed. The Linux `USE_` set then matches Windows' Ogg and
+    Vorbis state, whatever the machine has installed.
+    - `.github/ci/scummvm.sh` adds the flags only on Linux, so the Windows
+      configure command and its install order stay as they are.
+    - MMModern still links the system's `vorbisfile` for CD speech.
 - **One item-catalog generator.** `tools/GenerateXeenItemCatalog.ps1` and
   `tests/XeenItemCatalogGenerationTests.ps1` become CMake scripts run with
   `cmake -P` on every platform, still at configure time and on every build:
@@ -322,7 +327,7 @@ with throwaway shims in a WSL clone (`~/m113-measure`, reference only):
     `.github/ci/linux-packages.txt` lists the exact package versions the
     job checks, as the MSYS2 job does.
   - ScummVM is fetched at the pin and configured by `.github/ci/scummvm.sh`
-    before the Vorbis packages. Its `USE_` set and defines are checked
+    with the Linux flags. Its `USE_` set and defines are checked
     against their Linux files, and its build is cached the same way.
   - The job builds `RelWithDebInfo` `-O2 -g` without `NDEBUG`, including
     the EXCLUDE_FROM_ALL targets, with `MMODERN_ORIGINAL_DATA_TESTS=OFF`. It
@@ -394,8 +399,8 @@ authorization.
   - the Linux job, its package, `USE_` and define files, and a deliberately
     red commit on a work branch, as M109 did;
   - `tools/run-full-ctest.sh`;
-  - `dependencies.md`: the Linux toolchain, packages, configure order and
-    WSL setup;
+  - `dependencies.md`: the Linux toolchain, packages, ScummVM configure
+    flags and WSL setup;
   - `development.md` and the README: build and run on Linux, and where saves
     and settings live;
   - `tools/AGENTS.md`: both complete suites;
@@ -428,9 +433,8 @@ authorization.
   deliberately misspelled name on both linkers. If the guard redirects
   through `--wrap`, the guard instead checks the linker's `--trace-symbol`
   output.
-- **Prerequisite.** WSL lacks `libvorbis-dev` and `libogg-dev`, and
-  installing them needs the maintainer's `sudo`. Part A starts with that
-  request, after configuring ScummVM in WSL.
+- **Prerequisite, done.** The maintainer installed `libvorbis-dev` and
+  `libogg-dev` in WSL on 2026-11-04.
 
 ## Acceptance
 
