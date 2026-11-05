@@ -2,10 +2,6 @@
 #include <iostream>
 #include <stdexcept>
 int main(){try {
-#ifndef _WIN32
- // m113-ci-red: fails on Linux only, so the Linux CI job must turn red.
- throw std::runtime_error("Deliberate Linux-only failure (m113-ci-red)");
-#endif
  const auto check=[](const std::string &s,const char *expected){if(test_hash::sha256({s.begin(),s.end()})!=expected)throw std::runtime_error("SHA-256 published vector mismatch");};
  // NIST SHA-256 byte-message examples, including multiblock padding.
  check("","e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
