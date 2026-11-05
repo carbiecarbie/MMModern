@@ -344,8 +344,31 @@ jobs:
         with:
           persist-credentials: false
 
+      # The cache holds a verified local mirror of the packages, so a run
+      # needs snapshot.ubuntu.com only when the list or the image changes.
+      - name: Name the package cache
+        id: apt-key
+        run: echo "key=$(bash .github/ci/linux-apt.sh key .github/ci/linux-packages.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore the package cache
+        id: apt-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /var/cache/mmodern-apt
+          key: ${{ steps.apt-key.outputs.key }}
+
+      - name: Download the pinned packages
+        run: bash .github/ci/linux-apt.sh fetch .github/ci/linux-packages.txt /var/cache/mmodern-apt
+
+      - name: Save the package cache
+        if: steps.apt-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /var/cache/mmodern-apt
+          key: ${{ steps.apt-key.outputs.key }}
+
       - name: Install the pinned packages
-        run: bash .github/ci/linux-apt.sh .github/ci/linux-packages.txt
+        run: bash .github/ci/linux-apt.sh install .github/ci/linux-packages.txt /var/cache/mmodern-apt
 
       # The documented list is the packages asked for; the list file also
       # pins everything apt resolves from them.

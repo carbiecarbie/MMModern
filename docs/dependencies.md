@@ -845,7 +845,17 @@ a hosted `ubuntu-24.04` machine. It:
   the installed set equals that file in every package and version. The image
   has no CA certificates, so apt reaches the snapshot service with the
   runner's CA bundle, mounted read-only, until the pinned `ca-certificates` is
-  installed; every index is still verified against the Ubuntu archive key. A
+  installed; every index is still verified against the Ubuntu archive key.
+  The script downloads the signed indexes and the needed packages into a
+  local mirror, which the job caches under the package list, the script and
+  the image's own installed set, then installs from that mirror offline. apt
+  checks the mirror exactly as the snapshot: the published `InRelease`
+  signatures, the hashes of every index and package, the exact versions. The
+  service is therefore needed only when the list or the image changes. The
+  download fails at once, naming `snapshot.ubuntu.com`, when any index or
+  package cannot be fetched (`APT::Update::Error-Mode=any`), after three
+  attempts of the update and of the download, 30 and 60 seconds apart, each
+  with apt's own retries; an outage never reaches the dependency resolver. A
   first checkout without Git reads the list; a second one, with Git, is the
   build source. The job then checks that this document lists exactly the
   requested packages;
@@ -867,7 +877,8 @@ a hosted `ubuntu-24.04` machine. It:
 The manual workflow `.github/workflows/linux-bundle.yml` (Actions,
 **Linux test bundle**, **Run workflow**) builds the Linux test bundle of
 `tools/linux-bundle/` in an `ubuntu:22.04` container pinned by digest
-(glibc 2.35), with `.github/ci/linux-bundle-packages.txt` pinned the same way.
+(glibc 2.35), with `.github/ci/linux-bundle-packages.txt` pinned and cached
+the same way.
 Ubuntu 22.04's SDL2 2.0.20 lacks `SDL_GetDefaultAudioInfo` (2.24 or later), so
 `build-sdl2.sh` first builds SDL2 2.32.10, the version Windows and CI use,
 from the upstream release tarball after checking its SHA-256
