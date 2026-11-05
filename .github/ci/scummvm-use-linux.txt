@@ -1,0 +1,172 @@
+## USE_ lines of the pinned ScummVM build's config.h and then config.mk on
+## Linux, recorded from the maintainer's WSL Ubuntu 26.04 build (configured
+## 2026-11-04 by .github/ci/scummvm.sh). .github/workflows/ci.yml compares a
+## fresh configure in the Linux job with them.
+#undef USE_SDL_NET
+#undef USE_ELF_LOADER
+#undef USE_MT32EMU
+#define USE_RGB_COLOR
+#define USE_HIGHRES
+#define USE_SAVEGAME_TIMESTAMP
+#define USE_SCALERS
+#define USE_HQ_SCALERS
+#define USE_EDGE_SCALERS
+#define USE_ASPECT
+#undef USE_OGG
+#undef USE_VORBIS
+#undef USE_TREMOR
+#undef USE_RETROWAVE
+#undef USE_NFM
+#undef USE_FLAC
+#undef USE_MAD
+#define USE_ALSA
+#undef USE_JPEG
+#undef USE_PNG
+#undef USE_FAAD
+#define USE_SEQ_MIDI
+#define USE_SNDIO
+#undef USE_TIMIDITY
+#define USE_ZLIB
+#undef USE_A52
+#undef USE_LIBCURL
+#undef USE_BASIC_NET
+#undef USE_HTTP
+#undef USE_OPENMPT
+#undef USE_MIKMOD
+#undef USE_DLC
+#undef USE_SCUMMVMDLC
+#undef USE_FLUIDSYNTH
+#undef USE_FLUIDLITE
+#undef USE_SONIVOX
+#undef USE_READLINE
+#undef USE_TEXT_CONSOLE_FOR_DEBUGGER
+#undef USE_UNITY
+#undef USE_GTK
+#undef USE_FREETYPE2
+#undef USE_GLES_MODE
+#define USE_OPENGL
+#define USE_GLAD
+#define USE_OPENGL_GAME
+#define USE_OPENGL_SHADERS
+#define USE_LINUXCD
+#undef USE_NASM
+#undef USE_PANDOC
+#define USE_CURL
+#undef USE_FRIBIDI
+#undef USE_DISCORD
+#define USE_TRANSLATION
+#define USE_DETECTLANG
+#undef USE_TASKBAR
+#define USE_SYSTEM_PRINTING
+#undef USE_SYSDIALOGS
+#undef USE_TTS
+#define USE_BINK
+#undef USE_UPDATES
+#undef USE_CLOUD
+/* #define USE_CDTOONS */
+/* #define USE_ENET */
+/* #define USE_FMTOWNS_PC98_AUDIO */
+/* #define USE_GIF */
+/* #define USE_HMI_AUDIO */
+/* #define USE_HNM */
+/* #define USE_IMGUI */
+/* #define USE_INDEO3 */
+/* #define USE_INDEO45 */
+/* #define USE_JYV1 */
+/* #define USE_LUA */
+/* #define USE_MACTOOLBOX */
+/* #define USE_MFC */
+/* #define USE_VPX */
+/* #define USE_THEORADEC */
+/* #define USE_MIDI */
+/* #define USE_MPCDEC */
+/* #define USE_MPEG2 */
+/* #define USE_MSMPEG4 */
+/* #define USE_QDM2 */
+/* #define USE_SID_AUDIO */
+/* #define USE_SVQ1 */
+/* #define USE_TINYGL */
+/* #define USE_TRUEMOTION1 */
+/* #define USE_UNIVERSALTRACKER */
+/* #define USE_VGMTRANS_AUDIO */
+/* #define USE_XAN */
+USE_SDL2 = 1
+# USE_SDL_NET = 1
+# USE_ELF_LOADER = 1
+# USE_MT32EMU = 1
+USE_RGB_COLOR = 1
+USE_HIGHRES = 1
+USE_SAVEGAME_TIMESTAMP = 1
+USE_SCALERS = 1
+USE_HQ_SCALERS = 1
+USE_EDGE_SCALERS = 1
+USE_ASPECT = 1
+# USE_OGG = 1
+# USE_VORBIS = 1
+# USE_TREMOR = 1
+# USE_RETROWAVE = 1
+# USE_NFM = 1
+# USE_FLAC = 1
+# USE_MAD = 1
+USE_ALSA = 1
+# USE_JPEG = 1
+# USE_PNG = 1
+# USE_FAAD = 1
+USE_ZLIB = 1
+# USE_A52 = 1
+# USE_LIBCURL = 1
+# USE_BASIC_NET = 1
+# USE_HTTP = 1
+# USE_OPENMPT = 1
+# USE_MIKMOD = 1
+# USE_DLC = 1
+# USE_SCUMMVMDLC = 1
+# USE_FLUIDSYNTH = 1
+# USE_SONIVOX = 1
+# USE_FREETYPE2 = 1
+USE_OPENGL = 1
+USE_GLAD = 1
+USE_OPENGL_GAME = 1
+USE_OPENGL_SHADERS = 1
+USE_LINUXCD = 1
+# USE_NASM = 1
+# USE_PANDOC = 1
+USE_CURL = 1
+# USE_FRIBIDI = 1
+# USE_DISCORD = 1
+USE_TRANSLATION = 1
+# USE_TASKBAR = 1
+USE_SYSTEM_PRINTING = 1
+# USE_SYSDIALOGS = 1
+# USE_TTS = 1
+USE_BINK = 1
+# USE_UPDATES = 1
+# USE_CLOUD = 1
+# USE_CDTOONS
+# USE_ENET
+# USE_FMTOWNS_PC98_AUDIO
+# USE_GIF
+# USE_HMI_AUDIO
+# USE_HNM
+# USE_IMGUI
+# USE_INDEO3
+# USE_INDEO45
+# USE_JYV1
+# USE_LUA
+# USE_MACTOOLBOX
+# USE_MFC
+# USE_VPX
+# USE_THEORADEC
+# USE_MIDI
+# USE_MPCDEC
+# USE_MPEG2
+# USE_MSMPEG4
+# USE_QDM2
+# USE_SID_AUDIO
+# USE_SVQ1
+# USE_TINYGL
+# USE_TRUEMOTION1
+# USE_UNIVERSALTRACKER
+# USE_VGMTRANS_AUDIO
+# USE_XAN
+DEFINES += -DSDL_BACKEND -DUSE_SDL2 -DPOSIX -DHAS_POSIX_SPAWN -DHAS_FSEEKO_OFFT_64 -DDATA_PATH=\"${datarootdir}/scummvm\" -DPLUGIN_DIRECTORY=\"${exec_prefix}/lib/scummvm\"

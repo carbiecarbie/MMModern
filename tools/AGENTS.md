@@ -6,6 +6,16 @@ rerunning its failed tests, and when acting as its test runner. The root
 
 ## When
 
+- There are two complete suites: the Windows one on `build-rel`
+  (`tools/run-full-ctest.ps1`) and, since M113, the Linux one on
+  `build-linux-rel` in the WSL clone (`tools/run-full-ctest.sh`; setup in
+  [dependencies](../docs/dependencies.md#linux-build-under-wsl-build-linux-rel)).
+  A task that changes production code, tests, CMake or the test tools runs
+  both after its final production build: first the Windows suite, then,
+  after it has finished, the Linux suite. They never run at the same time,
+  since their real-clock serial tests cannot protect each other across the
+  two systems. Where no Linux build is set up, the task says that the Linux
+  suite was not run. "The complete suite" below means each of them.
 - The complete suite runs on `build-rel` once after the final production
   build of each task, not once for the whole milestone. It takes a few minutes
   (M66 target: under 10); a run over 15 minutes means something hangs or the
@@ -40,7 +50,16 @@ rerunning its failed tests, and when acting as its test runner. The root
   (`gpt-6-luna`, low reasoning effort, `fork_turns: none`). In Claude Code, the
   main agent starts the script itself as a background shell command
   (`run_in_background`) and is notified when it exits; no subagent is needed.
-- The suite runs `tools/run-full-ctest.ps1 -BuildDir <build>` using the local
+- The Linux suite runs, from the WSL clone, as
+  `bash tools/run-full-ctest.sh --build-dir build-linux-rel --sync-from /mnt/d/Projetos/MModern/mmodern`:
+  it first makes the clone a copy of the Windows working tree, rebuilds and
+  then runs ctest, writing the same `summary.txt` plus the synced `HEAD` and
+  diff SHA-256. In Claude Code it is a background `wsl.exe` command after the
+  Windows suite's notification. Its jobs are explicit `-j 1..256`, otherwise
+  half of `nproc` (at least 1, at most 8); the sandbox check and job
+  preference file below are Windows-only. Its results are under
+  `build-linux-rel/ctest-results/<run>/`.
+- The Windows suite runs `tools/run-full-ctest.ps1 -BuildDir <build>` using the local
   machine preference. Job-count precedence is explicit `-Jobs 1..256`, then
   `%LOCALAPPDATA%\MMModern\ctest-jobs.json` when its `computerName` matches
   this computer, then half the logical processors (at least 1, at most 8).
