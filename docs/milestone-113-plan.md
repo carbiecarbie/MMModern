@@ -342,6 +342,9 @@ with throwaway shims in a WSL clone (`~/m113-measure`, reference only):
     the EXCLUDE_FROM_ALL targets, with `MMODERN_ORIGINAL_DATA_TESTS=OFF`. It
     runs one `ctest`, where the test properties already give
     `SDL_VIDEODRIVER` and `SDL_AUDIODRIVER=dummy`.
+  - It builds and runs `ctest` as an unprivileged user inside the
+    container, so the 56 permission cases that skip under root run too
+    (maintainer, 2026-11-04).
   - The permissions, pinned actions, concurrency and log upload of M109
     apply. The Windows job's steps are untouched. Its ScummVM cache key
     hashes `scummvm.sh`, so if that script changes, one cold Windows
@@ -488,7 +491,10 @@ authorization.
   - Part C prepares a test bundle for this, outside the repository and not
     a release package. It is built by a manual CI job as a downloadable
     artifact, in an older pinned container (Ubuntu 22.04, glibc 2.35), so
-    it runs on most current distributions. The bundle holds:
+    it runs on most current distributions. Ubuntu 22.04's SDL2 2.0.20
+    lacks `SDL_GetDefaultAudioInfo` (it needs 2.24 or later), so the bundle
+    job builds the pinned SDL2 2.32.10, the version Windows and CI use, and
+    bundles it (maintainer, 2026-11-04). The bundle holds:
     - `mmodern` linked with `-static-libgcc -static-libstdc++`, as on
       Windows;
     - its non-system libraries;

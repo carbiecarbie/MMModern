@@ -33,6 +33,21 @@ size and checksum and never written. Normal play reads `language` and
 
 ## Entry modes
 
+The per-user folder holds `Saves/`, `settings.ini`, the owned `XEEN.CFG`,
+`logs/`, `roms/` and `window.ini`. It is `%LOCALAPPDATA%\MMModern` on Windows
+and, since M113, `$XDG_DATA_HOME/MMModern` on Linux, or
+`~/.local/share/MMModern` when `XDG_DATA_HOME` is unset or relative; a missing
+one is created with mode 0700. Below, `%LOCALAPPDATA%\MMModern` stands for
+both. Linux refuses save targets on network file systems (NFS, SMB, 9P such as
+WSL's `/mnt` drives, and network FUSE mounts), so a home folder on one needs
+`XDG_DATA_HOME` pointed at a local disk.
+
+Linux builds and runs natively ([setup](dependencies.md#linux-toolchain));
+`build-linux-rel/mmodern <game-directory>` takes the same options as
+`mmodern.exe`. The Windows launcher has no Linux counterpart yet: use the
+installed `WORLD/XEEN.CFG` or `--sound-setup`, and `--russian <folder>` or
+`--language-setup` for the translation.
+
 Run from a terminal to see diagnostics, and quote paths containing spaces:
 `--ui-data <path>` and `--xeen-cfg <path>` select sources for the game and
 inspection entry modes. Sound setup always uses its owned or installed base.
@@ -149,7 +164,14 @@ behavior or open a native window are marked to run alone.
 ```text
 ctest -L fast -j 8    # iteration: everything except process tests
 tools/run-full-ctest.ps1 -BuildDir build-rel  # full suite with local job preference
+bash tools/run-full-ctest.sh --build-dir build-linux-rel  # full Linux suite
 ```
+
+On Linux the same tests register, except the Windows-only launcher test.
+`tools/run-full-ctest.sh` is the POSIX twin of the PowerShell runner and, with
+`--sync-from <checkout>`, first copies another working tree into the clone, as
+the [WSL build](dependencies.md#linux-build-under-wsl-build-linux-rel) does;
+`tools/AGENTS.md` says when each complete suite runs.
 
 The complete suite is normally run through `tools/run-full-ctest.ps1`, which
 picks the job count and keeps a log and summary per run. An explicit `-Jobs`

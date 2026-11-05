@@ -1,9 +1,11 @@
-# Builds MMModern on a clean Windows machine from the repository and
-# docs/dependencies.md alone, and runs the tests that need no original data
-# (MMODERN_ORIGINAL_DATA_TESTS=OFF). It never replaces the complete local
-# suite. The pinned toolchain is .github/ci/msys2-packages.txt, the ScummVM
+# Builds MMModern on a clean Windows machine and in a clean Linux container
+# from the repository and docs/dependencies.md alone, and runs the tests that
+# need no original data (MMODERN_ORIGINAL_DATA_TESTS=OFF). It never replaces
+# the complete local suites. The pinned toolchains are
+# .github/ci/msys2-packages.txt and .github/ci/linux-packages.txt, the ScummVM
 # configure and build commands .github/ci/scummvm.sh and the expected ScummVM
-# configuration .github/ci/scummvm-use.txt; change them and
+# configurations .github/ci/scummvm-use.txt, .github/ci/scummvm-use-linux.txt
+# and .github/ci/scummvm-defines-linux.txt; change them and
 # docs/dependencies.md together.
 name: CI
 
@@ -307,5 +309,188 @@ jobs:
         with:
           name: ctest-logs
           path: build-rel/Testing/Temporary/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # The same build and data-free tests natively on Linux, in an Ubuntu 26.04
+  # container pinned by digest, with every package pinned by
+  # .github/ci/linux-packages.txt (a snapshot.ubuntu.com timestamp and the
+  # exact installed set) and the ScummVM configuration by
+  # .github/ci/scummvm-use-linux.txt and .github/ci/scummvm-defines-linux.txt.
+  # MMModern and ScummVM are built and tested as an unprivileged user, so the
+  # permission cases that skip under root run too.
+  linux-build-and-test:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    container:
+      image: ubuntu:26.04@sha256:6a06111c3b0a8600feadb270aec771dc239bf407b25625f93f44ab00e11f4d3c
+      # The image has no CA certificates; .github/ci/linux-apt.sh uses the
+      # runner's bundle only to reach snapshot.ubuntu.com over HTTPS.
+      volumes:
+        - /etc/ssl/certs/ca-certificates.crt:/host-ca.crt:ro
+    env:
+      MMODERN_CI_CA_FILE: /host-ca.crt
+      SCUMMVM_SOURCE: /home/builder/scummvm-src
+      SCUMMVM_BUILD: /home/builder/scummvm-build
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # Without Git in the image this checkout downloads the files only; the
+      # package list is all the next step needs.
+      - name: Check out the package list
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install the pinned packages
+        run: bash .github/ci/linux-apt.sh .github/ci/linux-packages.txt
+
+      # The documented list is the packages asked for; the list file also
+      # pins everything apt resolves from them.
+      - name: Check that docs/dependencies.md lists exactly the requested packages
+        run: |
+          set -euo pipefail
+          awk '$3 == "install" { print $1, $2 }' .github/ci/linux-packages.txt | sort > /tmp/pinned.txt
+          # The first fenced block after the "Pinned Ubuntu package set" heading.
+          awk '/^### Pinned Ubuntu package set/ { section = 1; next }
+            section && /^```/ { if (inside) exit; inside = 1; next }
+            inside { print }' docs/dependencies.md | sort > /tmp/documented.txt
+          if ! cmp -s /tmp/pinned.txt /tmp/documented.txt; then
+            echo 'Only pinned (<), only documented (>):'
+            diff /tmp/pinned.txt /tmp/documented.txt || true
+            echo "::error::The package list in docs/dependencies.md differs from .github/ci/linux-packages.txt."
+            exit 1
+          fi
+          echo "docs/dependencies.md lists the $(wc -l < /tmp/pinned.txt) pinned packages."
+
+      # Now with Git, which the item-catalog generator needs.
+      - name: Check out MMModern
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Create the unprivileged build user
+        run: |
+          set -euo pipefail
+          useradd --create-home --shell /bin/bash builder
+          chown -R builder: "$GITHUB_WORKSPACE"
+          mkdir -p "$SCUMMVM_SOURCE" "$SCUMMVM_BUILD"
+          chown builder: "$SCUMMVM_SOURCE" "$SCUMMVM_BUILD"
+          echo "builder: uid $(id -u builder)"
+
+      - name: Fetch ScummVM at the pinned commit
+        run: |
+          runuser -u builder -- bash -euo pipefail -c '
+            git init --quiet "$SCUMMVM_SOURCE"
+            git -C "$SCUMMVM_SOURCE" remote add origin https://github.com/scummvm/scummvm.git
+            git -C "$SCUMMVM_SOURCE" fetch --depth 1 --no-tags origin "$SCUMMVM_COMMIT"
+            git -C "$SCUMMVM_SOURCE" checkout --quiet --detach FETCH_HEAD
+            head=$(git -C "$SCUMMVM_SOURCE" rev-parse HEAD)
+            status=$(git -C "$SCUMMVM_SOURCE" status --porcelain)
+            echo "ScummVM HEAD: $head"
+            echo "ScummVM status --porcelain: ${status:-(empty)}"
+            [ "$head" = "$SCUMMVM_COMMIT" ] || { echo "::error::ScummVM HEAD is not the pinned commit."; exit 1; }
+            [ -z "$status" ] || { echo "::error::The ScummVM checkout is not clean."; exit 1; }'
+
+      - name: Restore the ScummVM build
+        id: scummvm-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.SCUMMVM_BUILD }}
+          key: scummvm-linux-${{ env.SCUMMVM_COMMIT }}-${{ hashFiles('.github/ci/linux-packages.txt', '.github/ci/scummvm.sh', '.github/ci/scummvm-use-linux.txt') }}
+
+      - name: Configure ScummVM
+        if: steps.scummvm-cache.outputs.cache-hit != 'true'
+        run: runuser -u builder -- bash .github/ci/scummvm.sh configure "$SCUMMVM_SOURCE" "$SCUMMVM_BUILD"
+
+      # The manual bundle workflow pins ScummVM too; both pins must agree.
+      - name: Check the bundle workflow's ScummVM pin
+        run: |
+          set -euo pipefail
+          pin=$(awk '$1 == "SCUMMVM_COMMIT:" { print $2 }' .github/workflows/linux-bundle.yml)
+          [ "$pin" = "$SCUMMVM_COMMIT" ] || { echo "::error::.github/workflows/linux-bundle.yml pins ScummVM $pin, not $SCUMMVM_COMMIT."; exit 1; }
+          echo "Both workflows pin ScummVM $pin."
+
+      - name: Check the ScummVM USE_ set
+        run: |
+          set -euo pipefail
+          chown -R builder: "$SCUMMVM_BUILD"
+          { grep -E 'USE_' "$SCUMMVM_BUILD/config.h"; grep -E 'USE_' "$SCUMMVM_BUILD/config.mk"; } > /tmp/use-actual.txt
+          grep -v '^##' .github/ci/scummvm-use-linux.txt > /tmp/use-expected.txt
+          if ! cmp -s /tmp/use-expected.txt /tmp/use-actual.txt; then
+            echo 'Only expected (<), only found (>):'
+            diff /tmp/use-expected.txt /tmp/use-actual.txt || true
+            echo "::error::ScummVM's USE_ set differs from .github/ci/scummvm-use-linux.txt."
+            exit 1
+          fi
+          echo "ScummVM's USE_ set matches the recorded set; defined:"
+          grep -E '^#define USE_' "$SCUMMVM_BUILD/config.h"
+          # MMModern's configure compares the DEFINES of config.mk with
+          # .github/ci/scummvm-defines-linux.txt and refuses any other entry.
+          grep -E '^DEFINES' "$SCUMMVM_BUILD/config.mk"
+
+      - name: Build the four ScummVM artifacts
+        if: steps.scummvm-cache.outputs.cache-hit != 'true'
+        run: runuser -u builder -- bash .github/ci/scummvm.sh build "$SCUMMVM_SOURCE" "$SCUMMVM_BUILD"
+
+      - name: Save the ScummVM build
+        if: steps.scummvm-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.SCUMMVM_BUILD }}
+          key: ${{ steps.scummvm-cache.outputs.cache-primary-key }}
+
+      - name: Show the toolchain
+        run: |
+          set -euo pipefail
+          grep -E '^(PRETTY_NAME|VERSION_CODENAME)=' /etc/os-release
+          echo "snapshot: $(awk '$1 == "snapshot" { print $2 }' .github/ci/linux-packages.txt)"
+          gcc --version | head -n 1
+          ld --version | head -n 1
+          objcopy --version | head -n 1
+          cmake --version | head -n 1
+          echo "ninja $(ninja --version)"
+          make --version | head -n 1
+          echo "SDL2 $(sdl2-config --version)"
+          echo "vorbisfile $(pkg-config --modversion vorbisfile)"
+          git --version
+
+      - name: Configure MMModern (as build-linux-rel, without original data)
+        run: |
+          runuser -u builder -- bash -euo pipefail -c '
+            cmake -S . -B build-linux-rel -G Ninja \
+              -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+              "-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=-O2 -g" \
+              "-DSCUMMVM_SOURCE_DIR=$SCUMMVM_SOURCE" \
+              "-DSCUMMVM_BUILD_DIR=$SCUMMVM_BUILD" \
+              -DMMODERN_ORIGINAL_DATA_TESTS=OFF
+            if grep -qF NDEBUG build-linux-rel/build.ninja; then
+              echo "::error::build-linux-rel/build.ninja contains NDEBUG."
+              exit 1
+            fi
+            echo "build-linux-rel/build.ninja contains no NDEBUG."'
+
+      - name: Build MMModern
+        run: |
+          runuser -u builder -- bash -euo pipefail -c '
+            cmake --build build-linux-rel
+            # The EXCLUDE_FROM_ALL targets, so every documented target compiles;
+            # CMakeLists.txt points here where it defines them.
+            cmake --build build-linux-rel --target mmodern_test_save mmodern_dos_export mmodern_m44_baseline_witness mmodern_m44_baseline_restart'
+
+      - name: Show the shared libraries of mmodern
+        run: ldd build-linux-rel/mmodern
+
+      - name: Run the tests
+        run: runuser -u builder -- ctest --test-dir build-linux-rel --output-on-failure --no-tests=error -j "$(nproc)"
+
+      - name: Upload the CTest logs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ctest-logs-linux
+          path: build-linux-rel/Testing/Temporary/
           retention-days: 7
           if-no-files-found: ignore

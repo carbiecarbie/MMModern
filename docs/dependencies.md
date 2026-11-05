@@ -16,7 +16,8 @@ The validated known-good ScummVM dependency is:
 - exact tag: none
 - validation state: detached HEAD with an empty `git status --porcelain`
 - validation date: 2026-09-07
-- validation platform: Windows x86-64, MSYS2 UCRT64
+- validation platform: Windows x86-64, MSYS2 UCRT64; since M113 also Linux
+  x86-64 (Ubuntu 26.04, GCC 15.2)
 
 Always check out the full commit SHA. A moving branch name such as `master` is
 not a dependency version.
@@ -39,7 +40,8 @@ The final status command must produce no output before validation begins.
 
 ## Toolchain and library versions
 
-The pinned revision was validated with:
+The pinned revision was validated on Windows with the toolchain below, and on
+Linux with the [Linux toolchain](#linux-toolchain):
 
 - MSYS2 UCRT64 on Windows x86-64
 - GCC/G++ 16.2.0, MSYS2 Rev3, with binutils 2.47 (its `objcopy` does the
@@ -56,10 +58,11 @@ The pinned revision was validated with:
   `MMODERN_VORBIS_INCLUDE_DIR` and the three `MMODERN_*_LIBRARY` cache
   paths select these static artifacts through `find_library`; normal toolchain
   search paths apply, with no hard-coded MSYS2 installation directory.
-- Git for Windows 2.56.0 and the inbox Windows PowerShell 5.1, which generate
-  the [item catalog](#build-generated-english-item-catalog) and the dialog
-  drawing include during configuration and every build (`find_package(Git)`
-  and `find_program(powershell)` are required). The generator passes Windows
+- Git for Windows 2.56.0, which generates the
+  [item catalog](#build-generated-english-item-catalog) and the dialog
+  drawing include during configuration and every build through
+  `cmake -P tools/GenerateXeenItemCatalog.cmake` (`find_package(Git)` is
+  required; the build needs no PowerShell). The generator passes Windows
   paths to Git, so when another `git` (for example MSYS2's) would be found
   first, set `-DGIT_EXECUTABLE` to Git for Windows' `git.exe`.
 
@@ -149,6 +152,56 @@ The ScummVM build uses GNU++11. MMModern uses GNU++17 and must use an
 ABI-compatible compiler/toolchain when compiling ScummVM source directly and
 linking the prebuilt ScummVM archives.
 
+### Linux toolchain
+
+Since M113 MMModern also builds natively on Linux x86-64 with GCC, GNU ld and
+SDL2, without PowerShell or any Windows tool. It was validated on Ubuntu 26.04
+(WSL and the [CI container](#continuous-integration)) with GCC/G++ 15.2.0,
+binutils 2.46, CMake 4.2.3, Ninja 1.13.2, GNU Make 4.4.1, pkgconf 2.5.1,
+SDL2 2.32.10, zlib 1.3.1, libvorbis 1.3.7, libogg 1.3.6 and Git 2.53.0. The
+differences from Windows:
+
+- Vorbis and Ogg come from the system's shared `vorbisfile` through
+  `pkg-config`; no static `.a` is required.
+- The platform libraries (`mmodern_platform_libs`) are empty, and the five
+  `WIN32 UNICODE _UNICODE` sites take the ScummVM build's own define set
+  instead (see [below](#scummvm-configuration-and-required-artifacts)).
+- The sprite and Nuked OPL3 objects are not filtered by PE section names;
+  every target that links the ScummVM bridge gets `--gc-sections`, so a
+  reference to an engine-only symbol fails to link.
+- `mmodern` is linked against the shared GCC runtime, as Linux programs
+  normally are; the [test bundle](#continuous-integration) links it
+  statically.
+
+### Pinned Ubuntu package set
+
+On Ubuntu 26.04 these packages, as `dpkg-query` prints them, are the ones a
+clean machine installs (with `--no-install-recommends`) to build and test
+MMModern. [Continuous integration](#continuous-integration) asks for exactly
+these versions from `snapshot.ubuntu.com` at a fixed timestamp and requires
+the complete resolved set of `.github/ci/linux-packages.txt`, so this list,
+that file and the cached builds change together. `curl` is there only
+because ScummVM's configure sets `USE_CURL` when the `curl` command exists,
+as on the maintainer's machine; libcurl's development package is
+deliberately absent: with it, ScummVM's configure would enable networking and
+change the recorded configuration.
+
+```text
+binutils 2.46-3ubuntu2
+ca-certificates 20260816ubuntu0.26.04.1
+cmake 4.2.3-2ubuntu2
+curl 8.18.0-1ubuntu2.8
+g++ 4:15.2.0-5ubuntu1
+git 1:2.53.0-1ubuntu1.1
+libogg-dev:amd64 1.3.6-2
+libsdl2-dev:amd64 2.32.10+dfsg-6
+libvorbis-dev:amd64 1.3.7-3build2
+make 4.4.1-3
+ninja-build 1.13.2-1
+pkgconf:amd64 2.5.1-4
+zlib1g-dev:amd64 1:1.3.dfsg+really1.3.1-1ubuntu3.2
+```
+
 ## ScummVM configuration and required artifacts
 
 From an MSYS2 UCRT64 shell in the separate ScummVM build directory, configure
@@ -161,6 +214,30 @@ SDL_CONFIG=/ucrt64/bin/sdl2-config \
   --disable-all-engines \
   --disable-detection-full
 ```
+
+On Linux, from any shell in the build directory, configure with:
+
+```sh
+<scummvm-source>/configure \
+  --backend=sdl \
+  --disable-all-engines \
+  --disable-detection-full \
+  --disable-ogg --disable-vorbis
+```
+
+The two extra flags keep Ogg and Vorbis out of ScummVM's configuration
+whatever the machine has installed, as the Windows configure order does;
+MMModern still links the system's `vorbisfile` for CD speech. The resulting
+`USE_` set is recorded in `.github/ci/scummvm-use-linux.txt`. Compared with
+Windows it adds ALSA, the ALSA sequencer MIDI, sndio and Linux CD and drops
+libcurl, its networking options, the taskbar, system dialogs and
+text-to-speech. MMModern's configure reads the `-D` entries of `config.mk`'s
+`DEFINES` (`SDL_BACKEND`, `USE_SDL2`, `POSIX`, `HAS_POSIX_SPAWN`,
+`HAS_FSEEKO_OFFT_64`, `DATA_PATH` and `PLUGIN_DIRECTORY`), adds
+`HAVE_CONFIG_H`, compiles the bridge objects with them and refuses any set
+other than `.github/ci/scummvm-defines-linux.txt`.
+`.github/ci/scummvm.sh` holds both configure commands and chooses by
+`uname -s`.
 
 Only four ScummVM build artifacts are required. Build them directly instead of
 building ScummVM or its engines:
@@ -400,12 +477,15 @@ the language getters. At the pinned revision it writes `ITEM_BROKEN`,
 7/41/14/11/22/74. MMModern parses only that bounded block, byte range
 `[20680,22438)`, rather than the complete unversioned constants stream.
 
-`tools/GenerateXeenItemCatalog.ps1` requires exact checkout HEAD, exact tree
+`tools/GenerateXeenItemCatalog.cmake`, run with `cmake -P` on every
+platform, requires exact checkout HEAD, exact tree
 entry mode/path/blob ID, size and independent SHA-256. It then reads the blob
-through `git cat-file`, never through the ScummVM worktree. Inherited `GIT_*`
-state, replacement objects and global/system Git configuration are removed from
-the plumbing process. Only the verified blob supplies catalog bytes; mutable
-worktree files and compiler inputs are outside the generation boundary.
+through `git cat-file`, never through the ScummVM worktree, into a file
+whose SHA-256 is checked before its bytes are decoded. Every inherited
+`GIT_*` variable (matched without regard to case), replacement objects and
+global/system Git configuration are removed from the plumbing process.
+Only the verified blob supplies catalog bytes; mutable worktree files and
+compiler inputs are outside the generation boundary.
 
 No ScummVM header is compiled and no compiler preprocessing participates in
 catalog generation.
@@ -414,17 +494,17 @@ The generator validates the three nonempty scalar strings, exact array tags and
 counts, reserved/required entries, the fixed block end, a 63-byte token limit and
 the 16,384-byte aggregate output limit. It emits deterministic fixed-width octal
 escapes with schema 1, English language ID 7 and the exact revision marker.
-Publication uses a flushed sibling temporary file and atomic replacement;
-Windows PowerShell passes `NullString.Value` as the CLR-null backup path to
-`File.Replace`. Failed replacement preserves the previous destination and cleans
-the temporary file; unchanged output is not rewritten. The private include remains
+Both outputs, the catalog and the dialog drawing include, are pinned by
+SHA-256. A changed output is published from a sibling temporary file with
+`cmake -E rename`; a failed rename preserves the previous destination and
+removes the temporary file, and unchanged output is not rewritten, so builds
+do not recompile. The private include remains
 ignored, build-tree-only and unavailable as runtime or installed companion data.
 
 Generation runs during configuration and on every build, so a wrong repository
 revision or object identity fails immediately and stale generated output cannot
-bypass the gate. The build-only generator uses Windows' inbox PowerShell/.NET and
-Git and adds no application runtime dependency. Cross-compilation remains
-unsupported.
+bypass the gate. The build-only generator uses CMake and Git only and adds no
+application runtime dependency. Cross-compilation remains unsupported.
 
 The embedded source-derived names are distinct from commercial material text.
 At runtime MMModern reads only `mae.xen` through the selected installation's
@@ -605,6 +685,81 @@ on that machine. A preference for a different computer is ignored. Omitted
 `ctest -L fast -j 8` is unchanged; the preference applies to the full-suite
 runner only.
 
+### Linux build under WSL (`build-linux-rel`)
+
+On Linux, `build-linux-rel` is configured like `build-rel`, with the same
+flags and data options, from a shell where the
+[Ubuntu packages](#pinned-ubuntu-package-set) are installed:
+
+```sh
+cmake -S . -B build-linux-rel -G Ninja \
+  -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+  "-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=-O2 -g" \
+  -DSCUMMVM_SOURCE_DIR=<scummvm-source> \
+  -DSCUMMVM_BUILD_DIR=<scummvm-build> \
+  -DMMODERN_XEEN_DATA_DIR=<game-directory> \
+  -DMMODERN_PROMUS_CAPTURES_DIR=<capture-directory> \
+  -DMMODERN_M94_CAPTURES_DIR=<m94-capture-directory> \
+  -DMMODERN_MT32_ROM_DIR=<mt32-rom-directory> \
+  -DMMODERN_RU_DATA_DIR=<russian-folder>
+cmake --build build-linux-rel
+```
+
+Test and tool executables are stripped as on Windows. The Windows-only tests
+(`xeen_launcher` and its witness, which run PowerShell) are not registered.
+
+On the maintainer's machine the Linux build runs in WSL 2 with Ubuntu 26.04:
+
+- The source is a clone on ext4, `~/mmodern-linux`, whose `origin` is the
+  Windows checkout (`/mnt/d/Projetos/MModern/mmodern`); ScummVM is checked out
+  and built at the pin in `~/mmodern-linux-scummvm` and
+  `~/mmodern-linux-scummvm-build` with the Linux configure command above.
+  The machine has more packages than the pinned set; none of them may change
+  ScummVM's recorded `USE_` set (no libcurl development package).
+- The original data, the DOSBox captures, the MT-32 ROMs and the Russian
+  translation are copied to ext4. Reading them over WSL's 9P mount of the
+  Windows drives was too slow, and a save target under `/mnt` is refused as
+  remote, so play-test saves and working copies also stay on ext4.
+- The clone is a disposable copy of the Windows working tree. Before each
+  Linux suite, run from the clone:
+
+  ```sh
+  bash tools/run-full-ctest.sh --build-dir build-linux-rel \
+    --sync-from /mnt/d/Projetos/MModern/mmodern
+  ```
+
+  It fetches the Windows checkout's `HEAD`, checks it out detached in the
+  clone, discards the clone's own changes and untracked files (the ignored
+  build directories stay), applies the Windows tree's complete diff against
+  `HEAD`, untracked files included, rebuilds the default targets and runs the
+  complete suite. `summary.txt` records the synced `HEAD` and the SHA-256 of
+  that diff. `--sync-only` stops after the sync, to build other targets
+  first; a later run without `--sync-from` records the same values.
+- WSLg shows the game window and plays its audio through PulseAudio. It
+  settles that the Linux build plays, not input feel or native audio.
+
+The cross-platform save check of M113 writes the same saves with both
+builds, the four M44 gameplay scenarios and a few developer presets, and
+loads each with the other build. It requires equal `mmodern_save_dump` output,
+a byte-identical F9 re-save through `mmodern_m44_baseline_restart` and
+identical bytes from both builds. The restart witness restarts quiet Clouds
+Journey saves only, each under its own M44 scenario; both builds must refuse
+the presets on Darkside or on an Event cell with the same expected reason,
+read from the witness's own log, which each restart keeps in its own folder.
+Build `mmodern_save_dump`, `mmodern_m44_baseline_witness`,
+`mmodern_m43_cli_witness`, `mmodern_m44_baseline_restart` and
+`mmodern_test_save` in both trees, then run on Windows:
+
+```powershell
+python -B tools/cross_platform_save_check.py --windows-build build-rel `
+  --game "F:/Games/gog/Might and Magic 4-5" `
+  --linux-repo /home/carbo/mmodern-linux --linux-build build-linux-rel `
+  --linux-game <ext4-game-directory>
+```
+
+Its evidence holds original-data saves and stays in new directories under
+both build trees (`xplat-save-check/<timestamp>/`).
+
 The original-data checks that used to be opt-in smoke targets run with the
 suite since M66 (`xeen_regional_original`, `xeen_party_original`,
 `xeen_item_catalog_original`, `xeen_item_catalog_reference`,
@@ -639,7 +794,8 @@ original game data is never part of MMModern or its dependency checkout.
 
 `.github/workflows/ci.yml` is the executable form of this document. Every push
 to a branch of `carbiecarbie/MMModern`, every pull request from a fork and a
-manual dispatch start a run on a clean hosted `windows-2025` machine. It:
+manual dispatch start a run with two jobs. The first, `build-and-test`, runs
+on a clean hosted `windows-2025` machine. It:
 
 - sets up MSYS2 UCRT64 (`update: false`, `path-type: minimal`) and installs
   the [pinned package set](#pinned-msys2-package-set) from verified, cached
@@ -679,6 +835,67 @@ are registered through `mmodern_data_test()` and left out. Configuration
 prints both counts. Both settings build the same targets. The run therefore
 never replaces the complete local suite.
 
+A second job, `linux-build-and-test`, runs the same build and data-free
+tests natively on Linux, in an `ubuntu:26.04` container pinned by digest on
+a hosted `ubuntu-24.04` machine. It:
+
+- installs the [pinned Ubuntu package set](#pinned-ubuntu-package-set) with
+  `.github/ci/linux-apt.sh`: apt reads only `snapshot.ubuntu.com` at the
+  timestamp of `.github/ci/linux-packages.txt`, and the job fails unless
+  the installed set equals that file in every package and version. The image
+  has no CA certificates, so apt reaches the snapshot service with the
+  runner's CA bundle, mounted read-only, until the pinned `ca-certificates` is
+  installed; every index is still verified against the Ubuntu archive key. A
+  first checkout without Git reads the list; a second one, with Git, is the
+  build source. The job then checks that this document lists exactly the
+  requested packages;
+- creates an unprivileged `builder` user that fetches, configures and builds
+  ScummVM and MMModern and runs the tests, so the save-permission cases that
+  skip under root run too;
+- fetches ScummVM at the pin, configures it with the Linux command of
+  `.github/ci/scummvm.sh`, compares its `USE_` lines with
+  `.github/ci/scummvm-use-linux.txt`, builds the four artifacts and caches that
+  build under the commit, the package list, `scummvm.sh` and the `USE_` file;
+  MMModern's configure then refuses any define outside
+  `.github/ci/scummvm-defines-linux.txt`;
+- configures `build-linux-rel` as above with
+  `-DMMODERN_ORIGINAL_DATA_TESTS=OFF`, checks for `NDEBUG`, builds every
+  target including the four EXCLUDE_FROM_ALL ones, logs `ldd` of `mmodern`
+  and runs `ctest` once at the machine's processor count. A failed run
+  uploads the CTest logs for seven days.
+
+The manual workflow `.github/workflows/linux-bundle.yml` (Actions,
+**Linux test bundle**, **Run workflow**) builds the Linux test bundle of
+`tools/linux-bundle/` in an `ubuntu:22.04` container pinned by digest
+(glibc 2.35), with `.github/ci/linux-bundle-packages.txt` pinned the same way.
+Ubuntu 22.04's SDL2 2.0.20 lacks `SDL_GetDefaultAudioInfo` (2.24 or later), so
+`build-sdl2.sh` first builds SDL2 2.32.10, the version Windows and CI use,
+from the upstream release tarball after checking its SHA-256
+(`5f5993c530f084535c65a6879e9b26ad441169b3e25d789d83287040a9ca5165`, the same
+as MSYS2's recipe). It enables the X11, Wayland, PulseAudio, PipeWire and ALSA
+backends, each loaded from the running system, and fails when one of them or
+OpenGL/EGL is missing; the package list pins their `-dev` packages and `curl`
+instead of `libsdl2-dev`, so ScummVM and `mmodern` can only find this SDL2.
+The job compares ScummVM's `USE_` set with
+`.github/ci/scummvm-use-linux-bundle.txt`, recorded from this recipe: it
+differs from `scummvm-use-linux.txt` only in `USE_SNDIO`, since Ubuntu
+22.04's list has no sndio. MMModern's configure checks the `DEFINES` against
+`scummvm-defines-linux.txt` as in the CI job.
+`make-bundle.sh` builds `mmodern` with the `build-rel` flags but without `-g`
+(GCC 11 spends over an hour producing debug information for single units,
+which the bundle would strip anyway; maintainer, 2026-11-05), links it with
+`-static-libgcc -static-libstdc++` and adds the shared libraries the system may
+lack, among them that SDL2, `mmodern.sh` (which puts them on
+`LD_LIBRARY_PATH`; the executable has no run-time search path), `LICENSE.txt`,
+`SOURCE.txt` with the source commit, the ScummVM pin, the bundled packages
+and the SDL2 tarball with its SHA-256, their copyright files and `GUIDE.txt`
+for the tester. glibc, the graphics driver stack, the X11/XCB and Wayland
+clients, ALSA, PulseAudio, PipeWire, D-Bus, systemd and zlib come from the
+running system. The artifact, kept for
+30 days, is a `.tar.gz` (which keeps the start script executable) and its
+SHA-256. It is a tester's bundle, not a release package: no game data, no
+saves, no tests.
+
 The workflow, `.github/ci/` and this document change together: a toolchain,
 ScummVM or configuration change that is not made in all of them makes the run
 fail. The token is read-only, no secret is used and every action is pinned by
@@ -712,6 +929,8 @@ folder and start it with a `PATH` without MSYS2.
 
 ## Updating ScummVM
 
+The pin is `SCUMMVM_COMMIT` in both `.github/workflows/ci.yml` and
+`.github/workflows/linux-bundle.yml`; the Linux CI job fails when they differ.
 Changing the pinned ScummVM revision requires repeating the complete dependency
 validation in fresh source, ScummVM build, and MMModern build directories. The
 new revision may be documented only after provenance is recorded, the checkout

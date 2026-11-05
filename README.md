@@ -97,6 +97,23 @@ The shortcut's Proton prefix is under
 the 1280x800 screen; the default `aspect=4:3` leaves side borders. Change it
 while the game is closed.
 
+## Linux
+
+MMModern builds and runs natively on 64-bit Linux, but there is no Linux
+package or launcher yet: [build it](#building) and start
+`mmodern "<game folder>"`, the folder containing `WORLD/XEEN.DAT`. The sound
+devices are those of the installed `WORLD/XEEN.CFG`; `mmodern --sound-setup
+"<game folder>"` lists and changes them. For the Russian translation, start
+with `--russian <folder>` or save the choice once with
+`mmodern --language-setup --language russian --translation <folder>`.
+Alt+Enter, the window and the keys work as on Windows.
+
+Saves, `settings.ini`, the sound choice, `window.ini`, the MT-32 `roms/` and
+the logs are in `~/.local/share/MMModern`, or in `$XDG_DATA_HOME/MMModern`
+when that variable is set. Saves on a network drive (NFS, SMB, sshfs and
+similar) are refused; if your home folder is on one, set `XDG_DATA_HOME` to a
+folder on a local disk.
+
 ## Russian
 
 MMModern can show the old-games.ru Russian fan translation (Clouds of Xeen
@@ -220,8 +237,9 @@ stays faithful unless you turn it on:
 
 ## Building
 
-Development uses Windows x86-64 with MSYS2 UCRT64, CMake, SDL2, zlib,
-libvorbis/libogg and a separate ScummVM source and build tree. MMModern reuses
+Development uses Windows x86-64 with MSYS2 UCRT64, or Linux x86-64 with GCC
+(validated on Ubuntu 26.04), with CMake, SDL2, zlib, libvorbis/libogg and a
+separate ScummVM source and build tree. MMModern reuses
 selected ScummVM Xeen and support code, but it does not run ScummVM's engine or
 SDL backend. [Dependencies](docs/dependencies.md) covers the setup, the pinned
 ScummVM revision and release packaging.

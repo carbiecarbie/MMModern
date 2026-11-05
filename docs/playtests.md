@@ -33,6 +33,34 @@ to package a play-test and how to write its guide.
 - Point the launchers at the `build-rel` executable that contains the change
   under test.
 
+## WSL sessions (Linux build)
+
+A play-test of the Linux build runs it under WSLg from the
+[WSL clone](dependencies.md#linux-build-under-wsl-build-linux-rel):
+
+- Presets and working copies live on ext4 in WSL, in
+  `~/mmodern-playtest/<milestone>/`, because `/mnt/d` is 9P and is refused as
+  a save target. The Windows folder above keeps the launchers and the guide.
+- Generate the presets with the Linux build's own
+  `build-linux-rel/mmodern_test_save` and the ext4 copy of the game data.
+- Each item gets its own `XDG_DATA_HOME` under the WSL folder, refreshed from
+  a seed on every run, so the session never touches the maintainer's WSL
+  user folder and settings such as the watched intro start the same each
+  time.
+- The `.cmd` launchers call `wsl.exe` with the Linux build:
+
+  ```bat
+  @echo off
+  wsl.exe -e bash -lc "d=~/mmodern-playtest/<milestone>; rm -rf $d/xdg-<short-name> && cp -a $d/xdg-seed $d/xdg-<short-name> && cp -f $d/<preset>.mmsave $d/teste-<short-name>.mmsave && XDG_DATA_HOME=$d/xdg-<short-name> ~/mmodern-linux/build-linux-rel/mmodern --load-game <ext4-game-dir> $d/teste-<short-name>.mmsave"
+  ```
+
+- WSLg relays the window over RDP and the audio through PulseAudio, so it
+  cannot settle input feel or native audio; mark such items for a native
+  Linux check.
+- For DOSBox comparisons, `--dosbox` is Windows-only: copy the Linux preset
+  to the Windows folder and export it there with `build-rel`'s
+  `mmodern_dos_export --dosbox`, as below.
+
 ## The guide
 
 Write the guide in the chat report, in the maintainer's language, as a simple
