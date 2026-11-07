@@ -351,6 +351,27 @@ void wordInputBoundaries() {
   else if(h.stage==7) {h.check(h.delivered==std::vector<char>{'t','W'},"exploration did not regain input");h.quit();}
  });
 }
+void setupTextAndPaste() {
+ QueueHarness h;h.queueable=false;h.ready=true;
+ DialogInput input;input.textEntry=true;input.keys={22};h.dialog=std::make_shared<const DialogInput>(input);
+ std::string received;
+ h.observeAction=[&](const PlayerAction &action) {
+  if(const auto *text=std::get_if<TextInputAction>(&action))received+=text->text;
+  if(const auto *key=std::get_if<DialogKeyAction>(&action);key && key->key==22) {
+   char *value=SDL_GetClipboardText();if(!value)throw std::runtime_error("Clipboard read failed");
+   received+=value;SDL_free(value);
+  }
+ };
+ h.run("setup-text-and-paste",[&](auto &h) {
+  if(h.stage==0) {
+   if(SDL_SetClipboardText("/pasted")!=0)throw std::runtime_error("Clipboard write failed");
+   SDL_Event event{};event.type=SDL_TEXTINPUT;event.text.timestamp=100;event.text.text[0]='x';event.text.text[1]=0;SDL_PeepEvents(&event,1,SDL_ADDEVENT,0,0);
+  } else if(h.stage==2) {
+   h.key(SDLK_SPACE,SDL_KEYDOWN,0,100);SDL_Event event{};event.type=SDL_TEXTINPUT;event.text.timestamp=100;event.text.text[0]=' ';event.text.text[1]=0;SDL_PeepEvents(&event,1,SDL_ADDEVENT,0,0);h.key(SDLK_SPACE,SDL_KEYUP,0,100);
+  } else if(h.stage==4) {h.key(SDLK_v,SDL_KEYDOWN,0,100,KMOD_CTRL);h.key(SDLK_v,SDL_KEYUP,0,100,KMOD_CTRL);}
+  else if(h.stage==6){h.check(received=="x /pasted","typed or pasted path did not reach the dialog");h.quit();}
+ });
+}
 void inputWaitCompletesBeforeAnotherDraw() {
  for(const auto [code,expected]:std::vector<std::pair<SDL_Keycode,char>>{
      {SDLK_UP,'W'},{SDLK_w,'.'},{SDLK_PERIOD,'?'},{SDLK_F9,'9'},{SDLK_ESCAPE,'E'}})
@@ -849,7 +870,7 @@ int main(int argc,char **) {
  boundedQueuePolicies();
  navigationObligations();
  navigationTypematic();
- wordInputBoundaries();inputWaitCompletesBeforeAnotherDraw();
+ wordInputBoundaries();setupTextAndPaste();inputWaitCompletesBeforeAnotherDraw();
 	std::atomic<bool> finished{false};
 	std::atomic<int> interactions{0};
 	std::atomic<int> navigation{0};

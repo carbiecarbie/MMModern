@@ -178,6 +178,7 @@ add_library(mmodern_platform_sdl STATIC
 target_link_libraries(mmodern_platform_sdl PUBLIC mmodern_core PRIVATE SDL2::SDL2 mmodern_platform_libs mmodern_platform_files)
 
 add_library(mmodern_app STATIC
+ src/app/XeenSetupScreen.cpp
  src/app/XeenPlayerSupport.cpp
 	src/app/XeenAudio.cpp
 	src/app/XeenFmSource.cpp
@@ -208,6 +209,8 @@ add_library(mmodern_app STATIC
 	src/app/XeenCharacterDialogFlow.cpp
 	src/app/XeenNavigationFlow.cpp
 )
+target_include_directories(mmodern_app PRIVATE "${SCUMMVM_BUILD_DIR}" "${SCUMMVM_SOURCE_DIR}")
+set_source_files_properties(src/app/XeenSetupScreen.cpp PROPERTIES COMPILE_DEFINITIONS "${MMODERN_SCUMMVM_DEFINES}")
 set_source_files_properties(src/app/XeenTitle.cpp src/app/Application.cpp PROPERTIES COMPILE_DEFINITIONS
     "MMODERN_REPOSITORY_ROOT=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
 target_link_libraries(mmodern_app PUBLIC mmodern_core PRIVATE
@@ -215,6 +218,7 @@ target_link_libraries(mmodern_app PUBLIC mmodern_core PRIVATE
 	mmodern_xeen
 	mmodern_platform_sdl
 	mmodern_mt32
+	SDL2::SDL2
 )
 
 add_executable(mmodern src/main.cpp)
@@ -1305,6 +1309,15 @@ endif()
 		mmodern_xeen mmodern_scummvm_xeen)
 	mmodern_part_a_test(NAME xeen_navigation_flow COMMAND mmodern_navigation_flow_tests)
 	add_executable(mmodern_sdl_input_tests tests/SdlInputTests.cpp)
+ add_executable(mmodern_setup_screen_tests tests/XeenSetupScreenTests.cpp)
+ target_link_libraries(mmodern_setup_screen_tests PRIVATE mmodern_app mmodern_xeen mmodern_scummvm_xeen mmodern_platform_sdl SDL2::SDL2)
+ mmodern_part_a_test(NAME xeen_setup_screen COMMAND mmodern_setup_screen_tests)
+ mmodern_test_properties(xeen_setup_screen PROPERTIES LABELS fast RESOURCE_LOCK xeen_setup_screen)
+ add_executable(mmodern_setup_original_tests tests/XeenSetupOriginalTests.cpp)
+ target_link_libraries(mmodern_setup_original_tests PRIVATE mmodern_platform_libs mmodern_app mmodern_xeen mmodern_scummvm_xeen mmodern_platform_sdl SDL2::SDL2)
+ target_link_options(mmodern_setup_original_tests PRIVATE "-Wl,--wrap=_ZN7mmodern19windowPlacementFileB5cxx11Ev")
+ mmodern_data_test(NAME xeen_setup_screen_original COMMAND mmodern_setup_original_tests "${MMODERN_XEEN_DATA_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/m114-original-test" "${MMODERN_RU_DATA_DIR}")
+ mmodern_test_properties(xeen_setup_screen_original PROPERTIES LABELS process RUN_SERIAL TRUE)
  add_executable(mmodern_presentation_clock_tests tests/PresentationClockTests.cpp)
  add_executable(mmodern_fm_effect_sites_tests tests/XeenFmEffectSitesTests.cpp)
 
@@ -1682,7 +1695,7 @@ endif()
 		xeen_combat_gameplay xeen_equipment_gameplay xeen_inventory_gameplay
 		xeen_m44_scenario_mainland xeen_m44_scenario_services xeen_m44_scenario_temple
 		xeen_m44_scenario_roundtrip
-		xeen_title_flow_endings xeen_title_flow_darkside_endings xeen_ending_presentation)
+		xeen_title_flow_endings xeen_title_flow_darkside_endings xeen_ending_presentation xeen_setup_screen_original)
 	if(NOT MMODERN_ORIGINAL_DATA_TESTS)
 		get_property(mmodern_data_tests GLOBAL PROPERTY MMODERN_DATA_TESTS)
 		list(REMOVE_ITEM xeen_process_tests ${mmodern_data_tests})
@@ -1710,7 +1723,7 @@ endif()
 	# development machine, 1.0-1.4 s beside three other tests on a 4-processor CI runner.
 	mmodern_test_properties(xeen_input_scheduling xeen_main_screen xeen_native_responsiveness
 		xeen_title_flow xeen_myra_original_sdl xeen_save_cli xeen_combat_cli xeen_save_state
-		sdl_input sdl_main_screen sdl_motion sdl_window_placement xeen_member_prompt_click PROPERTIES RUN_SERIAL TRUE)
+		sdl_input sdl_main_screen sdl_motion sdl_window_placement xeen_member_prompt_click xeen_setup_screen xeen_setup_screen_original PROPERTIES RUN_SERIAL TRUE)
 	# CTest starts the costliest tests first. CTestCostData.txt is not reliable
 	# for that: a run without -j (`ctest -R name`) divides the test's average by
 	# its run count, which left 100-second tests for the end of the suite. These

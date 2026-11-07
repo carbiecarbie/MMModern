@@ -1,6 +1,7 @@
 #include "core/PathText.h"
 #include "app/Application.h"
 #include "app/XeenPlayerSupport.h"
+#include "app/XeenSetupScreen.h"
 #include "formats/xeen/XeenRussianTranslation.h"
 #include "MMModernVersion.h"
 #include "platform/sdl/SdlWindow.h"
@@ -88,28 +89,21 @@ bool parseDirection(const std::string &text, mmodern::XeenDirection &direction) 
 
 } // namespace
 
-int main(int argc, char *argv[]) {
-#ifdef _WIN32
-	// The CRT narrow argv loses non-ASCII Windows paths. Decode the native
-	// command line once, and use UTF-8 explicitly at filesystem boundaries.
-	int wideCount = 0;
-	wchar_t **wide = CommandLineToArgvW(GetCommandLineW(), &wideCount);
-	if (!wide) return 1;
-	std::vector<std::string> arguments;
-	for (int i = 0; i < wideCount; ++i) {
-		const int size = WideCharToMultiByte(CP_UTF8, 0, wide[i], -1, nullptr, 0, nullptr, nullptr);
-		std::string text(size, '\0');
-		WideCharToMultiByte(CP_UTF8, 0, wide[i], -1, text.data(), size, nullptr, nullptr);
-		text.pop_back(); arguments.push_back(std::move(text));
-	}
-	LocalFree(wide);
-	std::vector<char *> pointers;
-	for (auto &argument : arguments) pointers.push_back(argument.data());
-	argc = wideCount; argv = pointers.data();
-#else
- std::vector<std::string> arguments(argv,argv+argc);
+static int runWithArguments(std::vector<std::string> arguments) {
+ if(arguments.size()==1) {
+  try {
+   mmodern::XeenSetupScreen screen;
+   while(const auto folder=screen.run()) {
+    const int result=runWithArguments({arguments.front(),folder->u8string()});
+    if(result==0)return 0;
+    screen.failed(result);
+   }
+   return 0;
+  } catch(const std::exception &e) {std::cerr<<"MMModern setup failed: "<<e.what()<<'\n';return 1;}
+ }
  std::vector<char *> pointers;
-#endif
+ int argc=static_cast<int>(arguments.size());
+ char **argv=nullptr;
  // UI data is a global source option, removed before entry-mode parsing.
  std::optional<std::filesystem::path> uiData;
  for(std::size_t i=1;i<arguments.size();) {
@@ -379,4 +373,23 @@ int main(int argc, char *argv[]) {
  } catch(...) {
   std::cerr<<"MMModern failed: unknown exception\n";return 1;
  }
+}
+
+int main(int argc, char *argv[]) {
+#ifdef _WIN32
+ int count=0;
+ wchar_t **wide=CommandLineToArgvW(GetCommandLineW(),&count);
+ if(!wide)return 1;
+ std::vector<std::string> arguments;
+ for(int i=0;i<count;++i) {
+  const int size=WideCharToMultiByte(CP_UTF8,0,wide[i],-1,nullptr,0,nullptr,nullptr);
+  std::string text(size,'\0');
+  WideCharToMultiByte(CP_UTF8,0,wide[i],-1,text.data(),size,nullptr,nullptr);
+  text.pop_back();arguments.push_back(std::move(text));
+ }
+ LocalFree(wide);
+ return runWithArguments(std::move(arguments));
+#else
+ return runWithArguments(std::vector<std::string>(argv,argv+argc));
+#endif
 }
