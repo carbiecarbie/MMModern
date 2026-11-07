@@ -59,7 +59,8 @@ struct XeenSetupScreenTestAccess {
             }
         }
         s._page = p;
-        s._focus = s._offset = 0;
+        s._focus = p == XeenSetupScreen::Page::Browser ? XeenSetupScreen::browserFocus : 0;
+        s._offset = 0;
         s._notice.clear();
         s._error = "Exit code 1\nCannot open game data\nCheck the installation folder.";
         s.refresh();
@@ -223,7 +224,12 @@ int main(int argc, char **argv) {
         check(!XeenSetupScreen::resolve(scratch / "home"), "invalid game folder accepted");
         check(XeenSetupScreen::installRoots(fs::u8path("/home/test")).size() == 3, "install roots");
         check(s.page() == XeenSetupScreen::Page::Browser, "first-run browser");
+        // Text input (and the Steam keyboard in Game Mode) starts only on the path line.
+        check(s.rows().at(s.focus()).action == "use" && !s.input().textEntry,
+              "browser opens on Use this folder without text input");
+        s.dispatch(DialogKeyAction{InputKey::Up});
         const auto pathInput = s.input();
+        check(pathInput.textEntry, "path line starts text input");
         check(std::find(pathInput.keys.begin(), pathInput.keys.end(), InputKey::Space) ==
                   pathInput.keys.end(),
               "space is intercepted while typing a path");
@@ -352,7 +358,7 @@ int main(int argc, char **argv) {
         const std::uint64_t mainDigest = 16842633924035143160ULL;
 #endif
         const std::uint64_t expected[] = {mainDigest, 1377900911885187413ULL,
-            12320302981788104789ULL, 17895145044500846012ULL,
+            12320302981788104789ULL, 15179695365486701445ULL,
             5305938174462768177ULL, 5044190952922622217ULL};
         for (std::size_t i = 0; i < pages.size(); ++i) {
             XeenSetupScreenTestAccess::fixture(s, pages[i].second);

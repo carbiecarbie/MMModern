@@ -133,6 +133,8 @@ int main(int argc, char **argv) {
             require(!mmodern::xeenPlayerTranslation(), "refused translation changed language");
             if (russian) {
                 choose(screen, "translation");
+                // The browser opens on "Use this folder"; the path line is above it.
+                screen.dispatch(mmodern::DialogKeyAction{mmodern::InputKey::Up});
                 screen.dispatch(mmodern::DialogKeyAction{1});
                 screen.dispatch(mmodern::DialogKeyAction{22}, argv[3]);
                 choose(screen, "use");

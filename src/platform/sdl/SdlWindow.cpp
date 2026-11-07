@@ -852,7 +852,10 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 		const auto batchInput = displayedInput;
 		const auto batchFrame = presentedFrame;
 		const auto batchContext = contextFor(batchFrame);
-		if(batchContext.dialog && batchContext.dialog->textEntry && !russianKeyboard)SDL_StartTextInput();else SDL_StopTextInput();
+		// Start or stop text input only when it changes: in Steam Deck Game Mode each call
+		// sends Steam an open- or close-keyboard request.
+		const bool textInput=batchContext.dialog && batchContext.dialog->textEntry && !russianKeyboard;
+		if(textInput!=bool(SDL_IsTextInputActive())) {if(textInput)SDL_StartTextInput();else SDL_StopTextInput();}
 		synchronizeQueue(batchContext);
         const auto actionReady=[&](const PlayerAction &a,const InputContext &c) {
             return c.readyForAction || (std::holds_alternative<NavigationAction>(a) && c.readyForNavigation) ||

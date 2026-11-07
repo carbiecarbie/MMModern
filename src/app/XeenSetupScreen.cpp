@@ -245,7 +245,8 @@ void XeenSetupScreen::browser(const Path &path, bool translation) {
     _selectPath = false;
     _translationBrowser = translation;
     _page = Page::Browser;
-    _focus = _offset = 0;
+    _focus = browserFocus;
+    _offset = 0;
     _notice.clear();
     refresh();
 }
@@ -519,7 +520,8 @@ void XeenSetupScreen::activate(std::string action) {
         }
         if (action == "browser-back") {
             _page = Page::Browser;
-            _focus = _offset = 0;
+            _focus = browserFocus;
+            _offset = 0;
             refresh();
             return;
         }
@@ -581,7 +583,8 @@ void XeenSetupScreen::activate(std::string action) {
             _hidden = !_hidden;
             _notice.clear();
             _page = Page::Browser;
-            _focus = _offset = 0;
+            _focus = browserFocus;
+            _offset = 0;
         } else if (action.rfind("dir:", 0) == 0) {
             browser(std::filesystem::u8path(action.substr(4)), _translationBrowser);
             return;

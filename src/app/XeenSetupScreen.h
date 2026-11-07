@@ -72,6 +72,9 @@ class XeenSetupScreen {
     Path _folder, _directory, _translation;
     std::string _path, _notice, _report, _error;
     Page _page = Page::Main;
+    // The browser opens on "Use this folder", not on the path line: focusing the
+    // path line starts text input, which opens the Steam keyboard in Game Mode.
+    static constexpr std::size_t browserFocus = 1;
     std::size_t _focus = 0, _offset = 0;
     std::uint64_t _contextId = 1;
     bool _hidden = false, _translationBrowser = false, _russian = false, _selectPath = false;
