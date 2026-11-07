@@ -1028,8 +1028,16 @@ IndexedFrame XeenEventFlow::handleFoodBank(const PlayerAction &action,std::uint6
                 const auto result=xeenTransferBank(source,destination,amount);
                 if(result.outcome==XeenBankOutcome::Excess || result.outcome==XeenBankOutcome::EmptySource)
                     ui.feedback=refusal(result.outcome==XeenBankOutcome::EmptySource);
-                else if(result.outcome==XeenBankOutcome::Transferred)_encounter->transferBank(ui.withdrawal,ui.gems,amount);
-                startServiceSample(ui.animation,"coina.voc");
+                const bool committed=result.outcome==XeenBankOutcome::Transferred;
+                if(committed)_encounter->transferBank(ui.withdrawal,ui.gems,amount);
+                try {startServiceSample(ui.animation,"coina.voc");}
+                catch(const std::exception &) {
+                    // The transfer above is already published; a coin-sample read
+                    // failure loses only the sound, so the bank shows its updated
+                    // balances instead of reporting an unfinished action.
+                    if(!committed)throw;
+                    _encounter->journeySavePreimage().check();if(!_encounter->_smith)throw;
+                }
             } else if(key==8) {if(!ui.amount.empty())ui.amount.pop_back();ui.amountCursor.keyRedraw();}
             else {
                 const std::string packet=typed?typed->text:(key>='0' && key<='9'?std::string(1,char(key)):std::string{});

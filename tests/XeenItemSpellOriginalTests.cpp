@@ -103,6 +103,72 @@ void exploration(Inputs &in) {
         check(f.p.encounterContext->minutes==(item?600:601),"Existing book/item time suffix");roundtrip(in,f);
     }
 }
+bool sameItems(const XeenItemCategory &a,const XeenItemCategory &b) {
+    for(std::size_t i=0;i<a.size();++i)if(!xeenSameItem(a[i],b[i]))return false;
+    return true;
+}
+void spent(Fixture &f,unsigned spell) {
+    const auto cost=R::cost(spell,12);const auto owner=f.p.party.activeRosterIds()[0];
+    check(f.p.roster.at(owner).currentSp==1000-int(cost.sp) && f.p.purse->gems==1000-cost.gems,"Item spell cost was refunded");
+}
+bool itemsOpen(Fixture &f,unsigned action) {
+    const auto input=f.flow->inputContext(f.flow->frame().presentation());
+    return input.dialog && !input.dialog->anyKey && input.dialog->key(action) && input.dialog->key('w');
+}
+void emptyCategories(Inputs &in) {
+    // DOS 0x311c8..0x3120c, pin doItemOptions: before the row prompt an empty
+    // category returns 2 outside Misc (Items closes, the spell stays spent) and
+    // 0 in Misc (Items stays open). The rule is shared by all three item spells.
+    for(unsigned spell:{19u,57u,39u})for(bool misc:{false,true}) {
+        scenario="empty category spell="+std::to_string(spell)+" misc="+std::to_string(misc);
+        auto s=source(in,spell);const auto recipient=s.activeRosterIds[1];
+        auto &target=s.characters[recipient];
+        if(misc)target.miscellaneous={};else target.weapons={};
+        const auto gold=s.journey->purse->gold;
+        Fixture f(in,s);const auto random=f.w.sessionState().journeyRandom();
+        begin(f,false,spell,false);key(f,InputKey::F1+1);
+        const auto action=spell==19?'e':spell==57?'r':'g';
+        if(misc!=(spell==57))key(f,misc?'m':'w');
+        key(f,action);
+        if(misc) {
+            check(itemsOpen(f,action),"Empty Misc closed Items or opened the row prompt");
+            if(spell==39) {key(f,'a');key(f,'1');key(f,'g');check(!xeenInventoryItems(f.p.roster.at(recipient),C::Armor)->at(0).id,"Items after empty Misc did not convert");}
+            else key(f,InputKey::Escape);
+        } else {
+            const auto input=f.flow->inputContext(f.flow->frame().presentation());
+            check(!input.dialog || !input.dialog->key('1'),"Empty category opened the row prompt instead of closing Items");
+            check(sameItems(f.p.roster.at(recipient).armor,target.armor) && sameItems(f.p.roster.at(recipient).miscellaneous,target.miscellaneous),"Empty category changed another item");
+            check(f.p.purse->gold==gold && f.w.sessionState().journeyRandom()==random,"Empty category converted or drew");
+        }
+        quiet(f);spent(f,spell);roundtrip(in,f);
+    }
+}
+void goldEquipAlias(Inputs &in) {
+    // DOS 0x3b34d..0x3b36b, pin KEY_EQUIP in ITEMMODE_TO_GOLD: E outside Misc is
+    // the keyboard alias of Gold; in Misc it is ignored.
+    std::optional<std::pair<XeenItemCategory,std::uint32_t>> reference;
+    for(unsigned path=0;path<4;++path) {
+        scenario="Item to Gold E alias path="+std::to_string(path);
+        auto s=source(in,39);const auto recipient=s.activeRosterIds[1];const auto gold=s.journey->purse->gold;
+        Fixture f(in,s);begin(f,false,39,false);key(f,InputKey::F1+1);
+        {   const auto input=f.flow->inputContext(f.flow->frame().presentation());
+            for(const auto &hit:input.dialog->hits)check(hit.key!='e',"Item to Gold gained an Equip button");}
+        if(path==3) {
+            key(f,'m');key(f,'1');key(f,'e');
+            check(itemsOpen(f,'g') && sameItems(f.p.roster.at(recipient).miscellaneous,s.characters[recipient].miscellaneous) && f.p.purse->gold==gold,"E on Misc was not ignored");
+            key(f,InputKey::Escape);quiet(f);spent(f,39);continue;
+        }
+        key(f,'a');
+        if(path==0) {key(f,'1');key(f,'g');}
+        else if(path==1) {key(f,'1');key(f,'e');}
+        else {key(f,'e');check(!itemsOpen(f,'g'),"Action-first E did not open the row prompt");key(f,'1');}
+        quiet(f);spent(f,39);
+        const auto result=std::make_pair(f.p.roster.at(recipient).armor,f.p.purse->gold);
+        check(!result.first[0].id && result.second>gold,"E/G did not convert the selected armor");
+        if(!reference)reference=result;else check(sameItems(reference->first,result.first) && reference->second==result.second,"E and G converted differently");
+        roundtrip(in,f);
+    }
+}
 void combat(Inputs &in) {
     for(unsigned spell:{19u,57u,39u})for(bool quick:{false,true})for(unsigned path=0;path<4;++path) {
         if(spell==19 && path)continue;
@@ -147,6 +213,6 @@ void combat(Inputs &in) {
 int main(int argc,char **argv) {try {
     check(argc==2,"usage: item-spell-original <installation>");const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Missing installation");Inputs in(*installation);
     std::ostringstream captured;auto *old=std::cout.rdbuf(captured.rdbuf());
-    try {exploration(in);combat(in);}catch(...) {std::cout.rdbuf(old);throw;}
+    try {exploration(in);emptyCategories(in);goldEquipAlias(in);combat(in);}catch(...) {std::cout.rdbuf(old);throw;}
     std::cout.rdbuf(old);std::cout<<"M76 original-data item spells, book/items, combat/Quick Fight, mouse/keys and exact restore passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<scenario<<": "<<e.what()<<'\n';return 1;}}

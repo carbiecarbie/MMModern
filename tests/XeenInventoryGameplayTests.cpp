@@ -44,7 +44,7 @@ void gameplay() {
   check(quest && quest->hits.size()==6 && !quest->anyKey,"Items Q did not open Quests");
   handle(DialogKeyAction{InputKey::Escape});
   check(remove_test::partySnapshot(*live)==before,"Quest view mutated items");
-  handle(DialogKeyAction{'1'}); // Discard selection remained highlighted; deselect.
+  check(!f.flow->inventorySelection().slot,"Discard refusal kept the selected row"); // Full redraw clears it.
   handle(DialogKeyAction{'1'});handle(SaveGameAction{});check(status().find("inventory")!=std::string::npos,"modal save refused");
   const auto selected=f.flow->inventorySelection().record;idle();check(xeenSameItem(selected,f.flow->inventorySelection().record),"idle changed selection");
   f.flow->reportInventory=[&](const auto &r){++reports;check(r.status==Status::Success && !f.flow->inventorySelection().slot,"report after publication");handle(SelectMemberAction{1});handle(SaveGameAction{});};

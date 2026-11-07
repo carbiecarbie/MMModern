@@ -155,12 +155,19 @@ void XeenEventFlow::performItemOption(unsigned option) {
     if(option<2) {
         handleEquipment(option==0?XeenEquipmentOperation::Equip:XeenEquipmentOperation::Remove);return;
     }
+    // The original redraws the whole Items dialog after every action that keeps
+    // it open, which clears the selected row (DOS 0x311ae returns 0; pin
+    // dialogs_items.cpp REDRAW_FULL after doItemOptions). A refused Use or
+    // Discard therefore leaves no row armed for an F1-F6 transfer.
+    const auto refuse=[this](std::string message) {
+        invalidateInventorySelection();_inventory.slot.reset();_inventory.record={};dialogError(std::move(message));
+    };
     if(option==3) {
-        if(_inventory.record.state&0x40) {dialogError(std::string(dosText().scalar("CANNOT_DISCARD_CURSED_ITEM")));return;}
+        if(_inventory.record.state&0x40) {refuse(std::string(dosText().scalar("CANNOT_DISCARD_CURSED_ITEM")));return;}
         if(_inventory.category==XeenInventoryCategory::Weapons && _inventory.record.id==34) {
-            dialogError(std::string(dosText().scalar("CANNOT_DISCARD_XEEN_SLAYER")));return;
+            refuse(std::string(dosText().scalar("CANNOT_DISCARD_XEEN_SLAYER")));return;
         }
-        if(!journey()) {dialogError("Discard requires an active Journey");return;}
+        if(!journey()) {refuse("Discard requires an active Journey");return;}
         if(!_equipmentSelection || !validEquipmentSelection(*_equipmentSelection)) {invalidateInventorySelection();return;}
         _discardPrompt=xeenDialogFormat(dosText().scalar("PERMANENTLY_DISCARD"),{_catalog.describe(_inventory.category,_inventory.record).coloredName(4)});
         _discardConfirm=true;return;
@@ -169,15 +176,15 @@ void XeenEventFlow::performItemOption(unsigned option) {
     const auto &c=_party.roster.at(*_inventory.sourceOwner);
     const auto admission=xeenItemUseAdmission(_inventory.category,_inventory.record,!xeenDosMapZero(_party,_camera),c.canAct());
     if(admission==XeenItemUseAdmission::InvalidCategory)return;
-    if(admission==XeenItemUseAdmission::NoWorld) {dialogError(std::string(xeenDialogText(dosText(),XeenDialogText::Hurry)));return;}
-    if(admission==XeenItemUseAdmission::CannotAct) {dialogError(xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::InNoCondition),{xeenLiteralText(c.name)}));return;}
+    if(admission==XeenItemUseAdmission::NoWorld) {refuse(std::string(xeenDialogText(dosText(),XeenDialogText::Hurry)));return;}
+    if(admission==XeenItemUseAdmission::CannotAct) {refuse(xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::InNoCondition),{xeenLiteralText(c.name)}));return;}
     if(_encounter && _encounter->combat() && !_combatItems) {
-        dialogError(std::string(xeenDialogText(dosText(),XeenDialogText::UseInCombat)));return;
+        refuse(std::string(xeenDialogText(dosText(),XeenDialogText::UseInCombat)));return;
     }
     if(admission==XeenItemUseAdmission::NoAbility) {
-        dialogError(xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::NoSpecialAbilities),{_catalog.describe(_inventory.category,_inventory.record).coloredName(15)}));return;
+        refuse(xeenDialogFormat(xeenDialogText(dosText(),XeenDialogText::NoSpecialAbilities),{_catalog.describe(_inventory.category,_inventory.record).coloredName(15)}));return;
     }
-    if(!journey() || !xeenItemUseSupported(_inventory.record)) {dialogError("Item effect: not supported yet");return;}
+    if(!journey() || !xeenItemUseSupported(_inventory.record)) {refuse("Item effect: not supported yet");return;}
     if(!_combatItems) if(const auto spell=xeenItemUseSpell(_inventory.record.id);spell && XeenLearnedSpellRules::target(static_cast<std::uint8_t>(*spell))==XeenSpellTarget::Contact) {
         XeenRestoreGuard::Providers providers(_encounter->journeySavePreimage(),_world);
         for(unsigned type=2;type<=(*spell==XeenLearnedSpell::ElementalStorm?5u:2u);++type) {
@@ -198,14 +205,14 @@ void XeenEventFlow::performItemOption(unsigned option) {
     if(_combatItems) {
         // Keep the concrete selection through the callback-free modal handoff.
         const auto choice=_travelChoice.value_or(0);
-        if(!_encounter->prepareCombatItem(selection,choice)) {dialogError("Item effect: not supported yet");return;}
+        if(!_encounter->prepareCombatItem(selection,choice)) {refuse("Item effect: not supported yet");return;}
         closeInventory();
         if(!_encounter->useCombatItem(_encounter->ticket(),selection,choice))
             throw std::runtime_error("Combat item handoff failed");
         return;
     }
     const auto generation=_encounter->beginItemUse(_encounter->ticket(),selection,_inventoryLease,_certificateLease,_travelChoice.value_or(0));
-    if(!generation) {invalidateInventorySelection();dialogError("Item use: not supported yet");return;}
+    if(!generation) {refuse("Item use: not supported yet");return;}
     advanceInventoryEpoch();_itemUseGeneration=*generation;_inventory.mode=XeenInventoryMode::UseTarget;
     _sheet.reset();_itemsVisible=true;
     if(!_encounter->itemUseNeedsTarget()) {

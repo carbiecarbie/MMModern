@@ -271,6 +271,31 @@ void transactionFaults(Inputs &in) {
             "Transaction retry lost or repeated paid publication");
     }
 }
+void coinSampleFault(Inputs &in) {
+    stage="Bank coin-sample failure after a published transfer";
+    auto s=source(in,0);s.journey->purse->gold=100;
+    Visit v(in,s);v.open();unsigned reads=0;std::vector<std::string> texts;
+    v.flow->loadSampleDuration=[&](const char *name,XeenSceneArchive)->std::uint64_t {
+        if(std::string(name)=="coina.voc") {++reads;throw std::runtime_error("coina.voc read failed");}
+        return 0;
+    };
+    v.flow->reportText=[&](const std::string &text){texts.push_back(text);};
+    for(unsigned deposit=1;deposit<=2;++deposit) {
+        if(deposit==1)v.currency(false,false);else v.choose('o');
+        check(v.dialog() && v.dialog()->textEntry,"Bank amount editor is absent");
+        texts.clear();v.act(TextInputAction{"10"});v.key(InputKey::Enter);v.denied();
+        check(reads==deposit,"Coin sample was not requested after the transfer");
+        // The player sees the ordinary success: the currency submenu with updated balances.
+        check(v.dialog() && !v.dialog()->anyKey && v.dialog()->key('o') && v.dialog()->key('e') && !v.dialog()->textEntry,
+            "Coin-sample failure reported a published transfer as unfinished");
+        for(const auto &text:texts)check(text.find("could not finish")==std::string::npos,"Coin-sample failure showed the service failure");
+        // A second, deliberate deposit is a new transfer, never a retry of an unfinished one.
+        check(v.p.purse->gold==100-10*deposit && v.p.serviceEconomy->bank.gold==10*deposit,
+            "Coin-sample failure lost or repeated the bank transfer");
+    }
+    v.flow->loadSampleDuration={};v.leave();
+    check(v.p.purse->gold==80 && v.p.serviceEconomy->bank.gold==20,"Bank departure changed the transfers after a coin-sample failure");
+}
 XeenEventRecord record(unsigned x,unsigned y,unsigned line,unsigned opcode,std::vector<std::uint8_t> parameters={}) {
     XeenEventRecord result;result.x=x;result.y=y;result.direction=4;result.line=line;
     result.opcode=opcode;result.parameters=std::move(parameters);result.lengthField=5+result.parameters.size();return result;
@@ -444,7 +469,7 @@ int main(int argc,char **argv) {
     try {
         check(argc==2,"usage: food-bank-flow <original-installation>");
         const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"Original installation unavailable");
-        Inputs inputs(*installation);tavern(inputs);tavernOptions(inputs);bank(inputs);departure(inputs);transactionFaults(inputs);genericPrelude(inputs);directionPrelude(inputs);originalJourney(inputs);stage="Application Food/Bank save exclusion";foodBankSaveChecks(*installation);
+        Inputs inputs(*installation);tavern(inputs);tavernOptions(inputs);bank(inputs);departure(inputs);transactionFaults(inputs);coinSampleFault(inputs);genericPrelude(inputs);directionPrelude(inputs);originalJourney(inputs);stage="Application Food/Bank save exclusion";foodBankSaveChecks(*installation);
         std::cout<<"Food/Bank original UI, prelude, transactions, settlement, saving and New Game route passed\n";return 0;
     } catch(const std::exception &error) {std::cerr<<stage<<": "<<error.what()<<'\n';return 1;}
 }

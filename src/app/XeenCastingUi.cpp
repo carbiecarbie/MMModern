@@ -151,7 +151,7 @@ std::shared_ptr<const DialogInput> XeenEventFlow::spellItemsInput() const {
 IndexedFrame XeenEventFlow::drawSpellItems(const IndexedFrame &base) const {
     const auto &ui=*_spellItemsUi;
     auto frame=drawXeenItems(dosText(),base,_inventoryFont,_catalog,_party,ui.selection,drawDialogSprite,itemMode(ui.spell));
-    if(ui.choosing)frame=drawXeenItemSelection(dosText(),frame,_inventoryFont,ui.spell==XeenLearnedSpell::EnchantItem?4:ui.spell==XeenLearnedSpell::RechargeItem?5:6,drawDialogSprite);
+    if(ui.choosing)frame=drawXeenItemSelection(dosText(),frame,_inventoryFont,ui.prompt,drawDialogSprite);
     if(!ui.error.empty())frame=drawXeenErrorScroll(frame,_inventoryFont,ui.error);
     return frame;
 }
@@ -196,9 +196,20 @@ IndexedFrame XeenEventFlow::handleSpellItems(const PlayerAction &action,std::uin
         if(selection.category==XeenInventoryCategory::Miscellaneous?!item.material:!item.id)return frameCopy();
         if(!ui.choosing) {selection.slot=selection.slot==unsigned(slot)?std::nullopt:std::optional<std::size_t>{unsigned(slot)};return renderEncounter();}
         picked=XeenSpellItemSelection{selection.category,unsigned(slot),item};
-    } else if(key==(ui.spell==XeenLearnedSpell::EnchantItem?'e':ui.spell==XeenLearnedSpell::RechargeItem?'r':'g')) {
-        if(!selection.slot) {ui.choosing=true;return renderEncounter();}
-        picked=XeenSpellItemSelection{selection.category,*selection.slot,xeenInventoryItems(_party.party.member(_party.roster,selection.source),selection.category)->at(*selection.slot)};
+    } else if(const bool misc=selection.category==XeenInventoryCategory::Miscellaneous,
+            // DOS 0x3b34d..0x3b36b, pin dialogs_items.cpp KEY_EQUIP: in Item to Gold E outside
+            // Misc reaches the same item action as G, with the Equip index (DOS si=0).
+            equip=ui.spell==XeenLearnedSpell::ItemToGold && key=='e' && !misc;
+            !ui.choosing && (equip || key==(ui.spell==XeenLearnedSpell::EnchantItem?'e':ui.spell==XeenLearnedSpell::RechargeItem?'r':'g'))) {
+        const auto &items=*xeenInventoryItems(_party.party.member(_party.roster,selection.source),selection.category);
+        // DOS 0x311c8..0x3120c, pin doItemOptions: an empty category returns before
+        // the row prompt; 0 in Misc keeps Items open, 2 outside it closes Items
+        // (0x3b8aa) like the later Escape, with the spell still spent.
+        if(misc?!items[0].material:!items[0].id) {if(misc)return renderEncounter();}
+        else if(!selection.slot) {
+            ui.choosing=true;ui.prompt=equip?0:ui.spell==XeenLearnedSpell::EnchantItem?4:ui.spell==XeenLearnedSpell::RechargeItem?5:6;
+            return renderEncounter();
+        } else picked=XeenSpellItemSelection{selection.category,*selection.slot,items.at(*selection.slot)};
     } else if(key!=InputKey::Escape)return frameCopy();
     ui.waiting=true;ui.choosing=false;
     if(_encounter->combat()) {

@@ -436,6 +436,7 @@ DialogInput xeenItemSpellInput(unsigned mode,bool selection) {
     else {
         const unsigned keys[]{'w','a','c','m',unsigned(mode==6?'e':mode==4?'r':'g'),InputKey::Escape};
         for(unsigned i=0;i<6;++i)button(input,i==5?284:12+34*i,109,i==5?308:36+34*i,129,keys[i],"buy.icn",i*2);
+        if(mode==11)input.keys.push_back('e'); // Keyboard-only Equip alias of Gold (DOS 0x3b34d); Misc ignores it.
     }
     for(unsigned row=0;row<9;++row)button(input,8,20+9*row,263,28+9*row,'1'+row);
     return input;

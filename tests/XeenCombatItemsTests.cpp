@@ -25,6 +25,10 @@ void inventory(XeenSaveSnapshot &s) {
     wizard.accessories[0]={0,1,0,8};wizard.accessories[1]={0,1,0,8};wizard.accessories[2]={0,1,0,0};
     s.journey->purse->gems=123;
 }
+bool sameItems(const XeenItemCategory &a,const XeenItemCategory &b) {
+    for(std::size_t i=0;i<a.size();++i)if(!xeenSameItem(a[i],b[i]))return false;
+    return true;
+}
 void admission() {
     XeenItem item{1,3,2,0};XeenCharacter c;
     check(xeenItemUseAdmission(Category::Miscellaneous,item,false,true)==XeenItemUseAdmission::NoWorld,"Map zero Use admitted");
@@ -81,6 +85,15 @@ void synthetic(bool ran=false,bool healing=false,bool cancel=false,unsigned powe
             key('1');key('d');key('n');free();check(h.party->roster.at(owner).weapons[0].id==1,"Discard No changed item");
             key('1');key('d');key('y');free();check(h.party->roster.at(owner).weapons[0].id==3,"Combat Discard did not compact");
             key('m');key('1');key('u');free();send(AcknowledgeAction{}); // Sheet Use refusal.
+            {   // The refusal clears the row as the original's full redraw does, so F2 views member two.
+                const auto other=saved.activeRosterIds[ran?2:1];
+                const auto ownMisc=h.party->roster.at(owner).miscellaneous;const auto otherMisc=h.party->roster.at(other).miscellaneous;
+                check(!h.flow->inventorySelection().slot,"Sheet Use refusal kept the selected row");
+                key(InputKey::F1+1);free();
+                check(sameItems(h.party->roster.at(owner).miscellaneous,ownMisc) && sameItems(h.party->roster.at(other).miscellaneous,otherMisc),
+                    "F2 after the sheet Use refusal transferred the item");
+                check(h.flow->inventorySelection().sourceOwner==other,"F2 after the sheet Use refusal did not view member two");
+            }
             key(InputKey::Escape);key(InputKey::Escape);free();
             send(SelectMemberAction{ran?1u:2u});key('i');key('1');key('e');free();
             check(h.party->roster.at(saved.activeRosterIds[2]).weapons[0].frame==0,"Combat proficiency refusal failed");
@@ -95,7 +108,7 @@ void synthetic(bool ran=false,bool healing=false,bool cancel=false,unsigned powe
         key('w');key('1');key(InputKey::F1+1);free();check(h.party->roster.at(*user).weapons[0].id!=0,"Use dialog transferred selected item");
         key('m');
         if(!healing && !cancel && !power)for(unsigned slot:{4u,5u,6u,7u}) {
-            key('0'+slot);key('u');free();send(AcknowledgeAction{});key('0'+slot);
+            key('0'+slot);key('u');free();send(AcknowledgeAction{});check(!h.flow->inventorySelection().slot,"Use refusal kept the selected row");
         }
         const unsigned row=cancel?9:healing?2:1;
         key('0'+row);key('u');

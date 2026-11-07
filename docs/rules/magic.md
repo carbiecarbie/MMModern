@@ -776,6 +776,13 @@ then the item is cleared and its category compacted (`0x31ddd..0x31fad`).
 The pin rejects all weapon IDs at least 34 and retains its previously
 documented attribute-material pricing difference.
 
+All three item spells share the item action's empty-category test, made
+before the row prompt (`0x311c8..0x3120c`): an empty Misc category keeps
+Items open, any other empty category closes it (`0x3b8aa`) like the later
+Escape, with the spell still spent and no draw. In Item to Gold, E outside
+Misc reaches the same action as G with the Equip prompt index 0
+(`0x3b34d..0x3b36b`, `0x3b247`); Enchant's E uses index 4. Same as pin.
+
 ### Travel handlers and callers
 
 **DOS static, high confidence** for the following mutations and admission.

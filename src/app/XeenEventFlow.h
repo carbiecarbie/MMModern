@@ -586,6 +586,7 @@ private:
         XeenLearnedSpell spell;
         XeenInventorySelection selection;
         bool choosing=false,waiting=false;
+        unsigned prompt=0; // ITEM_ACTIONS index of the row prompt while choosing.
         std::string error;
     };
     std::optional<SpellItemsUi> _spellItemsUi;
