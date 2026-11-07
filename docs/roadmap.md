@@ -240,9 +240,9 @@ Roughly in this order, each with its own decision and plan:
 3. Steam Deck through Proton: done, M112 (Tier B,
    [plan](milestone-112-plan.md), accepted 2026-11-04). The native Linux
    build and its CI job: done, M113 (Tier A, [plan](milestone-113-plan.md),
-   accepted 2026-11-06). Next, each as its own Tier B milestone: a Linux
-   launcher, preferably a setup screen inside the game that can also serve
-   Android, and a Linux package (AppImage or Flatpak).
+   accepted 2026-11-06). Next: M114 (Tier B, [plan](milestone-114-plan.md)),
+   a setup screen inside the game that can also serve Android, and an
+   AppImage.
 4. Saves that survive updates, when compatibility is revisited for 1.0.
 5. A study of the community MM3 conversion
    ([mm345-conversion](https://github.com/hooby3dfx/mm345-conversion)), then
