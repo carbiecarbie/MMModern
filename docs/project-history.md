@@ -412,3 +412,13 @@ Ubuntu container. The port fixed the CD cue sheet's backslash path on Linux.
 A manual job builds a test bundle for a native check by a friend of the
 maintainer. No Linux package or launcher yet; save v26 unchanged.
 [Plan](milestone-113-plan.md).
+
+**M114 - Linux setup screen and AppImage** (Tier B). `mmodern` with no
+arguments opens a setup screen inside the game's 320x200 window, built only
+on SDL: the game folder (remembered, found under the GOG, Heroic and Wine
+install roots, or browsed), the original installer's sound choice, the
+language, diagnostics and Play, as the Windows launcher does. A manual CI
+job builds an AppImage with an MMModern-owned icon. The Steam Deck Game Mode
+play-test found that text input was restarted every loop cycle, which kept
+the Steam keyboard open; it now changes only when needed. Save v26
+unchanged. [Plan](milestone-114-plan.md).

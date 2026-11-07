@@ -1,9 +1,12 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. M113 is the latest
-completed and accepted milestone (2026-11-06; [plan](milestone-113-plan.md)):
-MMModern builds, plays, saves and passes its tests natively on 64-bit Linux,
-and GitHub Actions also builds and tests it on Linux. Before it, M112
+This describes what can be played and done now. M114 is the latest
+completed and accepted milestone (2026-11-07; [plan](milestone-114-plan.md)):
+Linux players download one AppImage, which opens a setup screen inside the
+game for the game folder, sound devices and language, and plays on a desktop
+or a Steam Deck. Before it, M113 ([plan](milestone-113-plan.md)) made
+MMModern build, play, save and pass its tests natively on 64-bit Linux, with
+GitHub Actions also building and testing it on Linux, M112
 ([plan](milestone-112-plan.md)) played the Windows package on a Steam Deck
 through Proton, M111
 ([plan](milestone-111-plan.md)) made physical spells ignore physical
@@ -340,11 +343,15 @@ entry also writes `%LOCALAPPDATA%\MMModern\logs\mmodern.log` with
 diagnostics, notices, warnings and support stops, and
 `mmodern --diagnostics <game-dir>` prints the report the launcher copies for
 bug reports. On a Steam Deck the same package runs through Proton: Steam starts `mmodern.exe` with the game folder, without the
-launcher ([README](../README.md#steam-deck-proton)). On Linux, built from
-source, the player starts `mmodern <game-dir>` without a launcher, and the
-user folder is `$XDG_DATA_HOME/MMModern` or `~/.local/share/MMModern` in
-place of `%LOCALAPPDATA%\MMModern`, with the same layout; saves on a network
-file system are refused ([README](../README.md#linux)). Developer modes start a new game
+launcher ([README](../README.md#steam-deck-proton)). On Linux the release
+is an AppImage: `mmodern` started with no arguments opens a setup screen in
+the game's own window that finds or browses for the game folder, makes the
+same sound and language choices as the Windows launcher, copies the
+diagnostics and opens the saves and log folders; it also runs on a Steam
+Deck in Desktop Mode or as a non-Steam game in Game Mode. The user folder is
+`$XDG_DATA_HOME/MMModern` or `~/.local/share/MMModern` in place of
+`%LOCALAPPDATA%\MMModern`, with the same layout; saves on a network file
+system are refused ([README](../README.md#linux)). Developer modes start a new game
 directly, open the prepared test region at map 23 `(9,11)` used by the
 automated scenarios, load a save file, explore or inspect any Clouds map, and
 run isolated monster or Event fixtures; the
@@ -447,9 +454,8 @@ original data; this never replaces the complete local suites
 - Darkside: the [census](coverage.md#darkside-largest-gaps) lists no
   Darkside gap.
 - Russian: a reader of Russian has not yet checked the text in play.
-- Linux: there is no Linux package or launcher yet; the sound devices and
-  the language are chosen on the command line. Under Proton the Windows
-  launcher's Sound setup and Language windows do not run. A native check
-  outside WSL is pending.
+- Linux: the AppImage is x86-64 only, and there is no Flatpak. Under Proton
+  the Windows launcher's Sound setup and Language windows do not run; the
+  native AppImage replaces that route on a Steam Deck.
 
 Next steps are in the [roadmap](roadmap.md).
