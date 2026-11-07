@@ -21,6 +21,8 @@ MMModern follows DOS. The
 [ScummVM differences](https://github.com/carbiecarbie/MMModern/blob/main/docs/scummvm-differences.md)
 page lists the known cases.
 
+![The World of Xeen title screen, rendered by MMModern](docs/images/title.png)
+
 ## What works today
 
 Clouds of Xeen is complete. Every map plays as in the original, and the story
