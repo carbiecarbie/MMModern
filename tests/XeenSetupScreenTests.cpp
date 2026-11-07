@@ -106,6 +106,13 @@ std::uint64_t digest(const IndexedFrame &f) {
     }
     return h;
 }
+// The main page's heading shows "MMModern <version>", so its golden digest skips
+// the 24-pixel heading band; otherwise every release would change it.
+std::uint64_t pageDigest(IndexedFrame f, XeenSetupScreen::Page page) {
+    if (page == XeenSetupScreen::Page::Main)
+        std::fill(f.pixels.begin(), f.pixels.begin() + 24 * f.width, std::uint8_t(0));
+    return digest(f);
+}
 void nativePlay(XeenSetupScreen &screen, bool mouse) {
     XeenSetupScreenTestAccess::fixture(screen, XeenSetupScreen::Page::Main);
     std::atomic<bool> done{false};
@@ -348,21 +355,28 @@ int main(int argc, char **argv) {
         if (argc > 1 && std::string(argv[1]) == "--digests") {
             for (const auto &p : pages) {
                 XeenSetupScreenTestAccess::fixture(s, p.second);
-                std::cout << p.first << " " << digest(s.frame()) << '\n';
+                std::cout << p.first << " " << pageDigest(s.frame(), p.second) << '\n';
             }
             return 0;
         }
         #ifdef _WIN32
-        const std::uint64_t mainDigest = 10178995649211733790ULL;
+        const std::uint64_t mainDigest = 4722562506988712227ULL;
 #else
-        const std::uint64_t mainDigest = 16842633924035143160ULL;
+        const std::uint64_t mainDigest = 9326731424647414641ULL;
 #endif
         const std::uint64_t expected[] = {mainDigest, 1377900911885187413ULL,
             12320302981788104789ULL, 15179695365486701445ULL,
             5305938174462768177ULL, 5044190952922622217ULL};
         for (std::size_t i = 0; i < pages.size(); ++i) {
             XeenSetupScreenTestAccess::fixture(s, pages[i].second);
-            check(digest(s.frame()) == expected[i], "setup screen frame changed");
+            check(pageDigest(s.frame(), pages[i].second) == expected[i],
+                  "setup screen frame changed");
+        }
+        XeenSetupScreenTestAccess::fixture(s, XeenSetupScreen::Page::Main);
+        {
+            const auto f = s.frame();
+            check(std::count(f.pixels.begin(), f.pixels.begin() + 24 * f.width, std::uint8_t(1)) > 0,
+                  "main heading has text");
         }
         env("MMODERN_LOG_FILE", (scratch / "failure.log").u8string());
         {
