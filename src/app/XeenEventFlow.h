@@ -609,7 +609,6 @@ private:
     std::optional<unsigned> _travelChoice;
     IndexedFrame drawTravelDialog(const IndexedFrame &) const;
     IndexedFrame handleTravelDialog(const PlayerAction &,std::uint64_t);
-    std::optional<std::size_t> _lastCaster;
     void initializeCaster();
     std::shared_ptr<const DialogInput> castingDialogInput() const;
     IndexedFrame drawCasting(const IndexedFrame &) const;

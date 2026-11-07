@@ -328,7 +328,7 @@ IndexedFrame XeenEventFlow::handleInn(const PlayerAction &action) {
     }
     if(!innInput()->key(key))return frameCopy();
     auto ids=std::vector<std::uint8_t>(_party.party.activeRosterIds());
-    const auto changed=[&]{_inventory={};_sheet.reset();_quickFightMember.reset();_lastCaster.reset();_equipmentSelection.reset();advanceInventoryEpoch();};
+    const auto changed=[&]{_inventory={};_sheet.reset();_quickFightMember.reset();_equipmentSelection.reset();advanceInventoryEpoch();};
     if(ui.edit==InnUi::Edit::DeleteSelect) {
         if(key==InputKey::Escape)ui.edit=InnUi::Edit::None;
         else if(key>='1' && key<='4') {

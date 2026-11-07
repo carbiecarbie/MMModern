@@ -979,7 +979,8 @@ IndexedFrame XeenEventFlow::handleFoodBank(const PlayerAction &action,std::uint6
         } else if(guild && ui.phase==SmithUi::Phase::Browse) {
             if(key==InputKey::Escape)ui.phase=SmithUi::Phase::Lobby;
             else if(key>=InputKey::F1 && key<InputKey::F1+_party.party.size()) {
-                ui.member=key-InputKey::F1;
+                // The DOS spell list (0x34df4) also stores the remembered caster.
+                ui.member=_program.lastCaster=key-InputKey::F1;
                 if(!xeenGuildMember(_party,ui.member,_camera.mapId)) {ui.phase=SmithUi::Phase::Lobby;if(_camera.mapId.side==XeenSide::Darkside)serviceVoice(ui.animation,XeenServiceVoice::Refusal);}
             } else {
                 const auto &c=_party.party.member(_party.roster,ui.member);

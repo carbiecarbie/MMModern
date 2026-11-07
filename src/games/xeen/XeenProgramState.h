@@ -23,6 +23,10 @@ struct XeenProgramState {
     bool innSongStarted=false; // DOS DS:8d28: process lifetime, never saved.
     unsigned attackWeapon=0; // DS:96ee: process-lifetime rule input, retained across spells and Load/New Game.
     unsigned steppingFx=0; // DAT DS:9775; process presentation state, never saved.
+    // DOS DS:97be: the Cast dialog's remembered caster, a party index. BSS, so 0
+    // at start; written only by Cast and spell-list F1-F6 and by the Cast
+    // fallback scan, never by Load, New Game or the Inn, and never saved.
+    std::size_t lastCaster=0;
 	XeenTemplePriceState templePrices;
 	XeenTreasureStagingState treasure;
  std::shared_ptr<XeenAudio> audio;

@@ -210,9 +210,10 @@ IndexedFrame XeenEventFlow::handleSpellItems(const PlayerAction &action,std::uin
 }
 void XeenEventFlow::initializeCaster() {
     auto &ui=*_castingUi;
-    if(_lastCaster && *_lastCaster<_party.party.size())ui.caster=*_lastCaster;
-    else for(std::size_t i=_party.party.size();i>0;--i)if(_party.party.member(_party.roster,i-1).hasSpells){ui.caster=i-1;break;}
-    _lastCaster=ui.caster;
+    // DOS 0x33051..0x3307d: a remembered index inside the party is used even for
+    // a noncaster; otherwise the last member with spells is chosen and stored.
+    if(_program.lastCaster<_party.party.size())ui.caster=_program.lastCaster;
+    else for(std::size_t i=_party.party.size();i>0;--i)if(_party.party.member(_party.roster,i-1).hasSpells){ui.caster=_program.lastCaster=i-1;break;}
 }
 std::shared_ptr<const DialogInput> XeenEventFlow::castingDialogInput() const {
     if(_spellItemsUi)return spellItemsInput();
@@ -310,7 +311,7 @@ IndexedFrame XeenEventFlow::handleCasting(const PlayerAction &action,std::uint64
         return frameCopy();
     }
     if(key>=InputKey::F1 && key<InputKey::F1+_party.party.size() && ui.phase!=P::ChooseTarget && ui.phase!=P::ChooseElement) {
-        ui.caster=key-InputKey::F1;_lastCaster=ui.caster;return renderEncounter();
+        ui.caster=_program.lastCaster=key-InputKey::F1;return renderEncounter();
     }
     if(ui.phase==P::New) {
         if(key==InputKey::Escape){ui.phase=P::Cast;ui.list.selection.reset();return renderEncounter();}

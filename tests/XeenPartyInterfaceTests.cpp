@@ -26,6 +26,7 @@ struct XeenPartyInterfaceTestAccess {
  static const XeenEventExecutionState *event(const XeenEventFlow &f){return f._pending?&f._pending->state:nullptr;}
  static const XeenRewardReceipt &monsterReceipt(const XeenEventFlow &f){return f._encounter->_monsterReceipt->receipt;}
  static bool exchanging(const XeenEventFlow &f){return f._exchange;}
+ static std::optional<std::size_t> caster(const XeenEventFlow &f){return f._castingUi?std::optional<std::size_t>{f._castingUi->caster}:std::nullopt;}
  static auto optionMember(const XeenEventFlow &f){return f._quickFightMember;}
  static bool restComplete(const XeenEventFlow &f){return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Complete;}
  static bool restConfirm(const XeenEventFlow &f){return f._encounter->_rest && f._encounter->_rest->phase==XeenEncounterFlow::RestContinuation::Phase::Confirm;}
@@ -237,6 +238,24 @@ void quickCasting(Inputs &in) {
   check(xeen_state::sameCharacter(before,skip.p.roster.at(s.activeRosterIds[0])) && cursor==skip.w.sessionState().journeyRandom() && minutes==skip.p.encounterContext->minutes,"Quick Cast refusal/skip has no debit, effect or RNG");
   {ready(skip);check(combat->participant()!=0 && !(combat->result().blockedMembers&1),"None/cost/forbidden Quick Cast spends one unblocked turn");}
  }
+}
+// DOS DS:97be: process lifetime, initial 0, kept across new gameplay owners.
+void rememberedCaster(Inputs &in) {
+ auto s=in.base();check(s.activeRosterIds.size()>=5,"remembered caster fixture needs five members");
+ for(std::size_t i=0;i<s.activeRosterIds.size();++i)s.characters[s.activeRosterIds[i]].hasSpells=i==2 || i==4;
+ const auto opened=[](Fixture &f) {
+  f.act(CastSpellAction{});const auto caster=XeenPartyInterfaceTestAccess::caster(*f.flow);check(bool(caster),"Cast opens");
+  f.act(CancelInteractionAction{});check(!XeenPartyInterfaceTestAccess::caster(*f.flow),"Cast closes");return *caster;
+ };
+ Fixture first(in,s);
+ check(first.programState.lastCaster==0 && opened(first)==0,"first Cast opens on member 1 even without spells");
+ first.act(CastSpellAction{});first.act(DialogKeyAction{InputKey::F1+2});first.act(CancelInteractionAction{});
+ check(first.programState.lastCaster==2 && opened(first)==2,"F3 is remembered");
+ // Load and New Game build new gameplay owners over the same running program.
+ Fixture loaded(in,s);loaded.programState.lastCaster=first.programState.lastCaster;
+ check(opened(loaded)==2,"remembered caster survives new gameplay owners");
+ loaded.programState.lastCaster=s.activeRosterIds.size();
+ check(opened(loaded)==4 && loaded.programState.lastCaster==4,"an index outside the party rescans from the last member with spells");
 }
 void m73QuickCasting(Inputs &in) {
  for(unsigned spell:{2u,17u,33u,38u,61u,62u,72u,73u,0u,5u,11u,14u,18u,22u,23u,25u,28u,35u,36u,37u,43u,47u,48u,54u,63u,65u}) {
@@ -934,6 +953,6 @@ void runKillEventTreasure(Inputs &in) {
 int main(int argc,char **argv){try{
  check(argc==2,"usage: party-interface-tests <installation>");auto game=xeenTestInstallationDetector().detect(argv[1]);check(bool(game),"Missing installation");Inputs in(*game);
  std::ostringstream captured;auto *before=std::cout.rdbuf(captured.rdbuf());
- try{const auto run=[&](const char *name,auto fn){try{fn(in);}catch(const std::exception &e){throw std::runtime_error(std::string(name)+": "+e.what());}};run("original treasure records",originalTreasureRecords);run("WhoWill arrival",whoWillArrival);run("original item drops",originalMonsterDropReceipts);run("Event treasure order",eventTreasureOrder);run("live kill Event treasure",liveKillEventTreasure);run("Run kill Event treasure",runKillEventTreasure);run("exchange",exchangeAndSave);run("WhoWill membership",whoWillMembership);run("time/rest",reorderedTimeAndRest);run("combat/options",combatAndOptions);run("quick casting",quickCasting);run("M73 quick casting",m73QuickCasting);run("ordered consequences",orderedShootBarrierTreasure);run("indoor quick Run",indoorQuickRun);run("Mr Wizard",mrWizard);run("combat Mr Wizard",combatMrWizard);run("combat Mr Wizard after escape",combatMrWizardEscape);run("spell checks",spellChecks);}catch(...){std::cout.rdbuf(before);throw;}
+ try{const auto run=[&](const char *name,auto fn){try{fn(in);}catch(const std::exception &e){throw std::runtime_error(std::string(name)+": "+e.what());}};run("original treasure records",originalTreasureRecords);run("WhoWill arrival",whoWillArrival);run("original item drops",originalMonsterDropReceipts);run("Event treasure order",eventTreasureOrder);run("live kill Event treasure",liveKillEventTreasure);run("Run kill Event treasure",runKillEventTreasure);run("exchange",exchangeAndSave);run("WhoWill membership",whoWillMembership);run("time/rest",reorderedTimeAndRest);run("combat/options",combatAndOptions);run("quick casting",quickCasting);run("remembered caster",rememberedCaster);run("M73 quick casting",m73QuickCasting);run("ordered consequences",orderedShootBarrierTreasure);run("indoor quick Run",indoorQuickRun);run("Mr Wizard",mrWizard);run("combat Mr Wizard",combatMrWizard);run("combat Mr Wizard after escape",combatMrWizardEscape);run("spell checks",spellChecks);}catch(...){std::cout.rdbuf(before);throw;}
  std::cout.rdbuf(before);std::cout<<"Exchange, ordered ownership, Quick Fight, v8 and stale input passed\n";return 0;
 }catch(const std::exception &e){std::cerr<<e.what()<<'\n';return 1;}}

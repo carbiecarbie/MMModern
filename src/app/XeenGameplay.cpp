@@ -546,6 +546,9 @@ int Application::playGameplay(const XeenGameplayServices &supplied, XeenCamera c
     else if (!flow.canSave()) message = "Cannot save while an interaction is pending.";
     else if (!flow.journey()) message = "Map exploration cannot save.";
     else if(world.pendingLoadSide()!=camera.mapId.side) message="Saving with a pending world side is not supported yet";
+    // The panel's map restriction applies to the F9 alias too, before capture
+    // can settle a pending dismissal (DOS tests the maze bit at 0x1ebcf first).
+    else if(world.map(camera.mapId).geometry.flags&0x8000) message="Saving is not allowed on this map.";
     else if (services.saveUnavailable) message = std::string("Saving is ") + services.saveUnavailable + ".";
     else if (!looseTarget) message = "No developer save target configured. Use --save-file <path>.";
     else try {

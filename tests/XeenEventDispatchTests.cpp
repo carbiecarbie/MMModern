@@ -459,6 +459,24 @@ void f9OutcomesAndRetries() {
   t.run(s,[&](Driver &d){const auto before=t.calls;d.send(SaveGameAction{});d.settle();
    check(t.calls==before+1,"successful, failed and unavailable F9 each pass once");});
  }
+ {
+  // A save-restricted map refuses F9 before capture can lodge a pending dismissal.
+  JourneyCase r;auto s=r.services();const auto maps=s.maps;unsigned stages=0;
+  s.maps=[maps](auto id){auto m=maps(id);m.geometry.flags|=0x8000;return m;};
+  s.observeSaveStage=[&](auto){++stages;};
+  r.run(s,[&](Driver &d){
+   const auto size=r.f.party->party.size();check(size>1,"restricted F9 fixture needs a dismissible member");
+   const auto departed=r.f.party->party.activeRosterIds().back();const auto lodging=r.f.party->roster.at(departed).savedMaze;
+   d.send(DismissAction{});d.send(DialogKeyAction{InputKey::F1+unsigned(size-1)});d.settle(true);
+   check(r.f.party->party.size()==size-1 && r.f.party->party.dismissedRosterIds()==std::vector<std::uint8_t>{departed},"dismissal is pending");
+   const auto file=XeenSaveFormat::encode(XeenSaveFile::read(r.path));
+   d.send(SaveGameAction{});d.settle();
+   check(stages==0,"restricted F9 reaches no save stage");
+   check(r.f.party->party.dismissedRosterIds()==std::vector<std::uint8_t>{departed} && r.f.party->roster.at(departed).savedMaze==lodging,
+    "restricted F9 leaves the pending dismissal unlodged");
+   check(XeenSaveFormat::encode(XeenSaveFile::read(r.path))==file,"restricted F9 writes nothing");
+  });
+ }
  JourneyCase t;auto s=t.services();auto compose=s.composeEncounter;bool fail=false;
  s.composeEncounter=[&](auto &w,const auto &p,const auto &c,auto phase,auto actor){if(fail){fail=false;throw std::bad_alloc();}return compose(w,p,c,phase,actor);};
  t.run(s,[&](Driver &d){const auto before=t.calls;fail=true;d.send(WaitAction{});d.settle();check(t.calls==before+1,"presentation reconstruction adds no pass");});
