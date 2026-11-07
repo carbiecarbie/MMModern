@@ -1,9 +1,11 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. M112 is the latest
-completed and accepted milestone (2026-11-04; [plan](milestone-112-plan.md)):
-the Windows package plays on a Steam Deck through Proton, and the README
-explains the setup and a Steam Input layout. Before it, M111
+This describes what can be played and done now. M113 is the latest
+completed and accepted milestone (2026-11-06; [plan](milestone-113-plan.md)):
+MMModern builds, plays, saves and passes its tests natively on 64-bit Linux,
+and GitHub Actions also builds and tests it on Linux. Before it, M112
+([plan](milestone-112-plan.md)) played the Windows package on a Steam Deck
+through Proton, M111
 ([plan](milestone-111-plan.md)) made physical spells ignore physical
 resistance after a Xeen Slayer Sword attack, as in DOS, and discarded whole
 an Event MMModern has to refuse, M109 made every push build the project on a clean machine on GitHub and run
@@ -273,8 +275,9 @@ automatically, as in DOS; a failed write shows the error and retries
 follows the system clock, as in DOS; in English, typing G, O, B, R in the
 panel shows it.
 Mr Wizard returns the party to Vertigo and takes all its gems. Sound and text
-settings are saved with the party. Slots live under Local AppData
-(`MMModern/Saves/`), and a damaged or foreign slot is never overwritten.
+settings are saved with the party. Slots live in the user folder's `Saves/`
+(see [Entry modes](#entry-modes)), and a damaged or foreign slot is never
+overwritten.
 Loading continues exactly, without replaying any Event, reward, time or
 random draw.
 
@@ -293,7 +296,8 @@ The sound devices follow `WORLD/XEEN.CFG` as the original installer wrote
 it, in both the game and the intros. Music can also come from the AdLib,
 Sound Blaster and Pro Audio Spectrum drivers on an OPL2 chip, or from the
 MT-32 driver on an emulated MT-32 with the player's MT-32 1.07 control and
-PCM ROMs in `%LOCALAPPDATA%\MMModern\roms`. Digital sound can also come from
+PCM ROMs in the user folder's `roms` (`%LOCALAPPDATA%\MMModern\roms` on
+Windows). Digital sound can also come from
 the Sound Blaster driver. The other installer choices play silently with one
 "not supported yet" notice, and missing MT-32 ROMs give one notice and
 silence; the game's timing is the same either way.
@@ -336,7 +340,11 @@ entry also writes `%LOCALAPPDATA%\MMModern\logs\mmodern.log` with
 diagnostics, notices, warnings and support stops, and
 `mmodern --diagnostics <game-dir>` prints the report the launcher copies for
 bug reports. On a Steam Deck the same package runs through Proton: Steam starts `mmodern.exe` with the game folder, without the
-launcher ([README](../README.md#steam-deck-proton)). Developer modes start a new game
+launcher ([README](../README.md#steam-deck-proton)). On Linux, built from
+source, the player starts `mmodern <game-dir>` without a launcher, and the
+user folder is `$XDG_DATA_HOME/MMModern` or `~/.local/share/MMModern` in
+place of `%LOCALAPPDATA%\MMModern`, with the same layout; saves on a network
+file system are refused ([README](../README.md#linux)). Developer modes start a new game
 directly, open the prepared test region at map 23 `(9,11)` used by the
 automated scenarios, load a save file, explore or inspect any Clouds map, and
 run isolated monster or Event fixtures; the
@@ -374,8 +382,9 @@ pair, with fields MMModern does not hold kept at their New Game values
 Source is under `src/`: `core` (input, frame and installation types),
 `formats/xeen` (original resource and save formats), `games/xeen` (rules and
 state), `app` (coordination and presentation), `platform` (SDL window, audio
-output, save file I/O, `settings.ini` and the system clock) and `compat` (the
-linked ScummVM components).
+output, the user folder, save file I/O, `settings.ini` and the system clock,
+the only code with Windows and POSIX implementations besides `main.cpp`) and
+`compat` (the linked ScummVM components).
 
 - Party and roster (`XeenParty`, `XeenRoster`): all thirty roster
   characters, the active party, inventory, quest items, purse and books.
@@ -418,10 +427,12 @@ process tests that need a legally obtained installation. Tests are labelled
 suite before closing a milestone. Four original-data scenarios compare their
 final saves with approved digests and re-save byte-identically after a
 reload. The generated [coverage report](coverage.md) counts every mechanic
-the original data uses and its support status. Every push also runs on
-GitHub Actions: a clean Windows machine installs the pinned toolchain,
-builds the pinned ScummVM and MMModern and runs the tests that need no
-original data; it never replaces the complete local suite
+the original data uses and its support status. The complete suite runs on
+Windows and on Linux (in WSL), and both reach the same approved digests and
+write the same save bytes. Every push also runs on GitHub Actions: a clean
+Windows machine and a pinned Ubuntu container install the pinned toolchain,
+build the pinned ScummVM and MMModern and run the tests that need no
+original data; this never replaces the complete local suites
 ([continuous integration](dependencies.md#continuous-integration)).
 
 ## Known gaps
@@ -436,7 +447,9 @@ original data; it never replaces the complete local suite
 - Darkside: the [census](coverage.md#darkside-largest-gaps) lists no
   Darkside gap.
 - Russian: a reader of Russian has not yet checked the text in play.
-- Linux: there is no native build yet; the Windows package runs through
-  Proton, where the launcher's Sound setup and Language windows do not run.
+- Linux: there is no Linux package or launcher yet; the sound devices and
+  the language are chosen on the command line. Under Proton the Windows
+  launcher's Sound setup and Language windows do not run. A native check
+  outside WSL is pending.
 
 Next steps are in the [roadmap](roadmap.md).

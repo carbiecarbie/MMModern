@@ -238,11 +238,11 @@ Roughly in this order, each with its own decision and plan:
    end, inviting players to report defects with the launcher's diagnostics
    and the issue template. The releases are already public.
 3. Steam Deck through Proton: done, M112 (Tier B,
-   [plan](milestone-112-plan.md), accepted 2026-11-04). Next, a native Linux
-   build and its distribution (Tier A).
-   A first attempt (2026-10-31) found that the build needs a POSIX platform
-   layer (saves, settings, paths), a portable item-catalog generator and
-   Linux object filtering for the ScummVM parts, not only narrow guards.
+   [plan](milestone-112-plan.md), accepted 2026-11-04). The native Linux
+   build and its CI job: done, M113 (Tier A, [plan](milestone-113-plan.md),
+   accepted 2026-11-06). Next, each as its own Tier B milestone: a Linux
+   launcher, preferably a setup screen inside the game that can also serve
+   Android, and a Linux package (AppImage or Flatpak).
 4. Saves that survive updates, when compatibility is revisited for 1.0.
 5. A study of the community MM3 conversion
    ([mm345-conversion](https://github.com/hooby3dfx/mm345-conversion)), then

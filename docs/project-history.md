@@ -401,3 +401,14 @@ a launch option and a Steam Input layout that the README gives. The Deck
 play-test showed that every exploration input wrote the whole Journey state
 to the player log; title sessions now keep it out. Save v26 unchanged.
 [Plan](milestone-112-plan.md).
+
+**M113 - Native Linux build** (Tier A). MMModern builds, plays, saves and
+passes its complete suite natively on 64-bit Linux with GCC, behind one
+platform layer: the user folder follows XDG, saves keep their rules with a
+POSIX file layer and are refused on network file systems, and the build and
+its tests need no PowerShell. Both builds reach the same approved digests and
+write the same save bytes, and GitHub Actions also builds and tests a pinned
+Ubuntu container. The port fixed the CD cue sheet's backslash path on Linux.
+A manual job builds a test bundle for a native check by a friend of the
+maintainer. No Linux package or launcher yet; save v26 unchanged.
+[Plan](milestone-113-plan.md).
