@@ -51,20 +51,27 @@ does, built only on SDL, so that a later Android port can reuse it.
   launcher). Order: the remembered folder, then known install locations of
   the GOG game on Linux, then the folder browser. A chosen `WORLD` folder
   resolves to its parent, as on Windows. The install locations are a short
-  fixed list (Heroic's default games folder, the default Wine prefix's
-  `drive_c/GOG Games`, `~/GOG Games`), each confirmed from that tool's
-  documentation in Part A rather than guessed; a folder counts only when
-  the diagnostics call it usable.
+  fixed list of roots, each documented by its tool: `~/Games/Heroic`
+  (Heroic's default games folder), `~/GOG Games` (GOG's Linux default) and
+  `drive_c/GOG Games` in the default Wine prefix (GOG's Windows default
+  `C:\GOG Games`; Wine's `wine(1)` manual gives `$HOME/.wine` as the default
+  prefix, kept only if its documentation confirms the prefix and `drive_c`).
+  Each root's immediate subfolders are checked in sorted order, and a
+  folder counts only when the diagnostics call it usable.
 - **Folder browser.** Lists subfolders, sorted, with Parent, Home and the
   removable-media roots (`/media/$USER`, `/run/media/$USER`); hidden folders
   appear after a toggle, since Wine prefixes are hidden. A path line accepts
   typed or pasted text. An unreadable folder shows a message, never a crash.
-- **Look and input.** An indexed canvas shown with the game's 4:3 rule and
-  the remembered window placement, drawn with ScummVM's built-in BDF font
-  from the pinned revision (GPL; no original font exists before a folder is
-  chosen). The canvas size is settled in Part A from rendered frames:
-  640x400 is preferred, and if `SdlWindow` presents only 320x200, Part A
-  stops and reports before widening it. Mouse and keyboard: Tab and arrows
+- **Look and input.** A 320x200 indexed canvas, the game's own size, shown
+  with the game's 4:3 rule and the remembered window placement, drawn with
+  one of ScummVM's built-in BDF fonts from the pinned revision (GPL; no
+  original font exists before a folder is chosen), chosen in Part A from
+  rendered frames. `SdlWindow` presents any frame size, but its mouse path
+  and `DialogInput` accept only 320x200 (maintainer, 2026-11-07: keep that
+  shared input path unchanged). So the screen gives `SdlWindow` an ordinary
+  dialog input context: clicks and keys reach it as dialog hits and keys,
+  and `SdlWindow` and `DialogInput` stay as they are. Long paths show their
+  end after an ellipsis; Sound setup may span pages. Mouse and keyboard: Tab and arrows
   move the focus, Enter activates, Escape goes back or quits; Play is
   focused, so Enter starts the game, as in M100. English project text;
   characters the font lacks show as its default glyph.
@@ -93,8 +100,11 @@ does, built only on SDL, so that a later Android port can reuse it.
 
 ## Part A - setup screen
 
-- [ ] Confirm the GOG install locations and the canvas size; report before
-      going on if `SdlWindow` needs to present a size other than 320x200.
+- [ ] Confirm the Wine prefix root from Wine's documentation (drop it if
+      unconfirmed) and choose the font from rendered 320x200 frames. Report
+      before going on if any screen needs `SdlWindow` or `DialogInput` to
+      change, or typed text cannot reach the screen through a dialog
+      context.
 - [ ] `XeenSetupScreen` with its model (focus, rows, dialogs, browser,
       notices) separate from drawing, and a no-argument entry in `main`.
 - [ ] Folder logic: remembered file, candidate list, `WORLD` parent rule,
