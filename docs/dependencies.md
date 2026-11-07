@@ -170,7 +170,7 @@ differences from Windows:
   every target that links the ScummVM bridge gets `--gc-sections`, so a
   reference to an engine-only symbol fails to link.
 - `mmodern` is linked against the shared GCC runtime, as Linux programs
-  normally are; the [test bundle](#continuous-integration) links it
+  normally are; the [AppImage](#continuous-integration) links it
   statically.
 
 ### Pinned Ubuntu package set
@@ -874,44 +874,82 @@ a hosted `ubuntu-24.04` machine. It:
   and runs `ctest` once at the machine's processor count. A failed run
   uploads the CTest logs for seven days.
 
-The manual workflow `.github/workflows/linux-bundle.yml` (Actions,
-**Linux test bundle**, **Run workflow**) builds the Linux test bundle of
-`tools/linux-bundle/` in an `ubuntu:22.04` container pinned by digest
-(glibc 2.35), with `.github/ci/linux-bundle-packages.txt` pinned and cached
-the same way.
+The manual workflow `.github/workflows/linux-appimage.yml` (Actions,
+**Linux AppImage**, **Run workflow**) builds the x86-64 AppImage in an
+`ubuntu:22.04` container pinned by digest (glibc 2.35), with
+`.github/ci/linux-bundle-packages.txt` pinned and cached the same way.
+`desktop-file-utils` validates the desktop entry; `file` and its magic
+database are required by appimagetool. Both are pinned in that list too.
 Ubuntu 22.04's SDL2 2.0.20 lacks `SDL_GetDefaultAudioInfo` (2.24 or later), so
-`build-sdl2.sh` first builds SDL2 2.32.10, the version Windows and CI use,
-from the upstream release tarball after checking its SHA-256
-(`5f5993c530f084535c65a6879e9b26ad441169b3e25d789d83287040a9ca5165`, the same
-as MSYS2's recipe). It enables the X11, Wayland, PulseAudio, PipeWire and ALSA
-backends, each loaded from the running system, and fails when one of them or
-OpenGL/EGL is missing; the package list pins their `-dev` packages and `curl`
-instead of `libsdl2-dev`, so ScummVM and `mmodern` can only find this SDL2.
-The job compares ScummVM's `USE_` set with
-`.github/ci/scummvm-use-linux-bundle.txt`, recorded from this recipe: it
-differs from `scummvm-use-linux.txt` only in `USE_SNDIO`, since Ubuntu
-22.04's list has no sndio. MMModern's configure checks the `DEFINES` against
-`scummvm-defines-linux.txt` as in the CI job.
-`make-bundle.sh` builds `mmodern` with the `build-rel` flags but without `-g`
-(GCC 11 spends over an hour producing debug information for single units,
-which the bundle would strip anyway; maintainer, 2026-11-05), links it with
-`-static-libgcc -static-libstdc++` and adds the shared libraries the system may
-lack, among them that SDL2, `mmodern.sh` (which puts them on
-`LD_LIBRARY_PATH`; the executable has no run-time search path), `LICENSE.txt`,
-`SOURCE.txt` with the source commit, the ScummVM pin, the bundled packages
-and the SDL2 tarball with its SHA-256, their copyright files and `GUIDE.txt`
-for the tester. glibc, the graphics driver stack, the X11/XCB and Wayland
-clients, ALSA, PulseAudio, PipeWire, D-Bus, systemd and zlib come from the
-running system. The artifact, kept for
-30 days, is a `.tar.gz` (which keeps the start script executable) and its
-SHA-256. It is a tester's bundle, not a release package: no game data, no
-saves, no tests.
+`tools/linux-bundle/build-sdl2.sh` builds SDL2 2.32.10 from its upstream release
+with SHA-256 `5f5993c530f084535c65a6879e9b26ad441169b3e25d789d83287040a9ca5165`.
+It enables X11, Wayland, PulseAudio, PipeWire, ALSA and OpenGL/EGL and checks
+that the backends load their host libraries dynamically. ScummVM and MMModern
+use that SDL2; the package list contains its backend development dependencies
+instead of `libsdl2-dev`. ScummVM's `USE_` set must match
+`.github/ci/scummvm-use-linux-bundle.txt` (no `USE_SNDIO` on 22.04), and its
+`DEFINES` must match `scummvm-defines-linux.txt`.
+
+`tools/linux-bundle/make-appimage.sh` builds with the `build-rel` flags,
+without `-g` (GCC 11 spends over an hour producing debug information for
+single units, which the package strips anyway; maintainer, 2026-11-05).
+It links the GCC runtime statically and gives `usr/bin/mmodern` exactly
+`$ORIGIN/../lib` as **DT_RPATH**. Its transitive lookup also finds the bundled
+Vorbis dependencies; DT_RUNPATH alone would not. Bundled shared libraries
+have neither RPATH nor RUNPATH. `AppRun` starts the executable without
+changing the environment, so `xdg-open` receives the caller's environment.
+The builder checks that the executable needs no shared GCC runtime, uses the
+pinned SDL2 and resolves all libraries without `LD_LIBRARY_PATH`.
+The host supplies glibc, graphics drivers, X11/XCB, Wayland, sound-server
+clients, D-Bus, systemd and zlib, retaining M113's library selection.
+
+The AppDir contains `AppRun`, a validated desktop file, the project-owned
+512x512 PNG icon (SVG source in `tools/linux-bundle/mmodern.svg`),
+`usr/bin/mmodern`, `usr/lib` and `usr/share/doc/mmodern/`. The latter holds
+`LICENSE.txt`, the source commit and dependency sources in `SOURCE.txt`,
+and the copyright notices. No original game data or saves are included.
+
+The builder downloads official GitHub release assets, verifies their
+SHA-256 on every use (including cached downloads), and passes the runtime
+explicitly with `--runtime-file`; neither URL uses `continuous`:
+
+| Component | Release | x86-64 asset SHA-256 |
+| --- | --- | --- |
+| [appimagetool](https://github.com/AppImage/appimagetool/releases/tag/1.9.1) | 1.9.1 | `ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0` |
+| [type-2 runtime](https://github.com/AppImage/type2-runtime/releases/tag/20251108) | 20251108 | `2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d` |
+
+Both are MIT-licensed. The runtime statically links musl (MIT and BSD
+notices), libfuse (LGPL-2.1), squashfuse (BSD-2-Clause), zstd (BSD-3-Clause),
+zlib (zlib) and mimalloc (MIT); the pinned runtime's Makefile also names
+mimalloc, beyond the list in its LICENSE. Their notices are carried under
+`licenses/` and `SOURCE.txt` gives the source locations. The GCC runtime
+notice and exception are included too. appimagetool is a build tool only.
+
+The job runs the completed AppImage with `--appimage-extract-and-run` for
+`--version` and `--diagnostics` on an empty folder without a loader environment
+hint, and uploads `MMModern-<version>-x86_64.AppImage` and its `.sha256` for
+30 days. It replaces M113's test bundle. It is manual and runs no CTest;
+the normal CI tests the same source. A release's notes retain the 0.x policy:
+one current save format, with older saves possibly refused clearly.
+
+For a local build, run the workflow's steps in the same pinned container.
+When no Docker or Podman is available under WSL, build the pinned SDL2 to a
+local prefix, then configure `build-linux-rel` with that prefix,
+`-DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++ -Wl,--disable-new-dtags"`,
+`-DCMAKE_BUILD_WITH_INSTALL_RPATH=ON` and
+`'-DCMAKE_INSTALL_RPATH=$ORIGIN/../lib'`. Build `mmodern`, then append
+`--from-build build-linux-rel` to the builder's five arguments (ScummVM source,
+ScummVM build, SDL2 prefix, new output folder, full source commit).
+This fallback retains every packaging check but requires the local system's
+glibc; it does not establish Ubuntu 22.04 compatibility. Test the artifact
+both normally through FUSE and with `--appimage-extract-and-run`.
 
 The workflow, `.github/ci/` and this document change together: a toolchain,
 ScummVM or configuration change that is not made in all of them makes the run
 fail. The token is read-only, no secret is used and every action is pinned by
-full commit SHA. A newer push cancels the older run of the same branch, except
-on `main`, where nothing is cancelled and every commit keeps its own result.
+full commit SHA. The push-triggered CI keeps every result on `main` and
+cancels older runs of a work branch. The manual AppImage workflow keeps the
+newest requested run per branch.
 
 ## Release packaging
 
@@ -941,7 +979,7 @@ folder and start it with a `PATH` without MSYS2.
 ## Updating ScummVM
 
 The pin is `SCUMMVM_COMMIT` in both `.github/workflows/ci.yml` and
-`.github/workflows/linux-bundle.yml`; the Linux CI job fails when they differ.
+`.github/workflows/linux-appimage.yml`; the Linux CI job fails when they differ.
 Changing the pinned ScummVM revision requires repeating the complete dependency
 validation in fresh source, ScummVM build, and MMModern build directories. The
 new revision may be documented only after provenance is recorded, the checkout

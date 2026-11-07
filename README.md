@@ -99,20 +99,39 @@ while the game is closed.
 
 ## Linux
 
-MMModern builds and runs natively on 64-bit Linux, but there is no Linux
-package or launcher yet: [build it](#building) and start
-`mmodern "<game folder>"`, the folder containing `WORLD/XEEN.DAT`. The sound
-devices are those of the installed `WORLD/XEEN.CFG`; `mmodern --sound-setup
-"<game folder>"` lists and changes them. For the Russian translation, start
-with `--russian <folder>` or save the choice once with
-`mmodern --language-setup --language russian --translation <folder>`.
-Alt+Enter, the window and the keys work as on Windows.
+1. Download `MMModern-<version>-x86_64.AppImage` from the
+   [releases page](https://github.com/carbiecarbie/MMModern/releases).
+   You need 64-bit x86 Linux and your own English World of Xeen CD game data.
+2. Make the download executable in your file manager's Properties, or run
+   `chmod +x MMModern-<version>-x86_64.AppImage` in a terminal, replacing
+   `<version>` with the downloaded version number.
+3. Double-click it, or run `./MMModern-<version>-x86_64.AppImage`. The setup
+   screen looks for your remembered game folder, then GOG installations in
+   `~/Games/Heroic`, `~/GOG Games` and the default Wine prefix. If needed,
+   use **Change game folder** to choose the folder containing `WORLD/XEEN.DAT`.
+4. Use **Sound setup** to choose devices and **Language** for the Russian
+   translation. **Copy diagnostics** helps with problem reports. Press Enter
+   or click **Play**. Alt+Enter, the window and the keys work as on Windows.
+
+The runtime bundles its FUSE library, including on systems without
+`libfuse2`. If FUSE mounting is unavailable, run the download with
+`--appimage-extract-and-run`, for example
+`./MMModern-<version>-x86_64.AppImage --appimage-extract-and-run`.
 
 Saves, `settings.ini`, the sound choice, `window.ini`, the MT-32 `roms/` and
-the logs are in `~/.local/share/MMModern`, or in `$XDG_DATA_HOME/MMModern`
-when that variable is set. Saves on a network drive (NFS, SMB, sshfs and
-similar) are refused; if your home folder is on one, set `XDG_DATA_HOME` to a
-folder on a local disk.
+the remembered `game-folder.txt` are in `~/.local/share/MMModern`, or in
+`$XDG_DATA_HOME/MMModern` when that variable is set. The log is
+`logs/mmodern.log`, and saves are in `Saves/<game-data-id>/`; the setup screen
+can open both folders. Saves on a network drive (NFS, SMB, sshfs and similar)
+are refused; if your home folder is on one, set `XDG_DATA_HOME` to a folder on
+a local disk.
+
+On a Steam Deck you can start this AppImage in **Desktop Mode**, or add the
+executable AppImage to Steam as a non-Steam game and start it in **Game Mode**.
+Leave Compatibility forcing off for the native Linux version. Use the
+keyboard and mouse layout [above](#steam-deck-proton); touch and the right
+trackpad click the setup screen's buttons. Steam+X opens the on-screen
+keyboard when choosing a folder. Your game data stays in its own folder.
 
 ## Russian
 

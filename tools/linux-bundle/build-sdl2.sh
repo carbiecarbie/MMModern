@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Builds the SDL2 release that the Linux test bundle ships
-# (.github/workflows/linux-bundle.yml). Ubuntu 22.04's SDL2 2.0.20 lacks
+# Builds the SDL2 release that the Linux AppImage ships
+# (.github/workflows/linux-appimage.yml). Ubuntu 22.04's SDL2 2.0.20 lacks
 # SDL_GetDefaultAudioInfo (it needs 2.24 or later), so the bundle job builds
 # the version the Windows build and CI use from the pinned upstream release
 # tarball, after checking its SHA-256 (maintainer, 2026-11-04).
@@ -10,7 +10,7 @@
 # builds do; the script fails when one of them, or OpenGL/EGL, is not
 # enabled. The -dev packages they need are pinned in
 # .github/ci/linux-bundle-packages.txt. The installed prefix gets
-# SOURCE-SDL2.txt, which make-bundle.sh copies into the bundle's SOURCE.txt.
+# SOURCE-SDL2.txt, which make-appimage.sh copies into the AppImage's SOURCE.txt.
 #
 # Usage: build-sdl2.sh <work-dir> <install-prefix>
 set -euo pipefail

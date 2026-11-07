@@ -1,19 +1,11 @@
-# Builds the Linux test bundle (tools/linux-bundle/) on request: mmodern
-# for x86-64 Linux with its non-system libraries, a start script, the GPL
-# notice with the source commit and the tester's guide, as a downloadable
-# artifact. It is built in an Ubuntu 22.04 container (glibc 2.35) pinned by
-# digest, with every package pinned by .github/ci/linux-bundle-packages.txt,
-# so it runs on most current distributions. Its SDL2 (2.0.20) lacks
-# SDL_GetDefaultAudioInfo, so the job builds and bundles the pinned SDL2
-# release that Windows and CI use (tools/linux-bundle/build-sdl2.sh). It is not
-# a release package and runs no tests; the CI workflow tests the same source.
-name: Linux test bundle
+# Manually builds the x86-64 AppImage in pinned Ubuntu 22.04.
+name: Linux AppImage
 
 on:
   workflow_dispatch:
 
 concurrency:
-  group: linux-bundle-${{ github.ref }}
+  group: linux-appimage-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -23,7 +15,7 @@ env:
   SCUMMVM_COMMIT: 6814ee9ba54582f5b5adcffab49efbbd8f589edd
 
 jobs:
-  bundle:
+  appimage:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     container:
@@ -77,7 +69,7 @@ jobs:
         with:
           persist-credentials: false
 
-      # ScummVM's configure and make-bundle.sh then find this SDL2, the only
+      # ScummVM's configure and make-appimage.sh then find this SDL2, the only
       # one in the container.
       - name: Build the pinned SDL2
         run: |
@@ -121,17 +113,15 @@ jobs:
           grep -E '^DEFINES' "$build/config.mk"
           bash .github/ci/scummvm.sh build "$RUNNER_TEMP/scummvm-src" "$build"
 
-      - name: Build the bundle
-        run: bash tools/linux-bundle/make-bundle.sh "$RUNNER_TEMP/scummvm-src" "$RUNNER_TEMP/scummvm-build" "$RUNNER_TEMP/sdl2" bundle-out "$GITHUB_SHA"
+      - name: Build and check the AppImage
+        run: bash tools/linux-bundle/make-appimage.sh "$RUNNER_TEMP/scummvm-src" "$RUNNER_TEMP/scummvm-build" "$RUNNER_TEMP/sdl2" appimage-out "$GITHUB_SHA"
 
-      # The archive keeps the start script's executable bit, which the
-      # artifact's own zip would lose.
-      - name: Upload the bundle
+      - name: Upload the AppImage
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: mmodern-linux-test
+          name: mmodern-linux-appimage
           path: |
-            bundle-out/mmodern-linux-test-*.tar.gz
-            bundle-out/mmodern-linux-test-*.tar.gz.sha256
+            appimage-out/MMModern-*-x86_64.AppImage
+            appimage-out/MMModern-*-x86_64.AppImage.sha256
           retention-days: 30
           if-no-files-found: error

@@ -1,0 +1,33 @@
+<!-- MMModern project artwork, GPL-3.0-or-later. No game assets or fonts. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <path id="M" d="M0 120 L0 108 L12 104 L12 16 L0 12 L0 0 L38 0 L65 62 L92 0 L130 0 L130 12 L118 16 L118 104 L130 108 L130 120 L80 120 L80 108 L92 104 L92 46 L68 100 L62 100 L38 46 L38 104 L50 108 L50 120 Z"/>
+    <clipPath id="shield"><path d="M256 36 L446 92 Q446 336 256 478 Q66 336 66 92 Z"/></clipPath>
+  </defs>
+  <g clip-path="url(#shield)">
+    <rect width="256" height="512" fill="#7a1f2b"/>
+    <rect x="256" width="256" height="512" fill="#1d3557"/>
+  </g>
+  <!-- Scepter -->
+  <g transform="rotate(-38 256 250)">
+    <rect x="248" y="130" width="16" height="320" rx="8" fill="#8b5a2b"/>
+    <rect x="240" y="128" width="32" height="14" rx="6" fill="#d4a63a"/>
+    <circle cx="256" cy="440" r="13" fill="#d4a63a"/>
+    <circle cx="256" cy="90" r="42" fill="#4cc3f0" fill-opacity="0.3"/>
+    <polygon points="256,44 286,90 256,136 226,90" fill="#4cc3f0"/>
+    <polygon points="256,44 286,90 256,90" fill="#bdeeff"/>
+  </g>
+  <!-- Sword -->
+  <g transform="rotate(38 256 250)">
+    <polygon points="256,40 276,72 276,360 236,360 236,72" fill="#e4eaf1"/>
+    <polygon points="256,40 276,72 276,360 256,360" fill="#a9b6c6"/>
+    <rect x="196" y="358" width="120" height="22" rx="10" fill="#d4a63a"/>
+    <rect x="246" y="380" width="20" height="52" rx="4" fill="#5b3a1e"/>
+    <circle cx="256" cy="444" r="15" fill="#d4a63a"/>
+  </g>
+  <g transform="translate(256 262) scale(0.86) translate(-135 -60)" fill="#efc053" stroke="#2b1806" stroke-width="7" stroke-linejoin="round" paint-order="stroke">
+    <use href="#M"/>
+    <use href="#M" x="140"/>
+  </g>
+  <path d="M256 36 L446 92 Q446 336 256 478 Q66 336 66 92 Z" fill="none" stroke="#d4a63a" stroke-width="18" stroke-linejoin="round"/>
+</svg>

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=MMModern
+Comment=Play World of Xeen with your own game data
+Exec=mmodern
+Icon=mmodern
+Terminal=false
+Categories=Game;RolePlaying;
+StartupWMClass=mmodern

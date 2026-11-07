@@ -397,7 +397,13 @@ void XeenSetupScreen::refresh() {
         _rows.insert(_rows.end(), none.begin(), none.end());
         if (!silent.empty())
             add("-- No sound in MMModern yet --", "noop");
-        _rows.insert(_rows.end(), silent.begin(), silent.end());
+        for (const auto &row : silent) {
+            // Each page must give the silent choices their own context. Keep
+            // the repeated heading read-only, just like the first one.
+            if (_rows.size() % pageSize == 0)
+                add("-- No sound in MMModern yet --", "noop");
+            _rows.push_back(row);
+        }
         add("Back", "back-sound");
         break;
     }

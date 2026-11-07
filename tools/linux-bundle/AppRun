@@ -1,0 +1,4 @@
+#!/bin/sh
+# Preserve the caller's environment, including that inherited by xdg-open.
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P) || exit 1
+exec "$here/usr/bin/mmodern" "$@"

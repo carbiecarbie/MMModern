@@ -270,6 +270,29 @@ int main(int argc, char **argv) {
             std::size_t seen = 0;
             for (int guard = 0; guard < 30; ++guard) {
                 const auto displayed = s.displayRows();
+                if (page == XeenSetupScreen::Page::Music ||
+                    page == XeenSetupScreen::Page::Speech) {
+                    bool underSilentHeading = false;
+                    for (const auto &row : displayed) {
+                        if (row.label == "-- No sound in MMModern yet --") {
+                            check(row.action == "noop", "silent heading is actionable");
+                            underSilentHeading = true;
+                        }
+                        if (row.action.compare(0, 7, "device:") == 0) {
+                            // All choices after the first heading in the model
+                            // are silent; each displayed page repeats it.
+                            bool silent = false;
+                            for (const auto &modelRow : s.rows()) {
+                                if (modelRow.action == "noop")
+                                    silent = true;
+                                if (modelRow.action == row.action)
+                                    break;
+                            }
+                            check(!silent || underSilentHeading,
+                                  "silent device lost its heading on a continuation page");
+                        }
+                    }
+                }
                 for (std::size_t i = 0; i < displayed.size(); ++i) {
                     const auto hit = s.input().click(170, 47 + 15 * int(i));
                     check(bool(hit) == (displayed[i].action != "noop"), "actionable hit coverage");
@@ -330,7 +353,7 @@ int main(int argc, char **argv) {
 #endif
         const std::uint64_t expected[] = {mainDigest, 1377900911885187413ULL,
             12320302981788104789ULL, 17895145044500846012ULL,
-            5305938174462768177ULL, 10117389163922111149ULL};
+            5305938174462768177ULL, 5044190952922622217ULL};
         for (std::size_t i = 0; i < pages.size(); ++i) {
             XeenSetupScreenTestAccess::fixture(s, pages[i].second);
             check(digest(s.frame()) == expected[i], "setup screen frame changed");
