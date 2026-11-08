@@ -29,6 +29,7 @@ extern char **environ;
 
 namespace Graphics {
 FORWARD_DECLARE_FONT(g_sysfont);
+FORWARD_DECLARE_FONT(g_sysfont_big);
 }
 namespace mmodern {
 namespace {
@@ -36,6 +37,50 @@ using Path = std::filesystem::path;
 constexpr std::size_t previousRow = std::size_t(-2);
 constexpr std::size_t moreRow = std::size_t(-1);
 constexpr std::size_t pageSize = 7;
+// Row geometry: the main page shows large buttons on the right, the other
+// pages a full-width list. frame() and input() share it.
+struct RowBox {
+    int x, y, w, h;
+};
+RowBox rowBox(bool main, int i) {
+    return main ? RowBox{164, 43 + i * 19, 146, 17} : RowBox{8, 41 + i * 15, 304, 14};
+}
+// Stone and gold palette, drawn without any original game resource: the
+// setup screen runs before the game folder is known.
+enum SetupColor : std::uint8_t {
+    Stone,
+    Stone2,
+    Stone3,
+    Stone4,
+    MortarDark,
+    MortarLight,
+    Outline,
+    GoldLight,
+    Gold,
+    GoldDark,
+    GoldDeep,
+    PlateFill,
+    TitleText,
+    Label,
+    Value,
+    PanelFill,
+    PanelShadow,
+    PanelLight,
+    ButtonFill,
+    ButtonLight,
+    ButtonDark,
+    SelectedFill,
+    SelectedText,
+    Warning,
+    Dim,
+    ColorCount
+};
+constexpr std::uint8_t setupPalette[ColorCount][3] = {
+    {30, 26, 21},   {35, 30, 24},   {25, 21, 17},   {41, 35, 28},   {15, 13, 11},
+    {44, 38, 30},   {12, 10, 8},    {242, 210, 122}, {216, 170, 72}, {168, 122, 40},
+    {106, 74, 24},  {58, 44, 26},   {240, 208, 112}, {168, 148, 112}, {236, 228, 208},
+    {22, 18, 14},   {10, 8, 7},     {74, 64, 54},   {58, 51, 43},   {98, 88, 72},
+    {26, 22, 18},   {90, 67, 32},   {255, 240, 176}, {255, 200, 94}, {122, 106, 78}};
 std::map<std::string, std::string> facts(const std::string &text) {
     std::map<std::string, std::string> result;
     std::istringstream in(text);
@@ -800,52 +845,82 @@ DialogInput XeenSetupScreen::input() const {
     if (!input.textEntry)
         input.keys.push_back(InputKey::Space);
     for (unsigned i = 0; i < visibleIndices().size(); ++i)
-        if (rowAt(visibleIndices()[i]).action != "noop")
-            input.hits.push_back({_page == Page::Main ? 161 : 5,
-                                  41 + int(i) * 15,
-                                  315,
-                                  55 + int(i) * 15,
-                                  1000 + i,
-                                  {}});
+        if (rowAt(visibleIndices()[i]).action != "noop") {
+            const auto box = rowBox(_page == Page::Main, int(i));
+            input.hits.push_back({box.x, box.y, box.x + box.w, box.y + box.h, 1000 + i, {}});
+        }
     return input;
 }
 IndexedFrame XeenSetupScreen::frame() const {
     IndexedFrame f;
     f.width = 320;
     f.height = 200;
-    f.pixels.assign(320 * 200, 0);
-    f.palette[0] = 20;
-    f.palette[1] = 25;
-    f.palette[2] = 35;
-    f.palette[3] = 235;
-    f.palette[4] = 238;
-    f.palette[5] = 242;
-    f.palette[6] = 45;
-    f.palette[7] = 61;
-    f.palette[8] = 83;
-    f.palette[9] = 92;
-    f.palette[10] = 130;
-    f.palette[11] = 175;
-    f.palette[12] = 255;
-    f.palette[13] = 200;
-    f.palette[14] = 94;
+    f.pixels.assign(320 * 200, Stone);
+    for (int c = 0; c < ColorCount; ++c)
+        for (int k = 0; k < 3; ++k)
+            f.palette[c * 3 + k] = setupPalette[c][k];
+    const auto put = [&](int x, int y, int color) {
+        if (x >= 0 && y >= 0 && x < 320 && y < 200)
+            f.pixels[y * 320 + x] = std::uint8_t(color);
+    };
     const auto rect = [&](int x, int y, int w, int h, int color) {
         for (int yy = std::max(0, y); yy < std::min(200, y + h); ++yy)
             for (int xx = std::max(0, x); xx < std::min(320, x + w); ++xx)
                 f.pixels[yy * 320 + xx] = std::uint8_t(color);
     };
-    rect(0, 0, 320, 24, 2);
-    const auto visible = visibleIndices();
-    const auto selected = std::find(visible.begin(), visible.end(), _focus);
-    if (selected != visible.end())
-        rect(_page == Page::Main ? 160 : 4, 41 + int(selected - visible.begin()) * 15,
-             _page == Page::Main ? 156 : 312, 14, 3);
+    // A box lit from the top left: raised with a light edge there, sunken with a dark one.
+    const auto edged = [&](int x, int y, int w, int h, int fill, int light, int dark) {
+        rect(x, y, w, h, dark);
+        rect(x, y, w - 1, h - 1, light);
+        rect(x + 1, y + 1, w - 2, h - 2, fill);
+    };
+    const auto bevel = [&](int x, int y, int w, int h, int fill, int light, int dark) {
+        rect(x - 1, y - 1, w + 2, h + 2, Outline);
+        edged(x, y, w, h, fill, light, dark);
+    };
+    const auto diamond = [&](int cx, int cy, int r, int color) {
+        for (int dy = -r; dy <= r; ++dy)
+            for (int dx = std::abs(dy) - r; dx <= r - std::abs(dy); ++dx)
+                put(cx + dx, cy + dy, color);
+    };
+    // Stone wall: staggered 40x20 blocks with a fixed speckle.
+    for (int y = 0; y < 200; ++y)
+        for (int x = 0; x < 320; ++x) {
+            std::uint32_t h = std::uint32_t(x) * 374761393u ^ std::uint32_t(y) * 668265263u;
+            h = (h ^ (h >> 13)) * 1274126177u;
+            h ^= h >> 16;
+            const auto speckle = h % 9;
+            int color = speckle < 5 ? Stone : speckle < 7 ? Stone2 : speckle < 8 ? Stone3 : Stone4;
+            const int bx = (x + (y / 20 % 2 ? 20 : 0)) % 40, by = y % 20;
+            if (bx == 0 || by == 0)
+                color = MortarDark;
+            else if (bx == 1 || by == 1)
+                color = MortarLight;
+            f.pixels[y * 320 + x] = std::uint8_t(color);
+        }
+    const int ring[] = {Outline, GoldLight, Gold, GoldDark, Outline};
+    for (int i = 0; i < 5; ++i) {
+        rect(i, i, 320 - 2 * i, 1, ring[i]);
+        rect(i, 199 - i, 320 - 2 * i, 1, ring[i]);
+        rect(i, i, 1, 200 - 2 * i, ring[i]);
+        rect(319 - i, i, 1, 200 - 2 * i, ring[i]);
+    }
+    const int corners[4][2] = {{3, 3}, {316, 3}, {3, 196}, {316, 196}};
+    for (const auto &c : corners) {
+        diamond(c[0], c[1], 5, Outline);
+        diamond(c[0], c[1], 4, Gold);
+        diamond(c[0], c[1], 2, GoldDeep);
+    }
     if (!Graphics::g_sysfont)
         Graphics::create_g_sysfont();
+    if (!Graphics::g_sysfont_big)
+        Graphics::create_g_sysfont_big();
+    const Graphics::Font &small = *Graphics::g_sysfont, &bold = *Graphics::g_sysfont_big;
     Graphics::Surface surface;
     surface.init(320, 200, 320, f.pixels.data(), Graphics::PixelFormat::createFormatCLUT8());
-    const auto text = [&](int x, int y, const std::string &s, int color) {
-        for (std::size_t p = 0; p < s.size() && x < 315;) {
+    const auto codepoints = [](const std::string &s) {
+        std::vector<std::uint32_t> result;
+        for (std::size_t p = 0; p < s.size();) {
             unsigned char c = s[p++];
             std::uint32_t cp = c;
             if (c >= 0xc2 && c <= 0xf4) {
@@ -854,20 +929,61 @@ IndexedFrame XeenSetupScreen::frame() const {
                 while (count-- && p < s.size())
                     cp = (cp << 6) | (static_cast<unsigned char>(s[p++]) & 63);
             }
-            if (cp >= 384)
-                cp = 0;
-            Graphics::g_sysfont->drawChar(&surface, cp, x, y, color);
-            x += 6;
+            result.push_back(cp >= 383 ? 0 : cp);
+        }
+        return result;
+    };
+    const auto width = [&](const Graphics::Font &font, const std::string &s, int spacing = 0) {
+        int w = 0;
+        for (auto cp : codepoints(s))
+            w += font.getCharWidth(cp) + spacing;
+        return w;
+    };
+    // Shortens from the left, as shortened() does, until the text fits the width.
+    const auto fit = [&](const Graphics::Font &font, std::string s, int limit) {
+        if (width(font, s) <= limit)
+            return s;
+        while (!s.empty() && width(font, "..." + s) > limit) {
+            std::size_t n = 1;
+            while (n < s.size() && (static_cast<unsigned char>(s[n]) & 0xc0) == 0x80)
+                ++n;
+            s.erase(0, n);
+        }
+        return "..." + s;
+    };
+    const auto text = [&](const Graphics::Font &font, int x, int y, const std::string &s,
+                          int color, int spacing = 0) {
+        for (auto cp : codepoints(s)) {
+            const int w = font.getCharWidth(cp) + spacing;
+            if (x + w > 316)
+                break;
+            font.drawChar(&surface, cp, x, y, color);
+            x += w;
         }
     };
-    text(7, 5, title(_page), 1);
+    const auto shadowed = [&](const Graphics::Font &font, int x, int y, const std::string &s,
+                              int color, int spacing = 0) {
+        text(font, x + 1, y + 1, s, Outline, spacing);
+        text(font, x, y, s, color, spacing);
+    };
+    const auto centered = [&](const Graphics::Font &font, int y, const std::string &s, int color) {
+        const auto shown = fit(font, s, 300);
+        text(font, 160 - width(font, shown) / 2, y, shown, color);
+    };
+    // One pixel of tracking keeps "rn" in "MMModern" from reading as "m".
+    const auto heading = title(_page);
+    const int plate = width(bold, heading, 1) + 23;
+    bevel(160 - plate / 2, 7, plate, 17, PlateFill, GoldLight, GoldDeep);
+    shadowed(bold, 160 - plate / 2 + 12, 9, heading, TitleText, 1);
     if (_page == Page::Main)
-        text(7, 26, shortened(_folder.u8string(), 50), 1);
+        centered(small, 27, _folder.u8string(), Label);
     else if (_page == Page::Browser)
-        text(7, 26, shortened(_directory.u8string(), 50), 1);
+        centered(small, 27, _directory.u8string(), Label);
     else if (_page == Page::Sound && !_sound.empty())
-        text(7, 26, "Choose devices, then Save", 1);
+        centered(small, 27, "Choose devices, then Save", Label);
+    const auto visible = visibleIndices();
     if (_page == Page::Main) {
+        bevel(8, 41, 150, 135, PanelFill, PanelShadow, PanelLight);
         const auto fact = [&](const char *key) {
             const auto it = _facts.find(key);
             return it == _facts.end() ? std::string{} : it->second;
@@ -877,62 +993,77 @@ IndexedFrame XeenSetupScreen::frame() const {
             const auto p = s.find(';');
             return s.substr(0, p);
         };
-        text(7, 42,
-             "Game: " +
-                 (fact("game.status") == "usable"
-                      ? (fact("game.exe").rfind("unusable", 0) == 0 ? std::string("CD; no intro")
-                                                                    : std::string("CD ready"))
-                      : std::string("Not usable")),
-             1);
+        const auto line = [&](int y, const std::string &label, const std::string &shown,
+                              int color) {
+            text(small, 11, y, label, Label);
+            const int x = 11 + width(small, label) + 6;
+            text(small, x, y, fit(small, shown, 155 - x), color);
+        };
+        const auto below = [&](int y, const std::string &shown, int color) {
+            text(small, 17, y, fit(small, shown, 138), color);
+        };
+        const bool usable = fact("game.status") == "usable";
+        line(44, "Game:",
+             usable ? (fact("game.exe").rfind("unusable", 0) == 0 ? "CD; no intro" : "CD ready")
+                    : "Not usable",
+             usable ? Value : Warning);
         if (!fact("cfg.error").empty()) {
-            text(7, 57, "Sound setup damaged", 4);
-            text(7, 69, "Reset to installed", 4);
+            text(small, 11, 57, "Sound setup damaged", Warning);
+            text(small, 11, 68, "Reset to installed", Warning);
         } else if (!fact("sound.error").empty()) {
-            text(7, 57, "Sound unreadable", 4);
-            text(7, 69, "Open Sound setup", 4);
+            text(small, 11, 57, "Sound unreadable", Warning);
+            text(small, 11, 68, "Open Sound setup", Warning);
         } else {
-            text(7, 57,
-                 fact("sound.music").find("; silent") != std::string::npos &&
-                         value("sound.music") != "None"
-                     ? "Music (silent):"
-                     : "Music:",
-                 1);
-            text(7, 69, shortened(value("sound.music"), 24), 1);
-            text(7, 84,
-                 fact("sound.speech").find("; silent") != std::string::npos &&
-                         value("sound.speech") != "None"
-                     ? "Speech (silent):"
-                     : "Speech:",
-                 1);
-            text(7, 96, shortened(value("sound.speech"), 24), 1);
+            const auto silent = [&](const char *key) {
+                return fact(key).find("; silent") != std::string::npos && value(key) != "None";
+            };
+            text(small, 11, 57, silent("sound.music") ? "Music (silent):" : "Music:", Label);
+            below(68, value("sound.music"), Value);
+            text(small, 11, 81, silent("sound.speech") ? "Speech (silent):" : "Speech:", Label);
+            below(92, value("sound.speech"), Value);
         }
         const bool roms = fact("roms.control").rfind("identified", 0) == 0 &&
                           fact("roms.pcm").rfind("identified", 0) == 0;
         const bool absent = fact("roms.control") == "missing" && fact("roms.pcm") == "missing";
-        text(7, 111,
-             roms     ? "MT-32 ROMs: Found"
-             : absent ? "MT-32 ROMs: Not found"
-                      : "MT-32 ROMs: Unrecognized",
-             1);
-        text(7, 126,
-             "Language: " + fact("language") + (fact("language.error").empty() ? "" : " (refused)"),
-             1);
-        text(7, 141, "Saves: " + fact("saves.used-slots") + " of 10", 1);
-        text(7, 156, "Saves folder:", 1);
-        text(7, 168, shortened(fact("saves.folder"), 24), 1);
-    }
-    for (std::size_t i = 0; i < visible.size(); ++i)
-        text(_page == Page::Main ? 164 : 8, 42 + int(i) * 15,
-             shortened(rowAt(visible[i]).label, _page == Page::Main ? 24 : 50), 1);
-    if (_page == Page::Language) {
-        text(8, 113, "Russian uses the old-games.ru translation.", 1);
-        text(8, 126, "Recorded speech stays English.", 1);
+        line(106, "MT-32 ROMs:", roms ? "Found" : absent ? "Not found" : "Unrecognized", Value);
+        const bool refused = !fact("language.error").empty();
+        line(120, "Language:", fact("language") + (refused ? " (refused)" : ""),
+             refused ? Warning : Value);
+        line(134, "Saves:", fact("saves.used-slots") + " of 10", Value);
+        text(small, 11, 148, "Saves folder:", Label);
+        below(160, fact("saves.folder"), Value);
+        for (std::size_t i = 0; i < visible.size(); ++i) {
+            const auto box = rowBox(true, int(i));
+            const bool selected = visible[i] == _focus;
+            if (selected) {
+                bevel(box.x, box.y, box.w, box.h, SelectedFill, GoldLight, GoldDeep);
+                diamond(box.x + 6, box.y + 8, 3, SelectedText);
+            } else
+                bevel(box.x, box.y, box.w, box.h, ButtonFill, ButtonLight, ButtonDark);
+            shadowed(bold, box.x + 13, box.y + 2, fit(bold, rowAt(visible[i]).label, box.w - 16),
+                     selected ? SelectedText : Value);
+        }
+    } else {
+        bevel(7, 40, 306, 137, PanelFill, PanelShadow, PanelLight);
+        for (std::size_t i = 0; i < visible.size(); ++i) {
+            const auto box = rowBox(false, int(i));
+            const auto row = rowAt(visible[i]);
+            const bool selected = visible[i] == _focus;
+            if (selected)
+                edged(box.x, box.y, box.w, box.h, SelectedFill, GoldLight, GoldDeep);
+            text(small, box.x + 3, box.y + 1, fit(small, row.label, box.w - 6),
+                 selected ? SelectedText : row.action == "noop" ? Dim : Value);
+        }
+        if (_page == Page::Language) {
+            text(small, 11, 113, "Russian uses the old-games.ru translation.", Label);
+            text(small, 11, 126, "Recorded speech stays English.", Label);
+        }
     }
     if (_notice.size() <= 50)
-        text(7, 180, _notice, 4);
+        centered(small, 179, _notice, Warning);
     else {
-        text(7, 174, _notice.substr(0, 50), 4);
-        text(7, 187, shortened(_notice.substr(50), 50), 4);
+        centered(small, 177, _notice.substr(0, 50), Warning);
+        centered(small, 186, shortened(_notice.substr(50), 50), Warning);
     }
     return f;
 }

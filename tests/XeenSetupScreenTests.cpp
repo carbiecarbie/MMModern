@@ -106,11 +106,12 @@ std::uint64_t digest(const IndexedFrame &f) {
     }
     return h;
 }
-// The main page's heading shows "MMModern <version>", so its golden digest skips
-// the 24-pixel heading band; otherwise every release would change it.
+// The main page's heading plate shows "MMModern <version>" and sizes itself to
+// it, so its golden digest skips the plate's 25-pixel band; otherwise every
+// release would change it.
 std::uint64_t pageDigest(IndexedFrame f, XeenSetupScreen::Page page) {
     if (page == XeenSetupScreen::Page::Main)
-        std::fill(f.pixels.begin(), f.pixels.begin() + 24 * f.width, std::uint8_t(0));
+        std::fill(f.pixels.begin(), f.pixels.begin() + 25 * f.width, std::uint8_t(0));
     return digest(f);
 }
 void nativePlay(XeenSetupScreen &screen, bool mouse) {
@@ -261,6 +262,10 @@ int main(int argc, char **argv) {
         s.dispatch(*click);
         check(XeenSetupScreenTestAccess::played(s), "mouse Play");
         // Walk every visible window using click actions only. Read-only rows have no hit.
+        // The main page's buttons are 19 pixels apart, the other pages' rows 15.
+        const auto rowY = [](XeenSetupScreen::Page page, int i) {
+            return page == XeenSetupScreen::Page::Main ? 50 + 19 * i : 47 + 15 * i;
+        };
         for (auto page : {XeenSetupScreen::Page::Main, XeenSetupScreen::Page::Browser,
                           XeenSetupScreen::Page::BrowserOptions, XeenSetupScreen::Page::Sound,
                           XeenSetupScreen::Page::Music, XeenSetupScreen::Page::Speech,
@@ -278,7 +283,7 @@ int main(int argc, char **argv) {
                                        [](const auto &r) { return r.action == "previous"; });
                 if (it == displayed.end())
                     break;
-                s.dispatch(*s.input().click(170, 47 + 15 * int(it - displayed.begin())));
+                s.dispatch(*s.input().click(170, rowY(page, int(it - displayed.begin()))));
             }
             std::size_t seen = 0;
             for (int guard = 0; guard < 30; ++guard) {
@@ -307,7 +312,7 @@ int main(int argc, char **argv) {
                     }
                 }
                 for (std::size_t i = 0; i < displayed.size(); ++i) {
-                    const auto hit = s.input().click(170, 47 + 15 * int(i));
+                    const auto hit = s.input().click(170, rowY(page, int(i)));
                     check(bool(hit) == (displayed[i].action != "noop"), "actionable hit coverage");
                     if (displayed[i].action != "previous" && displayed[i].action != "more")
                         ++seen;
@@ -319,7 +324,7 @@ int main(int argc, char **argv) {
                     if (page == XeenSetupScreen::Page::Browser ||
                         page == XeenSetupScreen::Page::Music) {
                         const auto last = displayed.back();
-                        s.dispatch(*s.input().click(170, 47 + 15 * int(displayed.size() - 1)));
+                        s.dispatch(*s.input().click(170, rowY(page, int(displayed.size() - 1))));
                         check(page == XeenSetupScreen::Page::Browser
                                   ? s.rows()[0].label.find("folder-9") != std::string::npos
                                   : s.page() == XeenSetupScreen::Page::Sound,
@@ -327,7 +332,7 @@ int main(int argc, char **argv) {
                     }
                     break;
                 }
-                s.dispatch(*s.input().click(170, 47 + 15 * int(more - displayed.begin())));
+                s.dispatch(*s.input().click(170, rowY(page, int(more - displayed.begin()))));
                 check(guard < 29, "click paging did not terminate");
             }
             for (int i = 0; i < 20; ++i) {
@@ -360,13 +365,13 @@ int main(int argc, char **argv) {
             return 0;
         }
         #ifdef _WIN32
-        const std::uint64_t mainDigest = 4722562506988712227ULL;
+        const std::uint64_t mainDigest = 7728170877540825945ULL;
 #else
-        const std::uint64_t mainDigest = 9326731424647414641ULL;
+        const std::uint64_t mainDigest = 14492834640385554265ULL;
 #endif
-        const std::uint64_t expected[] = {mainDigest, 1377900911885187413ULL,
-            12320302981788104789ULL, 15179695365486701445ULL,
-            5305938174462768177ULL, 5044190952922622217ULL};
+        const std::uint64_t expected[] = {mainDigest, 16505137804929558265ULL,
+            8930215273459613646ULL, 12098287078506398707ULL,
+            12020560654480869145ULL, 7128448451130753193ULL};
         for (std::size_t i = 0; i < pages.size(); ++i) {
             XeenSetupScreenTestAccess::fixture(s, pages[i].second);
             check(pageDigest(s.frame(), pages[i].second) == expected[i],
@@ -375,7 +380,8 @@ int main(int argc, char **argv) {
         XeenSetupScreenTestAccess::fixture(s, XeenSetupScreen::Page::Main);
         {
             const auto f = s.frame();
-            check(std::count(f.pixels.begin(), f.pixels.begin() + 24 * f.width, std::uint8_t(1)) > 0,
+            // Palette index 12 is the heading text color.
+            check(std::count(f.pixels.begin(), f.pixels.begin() + 25 * f.width, std::uint8_t(12)) > 0,
                   "main heading has text");
         }
         env("MMODERN_LOG_FILE", (scratch / "failure.log").u8string());
