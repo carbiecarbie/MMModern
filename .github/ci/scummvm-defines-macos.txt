@@ -1,0 +1,8 @@
+DATA_PATH="${datarootdir}/scummvm"
+HAS_FSEEKO_OFFT_64
+HAVE_CONFIG_H
+MACOSX
+PLUGIN_DIRECTORY="${exec_prefix}/lib/scummvm"
+POSIX
+SDL_BACKEND
+USE_SDL2
