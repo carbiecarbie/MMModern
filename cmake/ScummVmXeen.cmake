@@ -20,8 +20,22 @@ function(add_mmodern_scummvm_xeen_bridge target_name)
 				"Missing ScummVM build artifact: ${link_file}. Build devtools/xeen_probe first.")
 		endif()
 	endforeach()
+	set(scummvm_platform_compile_flags)
+	if(APPLE)
+		if(CMAKE_OSX_SYSROOT)
+			list(APPEND scummvm_platform_compile_flags -isysroot "${CMAKE_OSX_SYSROOT}")
+		endif()
+		foreach(architecture IN LISTS CMAKE_OSX_ARCHITECTURES)
+			list(APPEND scummvm_platform_compile_flags -arch "${architecture}")
+		endforeach()
+		if(CMAKE_OSX_DEPLOYMENT_TARGET)
+			list(APPEND scummvm_platform_compile_flags "-mmacosx-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
+		endif()
+	endif()
 
-	find_program(SCUMMVM_OBJCOPY NAMES objcopy REQUIRED)
+	if(WIN32)
+		find_program(SCUMMVM_OBJCOPY NAMES objcopy REQUIRED)
+	endif()
 	set(sprite_source "${SCUMMVM_SOURCE_DIR}/engines/mm/shared/xeen/sprites.cpp")
 	set(sprite_object_dir "${CMAKE_CURRENT_BINARY_DIR}/scummvm_bridge")
 	set(sprite_full_object "${sprite_object_dir}/sprites.full.o")
@@ -63,7 +77,7 @@ function(add_mmodern_scummvm_xeen_bridge target_name)
  else()
  add_custom_command(OUTPUT "${sprite_stream_object}"
   COMMAND "${CMAKE_COMMAND}" -E make_directory "${sprite_object_dir}"
-  COMMAND "${CMAKE_CXX_COMPILER}" -std=gnu++11 ${MMODERN_SCUMMVM_DEFINE_FLAGS}
+		COMMAND "${CMAKE_CXX_COMPILER}" ${scummvm_platform_compile_flags} -std=gnu++11 ${MMODERN_SCUMMVM_DEFINE_FLAGS}
    -ffunction-sections -fdata-sections -I "${SCUMMVM_BUILD_DIR}" -I "${SCUMMVM_SOURCE_DIR}"
    -I "${SCUMMVM_SOURCE_DIR}/engines" -c "${sprite_source}" -o "${sprite_stream_object}"
   DEPENDS "${sprite_source}" VERBATIM)
@@ -81,7 +95,7 @@ function(add_mmodern_scummvm_xeen_bridge target_name)
 	if(WIN32)
 	add_custom_command(OUTPUT "${nuked_core}"
 		COMMAND "${CMAKE_COMMAND}" -E make_directory "${sprite_object_dir}"
-		COMMAND "${CMAKE_CXX_COMPILER}" -std=gnu++11 ${MMODERN_SCUMMVM_DEFINE_FLAGS}
+		COMMAND "${CMAKE_CXX_COMPILER}" ${scummvm_platform_compile_flags} -std=gnu++11 ${MMODERN_SCUMMVM_DEFINE_FLAGS}
 			-O2 -ffunction-sections -fdata-sections
 			-I "${SCUMMVM_BUILD_DIR}" -I "${SCUMMVM_SOURCE_DIR}"
 			-c "${nuked_source}" -o "${nuked_full}"
@@ -95,11 +109,11 @@ function(add_mmodern_scummvm_xeen_bridge target_name)
  else()
  add_custom_command(OUTPUT "${nuked_core}"
   COMMAND "${CMAKE_COMMAND}" -E make_directory "${sprite_object_dir}"
-  COMMAND "${CMAKE_CXX_COMPILER}" -std=gnu++11 ${MMODERN_SCUMMVM_DEFINE_FLAGS}
+		COMMAND "${CMAKE_CXX_COMPILER}" ${scummvm_platform_compile_flags} -std=gnu++11 ${MMODERN_SCUMMVM_DEFINE_FLAGS}
    -O2 -ffunction-sections -fdata-sections -I "${SCUMMVM_BUILD_DIR}" -I "${SCUMMVM_SOURCE_DIR}"
    -c "${nuked_source}" -o "${nuked_core}"
   DEPENDS "${nuked_source}" "${SCUMMVM_SOURCE_DIR}/audio/softsynth/opl/nuked.h" VERBATIM)
- endif()
+	endif()
 	set_source_files_properties("${nuked_core}" PROPERTIES GENERATED TRUE EXTERNAL_OBJECT TRUE)
 
 	add_library(${target_name} STATIC
@@ -128,6 +142,8 @@ function(add_mmodern_scummvm_xeen_bridge target_name)
 
 	if(CMAKE_EXECUTABLE_FORMAT STREQUAL "ELF")
   target_link_options(${target_name} INTERFACE -Wl,--gc-sections)
+ elseif(APPLE)
+		target_link_options(${target_name} INTERFACE -Wl,-dead_strip -Wl,-undefined,error)
  endif()
 	target_link_libraries(${target_name} PRIVATE mmodern_platform_libs)
 endfunction()

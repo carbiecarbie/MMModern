@@ -14,8 +14,12 @@
 #include <fcntl.h>
 #include <sys/file.h>
 #include <sys/stat.h>
+#if defined(__APPLE__)
+#include <sys/mount.h>
+#else
 #include <sys/statfs.h>
 #include <sys/sysmacros.h>
+#endif
 #include <unistd.h>
 namespace mmodern::saveio {
 namespace {
@@ -37,6 +41,11 @@ Path directory(const Path &path) {
  if(!S_ISDIR(st.st_mode))throw std::runtime_error("Save parent directory must already exist");
  return result;
 }
+#if defined(__APPLE__)
+void requireLocal(const struct statfs &fs,const struct stat &) {
+ if((fs.f_flags&MNT_LOCAL)==0)throw std::runtime_error("Save path must be on a local filesystem; set XDG_DATA_HOME to a local disk for saves");
+}
+#else
 void requireLocal(const struct statfs &fs,const struct stat &st) {
  bool remote=remoteType(static_cast<unsigned long>(fs.f_type));
  if(static_cast<unsigned long>(fs.f_type)==0x65735546) {
@@ -47,6 +56,7 @@ void requireLocal(const struct statfs &fs,const struct stat &st) {
  }
  if(remote)throw std::runtime_error("Save path must be on a local filesystem; set XDG_DATA_HOME to a local disk for saves");
 }
+#endif
 void local(const Path &path) {
  struct statfs fs{};if(::statfs(path.c_str(),&fs)<0)throw error("Inspect save filesystem");
  struct stat st{};if(::stat(path.c_str(),&st)<0)throw error("Inspect save directory");
