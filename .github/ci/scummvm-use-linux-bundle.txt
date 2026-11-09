@@ -1,5 +1,5 @@
 ## USE_ lines of the pinned ScummVM build's config.h and then config.mk in the
-## Ubuntu 22.04 container of .github/workflows/linux-bundle.yml, configured with
+## Ubuntu 22.04 container of .github/workflows/linux-appimage.yml, configured with
 ## the bundle's SDL2 (recorded 2026-11-05 from that recipe). They differ from
 ## .github/ci/scummvm-use-linux.txt only in USE_SNDIO: 22.04's list has no sndio.
 #undef USE_SDL_NET

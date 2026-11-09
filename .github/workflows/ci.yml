@@ -432,8 +432,8 @@ jobs:
       - name: Check the bundle workflow's ScummVM pin
         run: |
           set -euo pipefail
-          pin=$(awk '$1 == "SCUMMVM_COMMIT:" { print $2 }' .github/workflows/linux-bundle.yml)
-          [ "$pin" = "$SCUMMVM_COMMIT" ] || { echo "::error::.github/workflows/linux-bundle.yml pins ScummVM $pin, not $SCUMMVM_COMMIT."; exit 1; }
+          pin=$(awk '$1 == "SCUMMVM_COMMIT:" { print $2 }' .github/workflows/linux-appimage.yml)
+          [ "$pin" = "$SCUMMVM_COMMIT" ] || { echo "::error::.github/workflows/linux-appimage.yml pins ScummVM $pin, not $SCUMMVM_COMMIT."; exit 1; }
           echo "Both workflows pin ScummVM $pin."
 
       - name: Check the ScummVM USE_ set
