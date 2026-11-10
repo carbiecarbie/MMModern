@@ -3,136 +3,78 @@
 This describes what can be played and done now. M115 is the latest
 completed and accepted milestone (2026-11-10; [plan](milestone-115-plan.md)):
 an option, off by default, lets a game controller play the whole game
-through the original keys and pointer. Before it, M114
-([plan](milestone-114-plan.md)) gave Linux players one AppImage, which opens
-a setup screen inside the game for the game folder, sound devices and
-language, and plays on a desktop or a Steam Deck, M113
-([plan](milestone-113-plan.md)) made
-MMModern build, play, save and pass its tests natively on 64-bit Linux, with
-GitHub Actions also building and testing it on Linux, M112
-([plan](milestone-112-plan.md)) played the Windows package on a Steam Deck
-through Proton, M111
-([plan](milestone-111-plan.md)) made physical spells ignore physical
-resistance after a Xeen Slayer Sword attack, as in DOS, and discarded whole
-an Event MMModern has to refuse, M109 made every push build the project on a clean machine on GitHub and run
-the tests that need no original data ([plan](milestone-109-plan.md)), M110 made the game playable in
-Russian with the old-games.ru fan translation installed beside the CD
-([plan](milestone-110-plan.md)), M108 turned the invariants of the Darkside
-audit into original-data tests, M107 played the original World of Xeen ending after the World win, the
-`genesis` mirror word and the title's W row, so every ending of the CD now
-plays, and M106 made Darkside of Xeen and World of Xeen winnable as in DOS,
-with the original Darkside ending and the title's replay rows, M105 ran
-the last three Events of the mixed World of Xeen maps, so Darkside plays up
-to its ending, M104 opened Darkstone Tower,
-Dragon Tower, the Dungeon of Death, the Southern Sphinx and the Dragon Clouds
-(Darkside maps 113-128) from their Clouds entrances with the Darkside keys,
-with the resources, music and travel rules of the CD, M103 ran every Event
-instruction of the ordinary Darkside maps as on the CD, M102 made every Darkside town service and
-entrance scene work as on the CD, M101
-let a party cross to Darkside through the Pyramids and back, play its
-ordinary maps and save and load on either side, M100 gave the release a launcher
-window with the sound devices and a log, M99 gave the picture the 4:3 shape of the original's monitors, M98 made a party with a
-Cartographer mark its cell on the maps at every arrival, as in DOS, M97
-added a developer tool that writes an MMModern Clouds save as an original DOS
-save, M96 kept picked chests open as in DOS, M95 followed up the Clouds audit, M94 played the original AdLib, Sound
-Blaster and MT-32 drivers when `XEEN.CFG` selects them, M93 opened each
-launch with the original Darkside intro, M90 confirmed that Clouds of Xeen
-can be played from Newcastle's Megacredits to Lord Xeen, M92 made Clouds
-finishable, with the original ending and score, and M91 added the Clouds
-intro.
-Earlier milestones are in [project history](project-history.md), direction is
-in the [roadmap](roadmap.md), and build and dependency setup is in
+through the original keys and pointer. Earlier milestones are in
+[project history](project-history.md), direction is in the
+[roadmap](roadmap.md), and build and dependency setup is in
 [dependencies](dependencies.md).
 
 MMModern aims to be a faithful reimplementation of the original games;
 approved deviations are listed in
 [original quirks](original-quirks.md#approved-deviations). It does not replace
-them yet. A new game of Might and Magic IV: Clouds of Xeen, read from the
-World of Xeen two-CD talkie edition, starts as in the original, and every
-Clouds map is playable. Darkside is reached through the Pyramids, as in the
-CD; its maps, the mixed World of Xeen maps 113-128 included, town services,
-entrance scenes and Events play, and Darkside and World of Xeen can be
-won with their original endings.
+them yet. It reads the World of Xeen two-CD talkie edition: every Clouds and
+Darkside map is playable, the mixed World of Xeen maps 113-128 included, and
+Clouds, Darkside and World of Xeen can each be won with their original
+endings. The game runs on Windows, on Linux and on a Steam Deck, in English
+or with the Russian fan translation.
 
 ## What can be played
 
 `mmodern <game-dir>` first plays the Darkside intro, as the CD does: the full
 story until it has been watched to its end, then only the logos and the World
-of Xeen title. Escape skips the story. The original title screen follows:
-Escape shows or hides the menu, Credits shows the four original pages, and
-Other Options plays the Clouds intro with its music and Crodo's narration,
-`D` forgets that the Darkside story was watched, and after each win `E`, `V`
-or `W` replays the Darkside, Clouds or World ending, packed in that order as
-in DOS. The watched state and the wins are
-kept in `settings.ini`.
-New asks for a save slot, a name and the difficulty: Adventurer (weapons hit
-harder) or Warrior. As in the original, the six level-1 Clouds characters
-then stand in Vertigo at `(18,4)` facing West at 08:00 on day 1 of year 610,
-with 800 gold, 10 gems, 90 food and an empty bank. Load continues a saved
-game from the same slot list.
+of Xeen title. On the original title screen, Credits shows the four original
+pages, and Other Options plays the Clouds intro, forgets that the Darkside
+story was watched and, after each win, replays that ending. New asks for a
+save slot, a name and the difficulty: Adventurer (weapons hit harder) or
+Warrior. As in the original, the six level-1 Clouds characters then stand in
+Vertigo at `(18,4)` facing West at 08:00 on day 1 of year 610, with 800
+gold, 10 gems, 90 food and an empty bank. Load continues a saved game.
 
 ### The world
 
 - Every Clouds map opens from the original resources, with its terrain,
   walls, objects, monsters and text. Outdoor borders load the next map, and
-  larger dungeons span several original tiles. Every surface works as in the
-  original: lava burns, sky and clouds drop the party to the land below, space
-  kills and the desert costs time. Water needs Swimming for the whole party
-  or Walk on Water; mountains need Mountaineer and outdoor wall types 3 and 6
-  need Pathfinder, each from two members. Dark maps stay black until Light.
+  larger dungeons span several original tiles. Surfaces work as in the
+  original: lava burns, sky and clouds drop the party to the land below,
+  space kills and the desert costs time. Water needs Swimming for the whole
+  party or Walk on Water; mountains need Mountaineer and outdoor wall types
+  3 and 6 need Pathfinder, each from two members. Dark maps stay black until
+  Light.
 - Monsters wake, approach and attack on the original rules, with every
-  attack, secondary effect and movement kind in the original data, ranged and
-  flying included. Every map load rebuilds them at full HP and asleep.
-- Every Event operation the Clouds scripts use runs as in the original. As
-  in DOS, a cell's
-  Events run again after every key or click while the party stands on it,
-  Space interacts and then waits, and an Event a monster interrupts runs once
-  the fight ends ([Event dispatch](rules/world-events.md#event-dispatch)).
-  While an Event waits, the 3D view, the small map and the border already
-  show what it has changed. "Nothing here" is acknowledged before such a fight
+  attack, secondary effect and movement kind in the original data. Every map
+  load rebuilds them at full HP and asleep.
+- Every Event operation the scripts of both sides use runs as in the
+  original. As in DOS, a cell's Events run again after every key or click
+  while the party stands on it, Space interacts and then waits, and an Event
+  a monster interrupts runs once the fight ends
+  ([Event dispatch](rules/world-events.md#event-dispatch)). While an Event
+  waits, the view, the small map and the border already show what it has
+  changed. "Nothing here" is acknowledged before an interrupting fight
   ([approved deviation](original-quirks.md#dev-skipped-window-first)).
+- Darkside falls to another map keep the original fall, its "Oops..." box
+  ([approved deviation](original-quirks.md#dev-fall-oops)) and the damage
+  the DOS program reads
+  ([approved deviation](original-quirks.md#dev-fall-damage-zero) for three
+  falls).
 - The Reaper, Golem, Dwarf Mine and Sphinx entrance scenes play their
   original animations and speech, with captions when Efx is off. The Dwarf
-  Mine always admits the party, the others need the right quest item. The
-  four Clouds entrances whose keys only Darkside gives admit a party
-  carrying the key to the mixed maps below.
-- On Darkside, the Bank, Smithy, Guild, Tavern and Inn, Temple and Training
-  of Castleview, Sandcaster, Lakeside, Necropolis, Olympus and Castle
-  Kalindra work with Darkside's own values, pictures, voices and music, and
-  the Tower, Dungeon and Dwarf town scenes admit the party with the right
-  quest item and refuse it otherwise. Night in these scenes follows the
-  clock, as the sky does
+  Mine always admits the party; the others need the right quest item, as do
+  Darkside's Tower, Dungeon and Dwarf town scenes. Night in the Darkside
+  scenes follows the clock, as the sky does
   ([approved deviation](original-quirks.md#dev-current-clock-night)).
-- Darkside Events exchange objects, jump at random, give enchanted items of
-  every kind, offer numbered choices, ask the second kind of password and
-  drop the party through the floor to another map with the original fall,
-  its "Oops..." box ([approved deviation](original-quirks.md#dev-fall-oops))
-  and the damage the DOS program reads
-  ([approved deviation](original-quirks.md#dev-fall-damage-zero) for three
-  falls). On both sides an Event's windows close when it ends; door and sign
-  labels stay until the party moves.
-- The Pyramids join the two sides as in the World of Xeen CD, without the
-  CD's disc-change prompt
-  ([approved deviation](original-quirks.md#dev-no-disc-prompt)). Every
-  ordinary Darkside map loads from DARK.CC with its own monsters, pictures,
-  Events, text and music; game and quest flags are kept per side, quest
-  items and character flags are shared. Town Portal, Lloyd's Beacon and Mr
-  Wizard follow the side, Town Portal on Darkside with the CD's
+- The Pyramids join the two sides as on the CD, without its disc-change
+  prompt ([approved deviation](original-quirks.md#dev-no-disc-prompt)). Game
+  and quest flags are kept per side; quest items and character flags are
+  shared. Town Portal, Lloyd's Beacon and Mr Wizard follow the side, Town
+  Portal on Darkside with the CD's
   [fixed arrivals](original-quirks.md#sv-darkside-town-portal-stride), and a
   party defeated on Darkside hears Alamar laugh and returns to the title.
 - The mixed World of Xeen maps 113-128 (Darkstone Tower, Dragon Tower, the
-  Dungeon of Death, the Southern Sphinx and the Dragon Clouds) are Darkside
-  maps that borrow Clouds monsters, objects, walls or scenery map by map, as
-  the CD does; the Sphinx plays the Clouds dungeon song and the Dragon Clouds
-  always show the day sky. Their exit Events return the party to Clouds
-  (FlipWorld), Town Portal leads to the Clouds towns, from the Dragon Clouds
-  to the Darkside towns, and falls land on the side DOS chooses. Saving while
-  FlipWorld has chosen a side the party has not loaded yet says "not
-  supported yet"; no original Event leaves the game in that state
+  Dungeon of Death, the Southern Sphinx and the Dragon Clouds) open from the
+  four Clouds entrances whose keys only Darkside gives. They borrow Clouds
+  monsters, objects, walls or scenery map by map, as the CD does, and their
+  exit Events return the party to Clouds (FlipWorld). Saving while FlipWorld
+  has chosen a side the party has not loaded yet says "not supported yet"
   ([approved deviation](original-quirks.md#dev-pending-side-save)).
-  Darkstone Tower's four heads leave their Auto Notes, the fourth in the bit
-  DOS shares with Clouds quest flag 0, and the Dungeon of Death's statue shows
-  its long book in the main window, its two halves written as one text.
 - In the Warzone Arena the Battle Master offers fights of a chosen level and
   size. Each win adds to every member's Warzone award, up to 99, and the game
   cannot be saved in the Warzone.
@@ -143,124 +85,80 @@ Combat starts on contact and is turn-based per member: Attack, Block, Run,
 Cast, Use and Quick Fight. Shoot works in exploration, indoors too. Monsters
 choose their targets and attacks from their original data, drawn as DOS
 draws them, and the party can turn during combat. Equipped items count with
-their metal, element and enchantment; wounds, conditions, broken armor, XP,
-gold and items stay on the party and the world. Equipping and transferring
-cost no turn; Use (U) uses a charged item and ends the member's turn. Run is
-per member, with each map's original run position and chance.
+their metal, element and enchantment. Run is per member, with each map's
+original run position and chance.
 
 Every kill adds the monster's original gold and gems and may drop an item at
 its original chance and level. The treasure appears on the original screens
-once no monster is in view and goes to the member last chosen in a "who will"
-prompt; full packs lose or replace items as in the original. Warzone kills
-give none. Event treasure shares the monster treasure, including the
-original's duplicate of pending items ([treasure rules](rules/items.md)).
+once no monster is in view; full packs lose or replace items as in the
+original, and Warzone kills give none ([treasure rules](rules/items.md)).
 
-Only the Xeen Slayer Sword hurts Lord Xeen, with the original's +100 per hit.
-After a Slayer Sword attack, physical spells also ignore physical resistance
-until another weapon attack, as in DOS.
-His death gives the Scepter and every active member the "Defeated Lord Xeen"
-award. Scripted deaths work as in DOS: the Clan King completes Gunther's
-quest, Count Draco's death makes the Nightshadow well grant ten levels, Ice
-Trolls heal at each new round, and the three dead Water Dragons complete
-Medin's quest. Completed quests hide their neighbouring-map objects, and
-Newcastle shows its castle once the walls are bought
+Only the Xeen Slayer Sword hurts Lord Xeen, and his death gives the Scepter.
+The other scripted deaths work as in DOS too: the Clan King, Count Draco,
+the Ice Trolls and the Water Dragons
 ([combat rules](rules/combat.md#lord-xeen-and-scripted-death-hooks)).
 
-### The ending
+### The endings
 
-Giving the Scepter to the Sixth Mirror wins Clouds of Xeen as in DOS. The
-game moves the party to Vertigo's tavern door, saves it, and computes the
-score from experience and real play time. Then the original ending plays:
-the castle's fall, Castle Burlock and the king, the parade of monsters and
-the score, after which a fresh World title appears. Animations ignore keys
-and clicks, the two score pages advance by key only, and Ctrl-Q quits. The
-win is remembered outside the save
-([approved deviation](original-quirks.md#dev-clouds-won-store)). Afterwards
-Castle Xeen is gone and Lloyd's Beacon cannot return there. The mirror word
-`showtime` plays the ending without winning, and `bloopers` does nothing, as
-in DOS ([ending rules](rules/cutscenes.md#clouds-ending-entry-and-save)).
+Giving the Scepter to the Sixth Mirror wins Clouds of Xeen as in DOS: the
+game moves the party to Vertigo's tavern door, saves it, computes the score
+from experience and real play time and plays the original ending. Afterwards
+Castle Xeen is gone
+([ending rules](rules/cutscenes.md#clouds-ending-entry-and-save)). Bringing
+the Soul Box with Corak inside to Alamar wins Darkside of Xeen: the party is
+saved at Castleview and the original Darkside ending plays. Bringing Xeen's
+Scepter to the altar of the Clouds of the Ancients, with the awards DOS
+requires, wins World of Xeen, and the original World ending follows
+([presentation](rules/cutscenes.md#world-ending-presentation),
+[win rules](rules/cutscenes.md#darkside-and-world-win-entry-and-save)).
 
-### The Darkside and World endings
-
-Bringing the Soul Box with Corak inside to Alamar, at Castle Alamar Level 3
-`(2,13)` facing North, wins Darkside of Xeen as in DOS: the confrontation is
-cinematic, the party is saved at Castleview `(25,21)` facing North, and the
-original Darkside ending plays with the score, then a fresh World title.
+Each ending shows the party's score and returns to a fresh World title.
 Animations ignore keys and clicks, the score pages advance by key only, and
-Ctrl-Q quits at the original's keyboard checks. Bringing Xeen's Scepter to
-the altar of the Clouds of the Ancients, with the awards DOS requires, wins
-World of Xeen and saves as in DOS; the original World ending follows, with
-the unification ceremony, the CD's own animations and the party's score,
-then a fresh World title, with the same input rules
-([presentation](rules/cutscenes.md#world-ending-presentation)). The mirror
-words `showdown`, `genesis` and `showtime` play an ending without winning,
-as in DOS, and `bloopers` does nothing ([win rules](rules/cutscenes.md#darkside-and-world-win-entry-and-save)).
-After the Darkside win, a loaded save keeps Alamar's music in Castleview
-until the next map
-([approved deviation](original-quirks.md#dev-darkside-load-music)).
+Ctrl-Q quits. The mirror words `showtime`, `showdown` and `genesis` play an
+ending without winning, as in DOS. The wins are remembered outside the save,
+in `settings.ini`
+([approved deviation](original-quirks.md#dev-clouds-won-store)).
 
 ### Magic
 
 All 76 Clouds spells work from the learned book, Quick Fight and charged
 items, in exploration and in combat where the original allows them, with the
 original prompts, refusals, refunds and costs. Each town's Guild sells its
-original selection. Attack spells fly to the first monster or group in
-reach; Sleep, Hypnotize and the spells aimed at one kind of monster work as
-in the original, and healing goes up to Resurrection and Divine Intervention.
-Party protections show their border indicators and end at Rest or dawn.
-Wizard Eye, Detect Monster and Identify Monster open the original screens,
-Enchant, Recharge and Item to Gold work through Items, and Jump, Teleport,
-Lloyd's Beacon, Super Shelter and Town Portal move the party. The
-[magic rules](rules/magic.md) give each spell's effect, cost and evidence.
+original selection. Party protections show their border indicators and end
+at Rest or dawn; Wizard Eye, Detect Monster and Identify Monster open the
+original screens; Enchant, Recharge and Item to Gold work through Items; and
+Jump, Teleport, Lloyd's Beacon, Super Shelter and Town Portal move the
+party. The [magic rules](rules/magic.md) give each spell's effect, cost and
+evidence.
 
 ### Characters and items
 
 The original character sheet and Items dialog show stats with their popups
-and let the party equip, remove, transfer, discard and use items; a charged
-item vanishes at zero charges. Exchange swaps two members, Quick Reference
-opens the party summary, Quests shows quest items, quests and Auto Notes, and
-Awards lists a member's awards.
+and let the party equip, remove, transfer, discard and use items. Exchange
+swaps two members, Quick Reference opens the party summary, Quests shows
+quest items, quests and Auto Notes, and Awards lists a member's awards.
 
-The party holds one to six roster characters in any order, and every rule
-counts the members it has. D dismisses a member, never the last; the next
-save lodges them in Vertigo, as in DOS. Sign In at the Vertigo, Rivercity or
-Shangri-La tavern adds a day, saves and opens the original Inn with its song.
-There 1-4 add lodged characters, R removes members, F1-F6 open the sheet and
-Exit saves and returns to the tavern door. Create rolls the seven attributes
-on the original screen, lights the classes they allow, exchanges two
-attributes, picks a free roster slot and lodges the named level-1 character.
-Delete removes a character after confirmation, except one carrying the Xeen
-Slayer Sword. Loading an Inn save reopens the Inn, without music when loaded
-from the title, as in DOS ([party rules](rules/party.md)).
+The party holds one to six roster characters in any order. D dismisses a
+member, never the last. Sign In at the Vertigo, Rivercity or Shangri-La
+tavern adds a day, saves and opens the original Inn, where characters are
+added, removed, created and deleted on the original screens
+([party rules](rules/party.md)).
 
-Teachers and Events grant skills. Thievery picks locks, and a picked chest
-stays open for good, as in DOS. Bodybuilder and the spell-casting skills raise
-HP or SP, Merchant sells at full value, Swimming opens water and Navigator
-saves time in the desert; Arms Master and Tracker do nothing, as in DOS.
-Cartography fills the 7x7 automap (`=`) and the original 16x16 Map (M) with
-every cell the party arrives on, as in DOS, and the border lights Danger Sense, Spot Secret Doors and Direction Sense.
+Teachers and Events grant skills, and each does what it does in DOS: Arms
+Master and Tracker do nothing there either. Thievery picks locks, and a
+picked chest stays open for good. Cartography fills the 7x7 automap (`=`)
+and the original 16x16 Map (M) with every cell the party arrives on.
 
 ### Towns and services
 
-Enter Vertigo from mainland `(10,13)` facing North with Space and Yes; leave
-facing South at the entrance, which respawns and heals the city monsters.
-Grates and doors break with Bash or open with a lock pick and stay open.
-Myra's request, Joe's proof box, Gunther's reward, the crates, trees, beds,
-display cases, well, mirror and teachers follow their original scripts.
-
 Services use the original location screens, by mouse or keyboard, with each
-place's original values: the Ironworks buys, sells, identifies and fixes with
-generated stock; Training grants levels up to the town's cap; the Temple
-heals, resurrects, uncurses and blesses donations on the right day; the
-Tavern sells food and drinks, takes tips, tells rumors and signs in; the Bank
-keeps gold and gems with the original interest; and the Guild sells spells
-to members. Vertigo and Rivercity have all six; Shangri-La has a Temple,
-Ironworks, Tavern and a Guild selling every spell of the class; Nightshadow,
-Asp and Winterkill each have a Guild; Newcastle has an Ironworks and Training
-to level 20 on Level 1 and a Temple and the shared Bank on Level 2. As in
-DOS, Newcastle's Temple uses the last Temple prices of the running program.
-Each visit costs the original departure time, and stock and interest follow
-the original schedule.
+place's original values on both sides: the Ironworks buys, sells, identifies
+and fixes with generated stock; Training grants levels up to the town's cap;
+the Temple heals, resurrects, uncurses and blesses donations on the right
+day; the Tavern sells food and drinks, takes tips, tells rumors and signs
+in; the Bank keeps gold and gems with the original interest; and the Guild
+sells spells to members. Each visit costs the original departure time, and
+stock and interest follow the original schedule.
 
 ### Rest, food and time
 
@@ -275,17 +173,12 @@ the sky darkens at night and ages follow the year.
 
 Tab or the gem opens the original control panel: Save, Save As, Load and
 Quit. Saving is refused in combat, during service visits and on maps that
-forbid it. Sign In, leaving the Inn, Delete, Create and the ending save
+forbid it. Sign In, leaving the Inn, Delete, Create and the endings save
 automatically, as in DOS; a failed write shows the error and retries
-([approved deviation](original-quirks.md#dev-inn-save-recovery)). Play time
-follows the system clock, as in DOS; in English, typing G, O, B, R in the
-panel shows it.
-Mr Wizard returns the party to Vertigo and takes all its gems. Sound and text
-settings are saved with the party. Slots live in the user folder's `Saves/`
-(see [Entry modes](#entry-modes)), and a damaged or foreign slot is never
-overwritten.
-Loading continues exactly, without replaying any Event, reward, time or
-random draw.
+([approved deviation](original-quirks.md#dev-inn-save-recovery)). Sound and
+text settings are saved with the party. Loading continues exactly, without
+replaying any Event, reward, time or random draw.
+[Save format](#save-format) has the rest.
 
 ### Sound
 
@@ -293,106 +186,85 @@ The game plays the original FM music and effects as the CD installation's own
 setup does: the Sound Blaster Pro driver on an OPL3 chip, in stereo, with
 each place's song and fades between songs. Digital effects, voices, entrance
 speech and Event samples play, and CD speech reads the installed OGG tracks.
-The panel's sound buttons work as in the original, and Text off restores text
-when speech cannot play. An output failure silences audio with one notice,
-and a removed device reopens the default. A missing `WORLD/XEEN.CFG` refuses
-to start, as in the original ([audio rules](rules/audio.md)).
+Text off restores text when speech cannot play
+([audio rules](rules/audio.md)).
 
-The sound devices follow `WORLD/XEEN.CFG` as the original installer wrote
-it, in both the game and the intros. Music can also come from the AdLib,
-Sound Blaster and Pro Audio Spectrum drivers on an OPL2 chip, or from the
-MT-32 driver on an emulated MT-32 with the player's MT-32 1.07 control and
-PCM ROMs in the user folder's `roms` (`%LOCALAPPDATA%\MMModern\roms` on
-Windows). Digital sound can also come from
-the Sound Blaster driver. The other installer choices play silently with one
-"not supported yet" notice, and missing MT-32 ROMs give one notice and
-silence; the game's timing is the same either way.
+The sound devices follow `XEEN.CFG` as the original installer wrote it.
+Music can also come from the AdLib, Sound Blaster and Pro Audio Spectrum
+drivers on an OPL2 chip, or from the MT-32 driver on an emulated MT-32 with
+the player's own MT-32 1.07 control and PCM ROMs. The other installer
+choices are silent with one notice ([known gaps](#known-gaps)); the game's
+timing is the same either way.
 
 ## Interface
 
 [Controls](controls.md) lists every key. As in the CD original, either mouse
 button makes the same click, and keys follow the original's translation
-table. Terrain, sky, water, wall items, torches and monsters animate from
-their own data. Missiles, splats, portrait effects, NPC speech, shopkeepers,
+table. Animations, missiles, portrait effects, NPC speech, shopkeepers,
 treasure, the dream, the title and party death follow the original sequences
 and timing. Keys pressed while the game is busy are buffered in order, and
 held keys repeat as the keyboard does. A held movement key steps about nine
 times a second and adds no step after release, an approved deviation.
-Services, dialogs, inventory and casting accept only fresh presses.
 
-A game controller can play instead when its option is on, in the Windows
-launcher or on the Linux setup screen: its buttons send the original keys,
-the right stick moves the original pointer, RT clicks and the D-pad types in
-text entry ([controls](controls.md#game-controller)). The original has no
-controller support, so this is an
+A game controller can play instead when its option is on: its buttons send
+the original keys, the right stick moves the original pointer, RT clicks and
+the D-pad types in text entry ([controls](controls.md#game-controller)). The
+original has no controller support, so this is an
 [approved deviation](original-quirks.md#dev-controller), off by default.
 
 ## Russian
 
 With the identified old-games.ru World of Xeen fan translation in its own
-folder, chosen in the launcher's Language window, the game plays in Russian
-([development guide](development.md)). The archives' texts and pictures, the
-font and the program text come from the translation; maps, rules,
-statistics, timing, music and the CD's English recorded speech stay those of
-the CD ([approved deviation](original-quirks.md#dev-russian-layer)). The
-keyboard, hotkeys, item descriptions, combat rows and caption strip follow
-the Russian Darkside program, including its key defects
-([controls](controls.md),
-[Russian keyboard](original-quirks.md#ru-keyboard)). Any other translation
+folder, chosen in the launcher or on the setup screen, the game plays in
+Russian ([player guide](player-guide.md#russian)). Texts, pictures, the font
+and the program text come from the translation; maps, rules, timing, music
+and the CD's English recorded speech stay those of the CD
+([approved deviation](original-quirks.md#dev-russian-layer)). The keyboard
+and hotkeys follow the Russian Darkside program, including its key defects
+([Russian keyboard](original-quirks.md#ru-keyboard)). Any other translation
 is refused, naming the file, and English plays. Project text (launcher,
 diagnostics, notices) stays English.
 
 ## Entry modes
 
-`mmodern <game-dir>` is the player's entry; the release launcher opens it
-from a window. Its sound setup writes an MMModern-owned
-`%LOCALAPPDATA%\MMModern\XEEN.CFG` with the original installer's choices,
-which the player entry prefers to the installed one
-([approved deviation](original-quirks.md#dev-owned-sound-cfg)). The player
-entry also writes `%LOCALAPPDATA%\MMModern\logs\mmodern.log` with
-diagnostics, notices, warnings and support stops, and
-`mmodern --diagnostics <game-dir>` prints the report the launcher copies for
-bug reports. On a Steam Deck the same package runs through Proton: Steam starts `mmodern.exe` with the game folder, without the
-launcher ([player guide](player-guide.md#steam-deck)). On Linux the release
-is an AppImage: `mmodern` started with no arguments opens a setup screen in
-the game's own window that finds or browses for the game folder, makes the
-same sound and language choices as the Windows launcher, copies the
-diagnostics and opens the saves and log folders; it also runs on a Steam
-Deck in Desktop Mode or as a non-Steam game in Game Mode. The user folder is
-`$XDG_DATA_HOME/MMModern` or `~/.local/share/MMModern` in place of
-`%LOCALAPPDATA%\MMModern`, with the same layout; saves on a network file
-system are refused ([player guide](player-guide.md#where-mmmodern-keeps-its-files)). Developer modes start a new game
-directly, open the prepared test region at map 23 `(9,11)` used by the
-automated scenarios, load a save file, explore or inspect any Clouds map, and
-run isolated monster or Event fixtures; the
-[development guide](development.md#entry-modes) gives every option. All modes
-need a World of Xeen CD installation
-([game data sources](development.md#game-data-sources)); original data is
-never copied or modified, and saves are never written inside the game
-directories.
+`mmodern <game-dir>` is the player's entry. On Windows the release launcher
+opens it from a window; on Linux the release is an AppImage, and `mmodern`
+with no arguments opens a setup screen in the game's own window. Both find
+or browse for the game folder, make the original installer's sound choice
+and the language choice, and copy the diagnostics for bug reports. The sound
+choice is an MMModern-owned `XEEN.CFG`, which the player entry prefers to
+the installed one
+([approved deviation](original-quirks.md#dev-owned-sound-cfg)). On a Steam
+Deck the AppImage runs natively and the Windows package runs through Proton
+([player guide](player-guide.md#steam-deck)).
+
+Saves, settings, the log and the MT-32 ROMs live in one user folder
+([player guide](player-guide.md#where-mmmodern-keeps-its-files)); original
+data is never copied or modified. Developer modes start a new game directly,
+load a save file, explore or inspect any Clouds map and run isolated monster
+or Event fixtures; the [development guide](development.md#entry-modes) gives
+every option. All modes need a World of Xeen CD installation
+([game data sources](development.md#game-data-sources)).
 
 ## Save format
 
 There is one current save format, v26 (saves from older builds are
-refused). Save names may hold Cyrillic bytes, and Russian and English games
-share the save folder and load in either language. A save holds the party with every roster
-record in full, both sides' flags, its sound options, play time and Clouds
-completion, the selected Darkside song (Load replays it without a draw,
-an [approved deviation](original-quirks.md#dev-darkside-load-music); the
-Sphinx's fixed Clouds song is not stored), whether
-the party is inside the Inn (where it may be empty), the world, and one state
-per visited map: monster positions and lifecycle, moved and opened objects,
-changed cells, disabled Events, explored cells and the Tavern tip index.
-Monster HP and wake state are not saved, and neither is pending treasure, as
-in the original. During 0.x, older formats are rejected before anything is
-restored, newer or unrecognized saves are left alone, and F9 overwrites only a
-recognizable older MMModern save. Saves are tied to the original archives by
-fingerprint, written atomically, and not compatible with the original games or
-ScummVM.
-The game does not read DOS saves. For evidence, the developer tool
-`mmodern_dos_export` writes a Clouds or Darkside save as an original DOS slot
-pair, with fields MMModern does not hold kept at their New Game values
-([DOS saves](rules/dos-saves.md)).
+refused). A save holds the party with every roster record in full, both
+sides' flags, its sound options, play time and Clouds completion, the
+selected Darkside song
+([approved deviation](original-quirks.md#dev-darkside-load-music)), whether
+the party is inside the Inn, the world, and one state per visited map:
+monster positions and lifecycle, moved and opened objects, changed cells,
+disabled Events, explored cells and the Tavern tip index. Monster HP and
+wake state are not saved, and neither is pending treasure, as in the
+original. Russian and English games share the save folder.
+
+During 0.x, older formats are rejected before anything is restored, and a
+newer, damaged or foreign slot is never overwritten. Saves are tied to the
+original archives by fingerprint, written atomically, refused on Linux
+network file systems, and not compatible with the original games or ScummVM.
+The game does not read DOS saves; the developer tool `mmodern_dos_export`
+writes one for evidence ([DOS saves](rules/dos-saves.md)).
 
 ## Architecture overview
 
@@ -408,50 +280,40 @@ the only code with Windows and POSIX implementations besides `main.cpp`) and
 - World (`XeenWorld`, `XeenSessionWorldState`): map and object caches, live
   actors, per-map state, economy, calendar and the world random state.
 - Running program (`XeenProgramState`): what the original keeps outside its
-  saves, such as the last Temple prices, pending treasure, the play-time mark
-  and the skipped-Event flag; the `settings.ini` values; and the audio owner
-  `XeenAudio`, which never changes time, randomness or saves.
-  `XeenWallClock` gives DOS `time()` seconds; only the player's title path
-  binds the system clock.
+  saves, such as the last Temple prices, pending treasure and the play-time
+  mark; the `settings.ini` values; and the audio owner `XeenAudio`, which
+  never changes time, randomness or saves.
 - Rules (pure, in `games/xeen`): combat, monsters, treasure, items, services,
   spells, terrain, Rest and time.
 - Events: `XeenEventSystem` decodes and runs the original Event scripts;
-  unsupported effects refuse visibly and discard the whole Event, so the
-  party, flags, position, time and random state are as before it.
-- Cutscenes: `XeenCutscene` and `XeenCutsceneFlow` play the Darkside intro
-  and the Clouds intro and ending and the Darkside and World endings of
-  `WORLD/XEEN.EXE`, with tables, frames
-  and a presentation random source read from it at run time.
+  unsupported effects refuse visibly and discard the whole Event.
+- Cutscenes: `XeenCutscene` and `XeenCutsceneFlow` play the intros and
+  endings of `WORLD/XEEN.EXE`, read from it at run time.
 - Flows (`app`): `XeenEventFlow` coordinates the gameplay session, input,
   dialogs, inventory and the Inn; `XeenEncounterFlow` hosts encounters,
-  combat, services, casting and consequences; `XeenNavigationFlow` handles
-  movement; `Application` wires resources, SDL and the entry modes.
+  combat, services and casting; `XeenNavigationFlow` handles movement;
+  `Application` wires resources, SDL and the entry modes.
 - Save (`XeenSaveState`, `XeenSaveFormat`, `XeenSaveFile`): captures a
   snapshot at a quiet boundary and restores it into fresh owners;
   `XeenRestoreGuard` and `XeenMutationWatch` stop stale work from publishing.
 
 Presentation draws into a 320x200 indexed frame. SDL shows it in the largest
-4:3 area of the window, enlarged by a whole number and then smoothed down, or
-in whole multiples with `aspect=square`; clicks map back through the same
-rectangle. Each frame carries an identity, so input from a stale frame is
-dropped. With the controller option on, `SdlController` turns controller
-input into ordinary key and mouse events before the input loop sees them, so
-the same translation, buffering and stale-input rules apply.
+4:3 area of the window, or in whole multiples with `aspect=square`; clicks
+map back through the same rectangle. Each frame carries an identity, so
+input from a stale frame is dropped. With the controller option on,
+`SdlController` turns controller input into ordinary key and mouse events
+before the input loop sees them.
 
 ## Tests
 
 CTest covers rules and synthetic fixtures, and original-data integration and
 process tests that need a legally obtained installation. Tests are labelled
 `fast` or `process`: use `ctest -L fast` while iterating and the complete
-suite before closing a milestone. Four original-data scenarios compare their
-final saves with approved digests and re-save byte-identically after a
-reload. The generated [coverage report](coverage.md) counts every mechanic
-the original data uses and its support status. The complete suite runs on
-Windows and on Linux (in WSL), and both reach the same approved digests and
-write the same save bytes. Every push also runs on GitHub Actions: a clean
-Windows machine and a pinned Ubuntu container install the pinned toolchain,
-build the pinned ScummVM and MMModern and run the tests that need no
-original data; this never replaces the complete local suites
+suite before closing a milestone. The complete suite runs on Windows and on
+Linux (in WSL), and both reach the same approved digests and save bytes. The
+generated [coverage report](coverage.md) counts every mechanic the original
+data uses. Every push also builds on GitHub Actions and runs the tests that
+need no original data
 ([continuous integration](dependencies.md#continuous-integration)).
 
 ## Known gaps

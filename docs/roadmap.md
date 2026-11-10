@@ -15,63 +15,43 @@ behavior; quality-of-life options are a later, opt-in decision.
 
 <a id="current-planning-state"></a><a id="m28---durable-bounded-encounter-completion-and-revisit"></a><a id="approved-m33-m35-arc"></a>
 
-M1-M43 built the foundations one narrow certified slice at a time: original
-resource loading, rendering, navigation, Events, party and inventory, combat,
-casting, treasure, services, economy and exact save/restore. M44 removed that
-machinery; since then whole maps load from the original resources. M44-M64
-made input, menus and presentation original, admitted the whole of Vertigo
-with Rest, food, time, skills, magic, item services and the original clock,
-moved to the CD edition's data (M53), and closed with the first public
-releases.
+Clouds of Xeen, Darkside of Xeen and World of Xeen play from a new game to
+their endings on the CD edition's data, on Windows, Linux and the Steam
+Deck, in English or with the Russian fan translation. Release 0.18.0 has all
+of that; the opt-in game controller support (M115) came after it.
 
-Since then M65-M94 have made Clouds of Xeen playable from a new game to its
-ending, with the original intros and the installer's sound devices, and
-release 0.10.0 delivered them. The [next arc](#next-arc-release-quality-and-the-darkside-start)
-makes Clouds sturdier and easier to test and report on, then starts Darkside.
-Its first step is done: M95 closed the Clouds audit with tests for its
-invariants. The DOS save investigation followed: it found that picked
-chests stay open in DOS, which M96 added, and M97 added a tool that exports
-MMModern saves to DOS. Its play-test led to M98, which makes a Cartographer
-party mark its cell at every arrival. M99 then gave the picture the 4:3
-shape of the original's monitors, and M100 added the launcher window, the
-installer's sound setup, a log file and an issue template. M101 then started
-Darkside: both sides' state, save v23 and the Pyramids between the sides.
-The [Darkside arc](#darkside-arc) followed with its towns (M102), Events
-(M103), the mixed World of Xeen maps (M104, save v24), their last three
-Events (M105), and the Darkside and World wins with the Darkside ending
-(M106, save v25). The World ending's presentation (M107) completed the arc:
-every ending of the CD now plays. A Darkside audit followed; its
-[follow-up steps](#after-the-darkside-audit) and M111 are done. Of
-the [later goals](#later-goals), these are done: automated builds and tests
-on GitHub (M109), Russian over the CD edition (M110, save v26), the Steam
-Deck through Proton (M112), the native Linux build (M113), the setup screen
-and AppImage (M114) and opt-in game controller support (M115). Release
-0.18.0 has all of them except the controller.
+M1-M43 built the foundations one narrow certified slice at a time. M44
+removed that machinery, and since then whole maps load from the original
+resources. The arcs below are complete; they stay here for their step
+numbers, which plans cite, and [project history](project-history.md)
+describes each milestone. What is still open is under
+[later goals](#later-goals).
 
-## Completed arc: closing Vertigo and the first release
+## Completed arcs
+
+### Closing Vertigo and the first release (M44-M66)
 
 <a id="near-term"></a><a id="deferred-presentation-work"></a><a id="next-milestones"></a>
 
-A direction investigation (2026-10-10) chose to close Vertigo and then
-publish. The arc ran from M56 to M64 and ended with the first public
-releases, [v0.1.0 and v0.1.1](https://github.com/carbiecarbie/MMModern/releases);
-the maintainer declined an opt-in faster movement option. After it,
-[M65](archive/milestone-65-plan.md) measured every mechanic the original data
-uses in [the coverage report](coverage.md), and
+M44-M64 made input, menus and presentation original, admitted the whole of
+Vertigo with Rest, food, time, skills, magic, item services and the original
+clock, and moved to the CD edition's data (M53). A direction investigation
+(2026-10-10) chose to close Vertigo and then publish, and M56-M64 ended with
+the first public releases,
+[v0.1.0 and v0.1.1](https://github.com/carbiecarbie/MMModern/releases). The
+maintainer declined an opt-in faster movement option.
+[M65](archive/milestone-65-plan.md) then measured every mechanic the
+original data uses in [the coverage report](coverage.md), and
 [M66](archive/milestone-66-plan.md) cut the complete test suite from 29
 minutes to about 3.
 
-## Completed arc: finishing the game's systems
+### Finishing the game's systems (M67-M94)
 
 <a id="next-arc-finishing-the-games-systems"></a>
 
-The game loads whole maps from the original data; what keeps an area from
-playing is the mechanics it uses. This arc implements them once each instead
-of map by map. Each step is its own milestone and plan, and the
-[coverage report](coverage.md) is regenerated each time. Steps are direction,
-not approved plans, and the order may change when the census or play shows a
-better one. [Project history](project-history.md) describes each completed
-step.
+What keeps an area from playing is the mechanics it uses, so this arc
+implemented them once each instead of map by map, and release 0.10.0
+delivered Clouds of Xeen from a new game to its ending.
 
 | Step | Milestones | Result |
 | --- | --- | --- |
@@ -79,13 +59,13 @@ step.
 | 2. Monster abilities | [M68](archive/milestone-68-plan.md) | Release v0.1.3 |
 | 3. Generic per-map state | [M69](archive/milestone-69-plan.md) | Per-map save state |
 | Item generation | [M71](archive/milestone-71-plan.md) | Original makeItem draws for every source |
-| 4. World Events, Clouds | [M70](archive/milestone-70-plan.md) | Darkside-only operations wait for the Darkside arc |
+| 4. World Events, Clouds | [M70](archive/milestone-70-plan.md) | Darkside-only operations came with the Darkside arc |
 | 5. Terrain and simple services | [M72](archive/milestone-72-plan.md) | |
 | 6. Spells | [M73](milestone-73-plan.md)-[M76](milestone-76-plan.md) | All 76 Clouds spells |
 | 7. Combat Equip and Use, missing screens | [M77](milestone-77-plan.md) | |
 | 8. Opening areas | [M78](milestone-78-plan.md) | Every Clouds map and travel path; Mountaineer and Pathfinder as DOS |
 | 9. Services of the other towns | [M79](milestone-79-plan.md) | Each town with its original values |
-| 10. Entrance scenes and the Arena | [M80](milestone-80-plan.md) | Pyramid and Darkside-key entrances wait for Darkside |
+| 10. Entrance scenes and the Arena | [M80](milestone-80-plan.md) | Pyramid and Darkside-key entrances came with Darkside |
 | 11. Monster treasure | [M81](milestone-81-plan.md) | Original drops; pending treasure in the running program |
 | 12. Audio (Tier A) | [M82](milestone-82-plan.md), [M83](milestone-83-plan.md) | CD OPL3 music and effects, voices, CD speech, Text off |
 | 13. Event dispatch as in DOS (Tier A) | [M84](milestone-84-plan.md), [M85](milestone-85-plan.md), [M86](milestone-86-plan.md) | Events rerun after every input; four presentation gaps |
@@ -97,134 +77,74 @@ step.
 | 19. Other sound devices (Tier A) | [M94](milestone-94-plan.md) | AdLib, Sound Blaster and MT-32 from `XEEN.CFG`; the rest silent with a notice |
 | 20. Startup and the Darkside intro | [M93](milestone-93-plan.md) | Full story until watched, then the logos |
 
-Two investigations shaped the order. A gap investigation (2026-10-19) found
-that nearly every remaining Clouds blocker came from the fixed admission of
-maps 23 and 28, so opening areas (step 8) came first and the Inn, which does
-not block progress, later. A completion audit (2026-10-24) found that the
-main quest could not finish: Lord Xeen's death gave no Scepter and the
-ending was unsupported. A DOSBox run of the ending (maintainer, 2026-10-24)
-showed the Scepter on the ordinary treasure screen, the Sixth Mirror's
-message and the save of the live party at Vertigo before `XEEN.EXE` plays
-the ending; steps 15-18 implemented it.
-
 Step 19 left the Canvas/GS, PC speaker, Wave Blaster and TAP-10 music and
 five digital drivers silent with a notice, their open questions recorded in
 the [M94 plan](milestone-94-plan.md#scope). A switch between devices while
 playing would be an opt-in approved deviation (maintainer, 2026-10-21).
 
-The Darkside and World endings (`showdown`, `genesis`) came with the
-[Darkside arc](#darkside-arc) (M106, M107); M101 added the Pyramid.
+### Release quality and the Darkside start (M95-M101)
 
-## Next arc: release quality and the Darkside start
+<a id="next-arc-release-quality-and-the-darkside-start"></a>
 
-A next-steps analysis (2026-10-28), which merged two agent reports and a
-community suggestion, chose to make the finished Clouds sturdier and easier
-to test before Darkside begins. Each step is its own task or milestone, in
-this order; steps are direction, not approved plans.
+A next-steps analysis (2026-10-28) chose to make the finished Clouds
+sturdier and easier to test before Darkside began.
 
-1. **Clouds fidelity and integration audit**, time-boxed, with findings
-   turned into tests. It looks for defects between systems, of the kind the
-   Spawn fix in release 0.10.0 found (58 containers that could be searched
-   again and again, trap effects never drawn): invariant checks on the
-   original data (a second use of every container, door and reward; Event
-   changes reaching the frame drawn while the Event waits), Events during animation or combat, interrupted
-   Events and keys pressed during waits, state after leaving, returning and
-   loading, small or incapacitated parties and full packs, and differences
-   from the pinned reference not yet recorded in
-   [original quirks](original-quirks.md). Done: the audit ran on 2026-10-28.
-   Release 0.10.1 fixed its save defect. [M95](milestone-95-plan.md) fixed
-   its last finding and turned its invariants into tests.
-2. **DOS save investigation**: whether original DOS saves can be read into
-   MMModern and written from it, mainly so DOSBox and MMModern can start from
-   the same state when collecting evidence, Darkside included. A converter
-   follows only if the investigation shows it is worth it.
-   Its first look found that DOS saves a picked chest as open;
-   [M96](milestone-96-plan.md) added that, with save v22. The investigation
-   finished on 2026-10-29: DOS loaded and re-saved a Clouds state that
-   MMModern exported, so [M97](milestone-97-plan.md) added a developer
-   exporter that also places the party on Darkside and prepares DOSBox.
-   Its play-test showed that DOS marks a Cartographer party's cell when it
-   loads a map; [M98](milestone-98-plan.md) made every arrival do that.
-   Importing DOS saves waits for policy decisions.
-3. **4:3 picture**: the 320x200 picture shown with the shape the original's
-   4:3 monitors gave it. Done: [M99](milestone-99-plan.md) made 4:3 the
-   default, with square pixels as an opt-in.
-4. **Launcher and diagnostics**: the launcher shows the version, the detected
-   data, the sound devices, the MT-32 ROMs and the save folder; the game
-   writes a log file, and GitHub gets an issue template asking for the save
-   and the log. Done: [M100](milestone-100-plan.md), which also lets the
-   launcher make the original installer's sound choice through an
-   MMModern-owned CFG, so that MT-32 can be chosen.
-5. **Darkside start**: map loading, flags, quest items and save and load for
-   both sides, with Darkside progress in the DOS save export as one of the
-   first tasks, then Darkside's mechanics in order of
-   [census](coverage.md#darkside-largest-gaps) impact.
-   Started: [M101](milestone-101-plan.md) added both sides' state, save
-   v23, the Darkside export and the original Pyramid between the sides, so
-   that Darkside is reached in ordinary play. The [Darkside arc](#darkside-arc)
-   continues it.
+| Step | Result |
+| --- | --- |
+| 1. Clouds fidelity and integration audit | Ran on 2026-10-28. Release 0.10.1 fixed its save defect; [M95](milestone-95-plan.md) fixed its last finding and turned its invariants into tests |
+| 2. DOS save investigation | Finished on 2026-10-29. Picked chests stay open ([M96](milestone-96-plan.md), save v22), a developer exporter writes DOS saves and prepares DOSBox ([M97](milestone-97-plan.md)), and a Cartographer party marks its cell at every arrival ([M98](milestone-98-plan.md)). Importing DOS saves waits for policy decisions |
+| 3. 4:3 picture | [M99](milestone-99-plan.md): 4:3 by default, square pixels as an opt-in |
+| 4. Launcher and diagnostics | [M100](milestone-100-plan.md): the launcher window, the installer's sound choice through an MMModern-owned CFG, a log file and an issue template |
+| 5. Darkside start | [M101](milestone-101-plan.md): both sides' state, save v23, the Darkside export and the original Pyramid between the sides |
 
-## Darkside arc
+### Darkside arc
 
 <a id="medium-term-darkside-and-world-of-xeen"></a>
 
 A research pass (2026-10-31) compared every remaining Darkside gap in the
 [census](coverage.md#darkside-largest-gaps) and the World of Xeen connections
-with the pinned reference; its findings were checked against the code. Its
-small defects were fixed at once (Temple Heal, Training, flag 118 falls, drop
-field 7, missing Event lines, self-transfer). The rest is this order; steps
-are direction, not approved plans. Each starts with a Part 0 of DOS program
+with the pinned reference. Each step started with a Part 0 of DOS program
 analysis, because the reference was wrong in comparable Clouds cases (M80).
 
-| Step | Scope | Tier | Notes |
-| --- | --- | --- | --- |
-| 0. Maintenance | Spawn onto Darkside outdoor maps and Skyroads (24 maps), refused by MMModern's own reachability check for slots parked off the map; outdoor wall 5 needs Mountaineer on Darkside, as DOS already showed; Ali Baba's chest lock recorded as a reference difference | B | Done (`5e4f685`), with DOS checks of the indoor ground beyond the map edge and the horizon, the Detect Monster picture and the Darkside mirror range and sound |
-| 1. Darkside towns ([M102](milestone-102-plan.md)) | Bank, Smithy, Guild, Tavern and Inn, Temple and Training in the towns and Castle Kalindra 3 (map 43); the Tower, Dungeon and Dwarf town scenes (town actions 8, 9 and 13) | B | Done 2026-10-31 |
-| 2. Darkside Events ([M103](milestone-103-plan.md)) | ExchObj, GotoRandom and GiveEnchanted for every item category; then ChooseNumeric and FallToMap; then ConfirmWord_2, MoveWallObj beyond the wall-item count and the map-29 IfMapFlag | B | Done 2026-11-01, with Event windows now closing at the end of every Event |
-| 3. Mixed World of Xeen maps ([M104](milestone-104-plan.md)) | Darkside maps 113-128 (Darkstone Tower, Dragon Tower, Dungeon of Death, Southern Sphinx, Dragon Clouds), FlipWorld, the Darkside-key entrances and Town Portal from them | A | Done 2026-11-01, save v24 |
-| 3a. Last mixed-map Events ([M105](milestone-105-plan.md)) | World flag 128 on map 116 and DisplayLarge on map 121 | B | Done 2026-11-01 |
-| 4. Darkside and World wins, Darkside ending ([M106](milestone-106-plan.md)) | Opcodes 57 and 58, the ending mirror words on both sides, the Darkside and World completion words and won states, the title replay rows, and the Darkside presentation | A | Done 2026-11-02 |
-| 5. World ending presentation ([M107](milestone-107-plan.md)) | The `XEEN.EXE` World ending after the win, `genesis` and the W replay | B | Done 2026-11-02 |
+| Step | Tier | Result |
+| --- | --- | --- |
+| 0. Maintenance (`5e4f685`) | B | Spawn onto Darkside outdoor maps and Skyroads; outdoor wall 5 needs Mountaineer on Darkside; Ali Baba's chest lock recorded as a reference difference |
+| 1. Darkside towns ([M102](milestone-102-plan.md)) | B | Every town service, and the Tower, Dungeon and Dwarf town scenes. Done 2026-10-31 |
+| 2. Darkside Events ([M103](milestone-103-plan.md)) | B | Every Event instruction of the ordinary Darkside maps. Done 2026-11-01 |
+| 3. Mixed World of Xeen maps ([M104](milestone-104-plan.md)) | A | Darkside maps 113-128, FlipWorld, the Darkside-key entrances and Town Portal from them. Done 2026-11-01, save v24 |
+| 3a. Last mixed-map Events ([M105](milestone-105-plan.md)) | B | World flag 128 on map 116 and DisplayLarge on map 121. Done 2026-11-01 |
+| 4. Darkside and World wins, Darkside ending ([M106](milestone-106-plan.md)) | A | Opcodes 57 and 58, the ending mirror words, the won states, the title replay rows and the Darkside presentation. Done 2026-11-02, save v25 |
+| 5. World ending presentation ([M107](milestone-107-plan.md)) | B | The `XEEN.EXE` World ending after the win, `genesis` and the W replay. Done 2026-11-02 |
 
-[M111](milestone-111-plan.md) (Tier A, accepted 2026-11-04) made a refused
-Event discard the whole Event
+[M111](milestone-111-plan.md) (Tier A, accepted 2026-11-04) then made a
+refused Event discard the whole Event
 ([approved deviation](original-quirks.md#dev-event-presentation-abandon))
 and made physical spells after a Xeen Slayer Sword attack ignore physical
-resistance, as in DOS. A sweep of the original data found no Event that
-reaches the refusal rule today. The sky
-and the Darkside entrance scenes
-reading night from the clock, where DOS caches it, is no longer pending: the
-maintainer kept it as an
+resistance, as in DOS. The sky and the Darkside entrance scenes read night
+from the clock, where DOS caches it; the maintainer kept that as an
 [accepted difference](original-quirks.md#dev-current-clock-night) on
 2026-11-02.
 
-## After the Darkside audit
+### After the Darkside audit
 
 A Darkside fidelity and integration audit (2026-11-02) ran every Darkside
 Event cell twice, with saves, loads, trips away and keys pressed during
-waits. It found two hangs, fixed in `a6949b7` (a fall with a dead member and
-a Space defeat on a flagged cell), and stale or missing documentation, fixed
-in `8e52743`. The maintainer set this order for the rest (2026-11-02), and
-all four steps are done.
+waits. It found two hangs, fixed in `a6949b7`, and stale or missing
+documentation, fixed in `8e52743`. Its four follow-up steps are done:
 
-1. **Maintenance round, done (`b75e050`):** Darkside Create gives level 5, as DOS does (Tier B);
-   a presentation error that cannot recover ends with a notice instead of
-   blocking input (Tier A); the Event interpreter's instruction limit counts
-   only since the last wait for the player, so the dials of maps 50, 76, 80
-   and 122 turn as often as in DOS (Tier A); a check of the CD tracks that
-   Darkside Events request, which the reference shifts by 30; and, in its
-   play-test, a DOSBox check of the Quests screen's order when only Darkside
-   items are held.
-2. **Audit invariants as tests (M108, Tier B), done 2026-11-02:** falls with a
-   dead member, a defeat on a flagged cell, bounded repeats, exact restores,
-   the crossing between the sides, loads after both wins, continuation keys
-   after an Event and interrupted Event chains
-   ([plan](milestone-108-plan.md)).
-3. **Desert Paladin stone copies, settled 2026-11-02:** DOS program analysis
-   shows that DOS, like MMModern, leaves the distant copies of a used stone
-   in view on Darkside; the reference hides them. Kept as an original bug,
-   with no code change ([details](original-quirks.md#sv-pin-data-patches)).
-4. **Release** with all of the above: 0.15.1 (2026-11-02).
+1. **Maintenance round** (`b75e050`): Darkside Create gives level 5, as DOS
+   does; a presentation error that cannot recover ends with a notice instead
+   of blocking input; the Event interpreter's instruction limit counts only
+   since the last wait for the player; Darkside Events request their CD
+   tracks from the DOS disc table, where the reference shifts by 30; and DOS
+   puts the Darkside Quest Items title first when only Darkside items are
+   held.
+2. **Audit invariants as tests:** M108 ([plan](milestone-108-plan.md)).
+3. **Desert Paladin stone copies:** DOS, like MMModern, leaves the distant
+   copies of a used stone in view on Darkside, and the reference hides them.
+   Kept as an original bug, with no code change
+   ([details](original-quirks.md#sv-pin-data-patches)).
+4. **Release:** 0.15.1 (2026-11-02).
 
 ## Later goals
 
