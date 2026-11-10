@@ -1,8 +1,8 @@
 # MMModern - Roadmap
 
-**M112 is the latest completed and accepted milestone**
-([plan](milestone-112-plan.md)), after M111
-([plan](milestone-111-plan.md)).
+**M115 is the latest completed and accepted milestone**
+([plan](milestone-115-plan.md)), after M114
+([plan](milestone-114-plan.md)).
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records each completed milestone.
 Reference provenance belongs to [dependencies](dependencies.md).
@@ -247,8 +247,9 @@ Roughly in this order, each with its own decision and plan:
 5. A study of the community MM3 conversion
    ([mm345-conversion](https://github.com/hooby3dfx/mm345-conversion)), then
    mod support and modding tools.
-6. The opt-in extras the README lists: game controller support, graphics
-   filters and switching sound devices while playing.
+6. The opt-in extras the README lists. Game controller support is done:
+   M115 (Tier A, [plan](milestone-115-plan.md), accepted 2026-11-10).
+   Graphics filters and switching sound devices while playing remain.
 7. Other language editions of the original. Russian is done: M110 (Tier A,
    [plan](milestone-110-plan.md), accepted 2026-11-03) lays the old-games.ru
    fan translation over the CD edition. A reader of Russian has not yet

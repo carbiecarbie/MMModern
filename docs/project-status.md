@@ -1,10 +1,13 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. M114 is the latest
-completed and accepted milestone (2026-11-07; [plan](milestone-114-plan.md)):
-Linux players download one AppImage, which opens a setup screen inside the
-game for the game folder, sound devices and language, and plays on a desktop
-or a Steam Deck. Before it, M113 ([plan](milestone-113-plan.md)) made
+This describes what can be played and done now. M115 is the latest
+completed and accepted milestone (2026-11-10; [plan](milestone-115-plan.md)):
+an option, off by default, lets a game controller play the whole game
+through the original keys and pointer. Before it, M114
+([plan](milestone-114-plan.md)) gave Linux players one AppImage, which opens
+a setup screen inside the game for the game folder, sound devices and
+language, and plays on a desktop or a Steam Deck, M113
+([plan](milestone-113-plan.md)) made
 MMModern build, play, save and pass its tests natively on 64-bit Linux, with
 GitHub Actions also building and testing it on Linux, M112
 ([plan](milestone-112-plan.md)) played the Windows package on a Steam Deck
@@ -317,6 +320,13 @@ held keys repeat as the keyboard does. A held movement key steps about nine
 times a second and adds no step after release, an approved deviation.
 Services, dialogs, inventory and casting accept only fresh presses.
 
+A game controller can play instead when its option is on, in the Windows
+launcher or on the Linux setup screen: its buttons send the original keys,
+the right stick moves the original pointer, RT clicks and the D-pad types in
+text entry ([controls](controls.md#game-controller)). The original has no
+controller support, so this is an
+[approved deviation](original-quirks.md#dev-controller), off by default.
+
 ## Russian
 
 With the identified old-games.ru World of Xeen fan translation in its own
@@ -424,7 +434,9 @@ Presentation draws into a 320x200 indexed frame. SDL shows it in the largest
 4:3 area of the window, enlarged by a whole number and then smoothed down, or
 in whole multiples with `aspect=square`; clicks map back through the same
 rectangle. Each frame carries an identity, so input from a stale frame is
-dropped.
+dropped. With the controller option on, `SdlController` turns controller
+input into ordinary key and mouse events before the input loop sees them, so
+the same translation, buffering and stale-input rules apply.
 
 ## Tests
 
@@ -457,5 +469,8 @@ original data; this never replaces the complete local suites
 - Linux: the AppImage is x86-64 only, and there is no Flatpak. Under Proton
   the Windows launcher's Sound setup and Language windows do not run; the
   native AppImage replaces that route on a Steam Deck.
+- Game controller: buttons cannot be remapped inside MMModern (Steam Input
+  or the system does that), and there is no rumble, gyro or focus highlight.
+  Under Proton the option is set by editing `window.ini`.
 
 Next steps are in the [roadmap](roadmap.md).

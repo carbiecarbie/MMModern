@@ -422,3 +422,15 @@ job builds an AppImage with an MMModern-owned icon. The Steam Deck Game Mode
 play-test found that text input was restarted every loop cycle, which kept
 the Steam keyboard open; it now changes only when needed. Save v26
 unchanged. [Plan](milestone-114-plan.md).
+
+**M115 - Game controller support** (Tier A). The first opt-in extra: with
+`controller=on` in `window.ini`, set by a box in the Windows launcher or a
+row on the Linux setup screen and off by default, a controller plays through
+the original keys, the right stick moves the original pointer and RT
+clicks, and the D-pad types in text entry. One SDL event watch turns
+controller input into ordinary key and mouse events, so the input loop's
+queue and fences apply unchanged; the original has no joystick support, so
+this is an approved deviation. The play-test on a Steam Deck (Game Mode and
+Desktop Mode, also beside the M112 keyboard layout) and on Windows with a
+physical controller passed without fixes. Save v26 unchanged.
+[Plan](milestone-115-plan.md).
