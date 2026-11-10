@@ -9,8 +9,9 @@ workflow documents.
 
 | Document | Responsibility | Target size |
 | --- | --- | --- |
-| `README.md` | Public introduction, how to build, run and play | Short |
-| `docs/controls.md` | Every key and mouse action for players | Short |
+| `README.md` | Public introduction: what works, how to download and start the game, the main controls, how to build, and where to find the rest. It ships in the Windows zip, so its links to other documents are absolute GitHub links | Short |
+| `docs/controls.md` | Every key, mouse action and controller button for players | Short |
+| `docs/player-guide.md` | What players need beyond the README: Steam Deck setup, the Russian translation, display and sound options, saves and the user folder | Short |
 | `docs/development.md` | Developer entry modes, game data sources, tests and developer test saves | Grows by preset |
 | `docs/project-status.md` | What can be played and done now; architecture overview; known gaps | ~200-300 lines |
 | `docs/project-history.md` | One short entry per completed milestone, with its closing commit | Short: a table row or a few lines each |

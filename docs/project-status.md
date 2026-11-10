@@ -353,7 +353,7 @@ entry also writes `%LOCALAPPDATA%\MMModern\logs\mmodern.log` with
 diagnostics, notices, warnings and support stops, and
 `mmodern --diagnostics <game-dir>` prints the report the launcher copies for
 bug reports. On a Steam Deck the same package runs through Proton: Steam starts `mmodern.exe` with the game folder, without the
-launcher ([README](../README.md#steam-deck-proton)). On Linux the release
+launcher ([player guide](player-guide.md#steam-deck)). On Linux the release
 is an AppImage: `mmodern` started with no arguments opens a setup screen in
 the game's own window that finds or browses for the game folder, makes the
 same sound and language choices as the Windows launcher, copies the
@@ -361,7 +361,7 @@ diagnostics and opens the saves and log folders; it also runs on a Steam
 Deck in Desktop Mode or as a non-Steam game in Game Mode. The user folder is
 `$XDG_DATA_HOME/MMModern` or `~/.local/share/MMModern` in place of
 `%LOCALAPPDATA%\MMModern`, with the same layout; saves on a network file
-system are refused ([README](../README.md#linux)). Developer modes start a new game
+system are refused ([player guide](player-guide.md#where-mmmodern-keeps-its-files)). Developer modes start a new game
 directly, open the prepared test region at map 23 `(9,11)` used by the
 automated scenarios, load a save file, explore or inspect any Clouds map, and
 run isolated monster or Event fixtures; the

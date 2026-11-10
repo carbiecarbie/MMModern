@@ -969,10 +969,10 @@ only from `C:\msys64\ucrt64\bin`, and adds `LICENSE.txt`, `README.md`,
 tag and the pinned ScummVM revision), static Vorbis/Ogg notices and package
 versions, license texts under `licenses\` (Vorbis COPYING is retained from
 the upstream v1.3.7 release because the MSYS2 package omits it), and the
-launcher: `tools/release/MMModern-launcher.ps1` with two CRLF batch files that
-start it, `MMModern.bat` and `Change game folder.bat`. The launcher
+launcher: `tools/release/MMModern-launcher.ps1` with the CRLF batch file that
+starts it, `MMModern.bat`. The launcher
 finds the game through GOG's registry entries or a folder picker, accepts only
-a folder with `WORLD\XEEN.DAT` and remembers it in
+a folder that `mmodern --diagnostics` reports as usable and remembers it in
 `%LOCALAPPDATA%\MMModern\game-folder.txt`. The output directory must be outside the
 repository and the zip and staging folder must not exist yet. No game data, saves,
 logs or build trees are packaged. Before publishing, unpack the zip into an empty

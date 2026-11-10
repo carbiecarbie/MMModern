@@ -648,7 +648,7 @@ are the argument pushes; each far call to the wrapper follows two bytes later:
 | EXE, Clouds intro | `0x8481` 75; `0x88c2` 95 | After the opening scroll; natural completion only (Escape enters cleanup at `0x88ca`) |
 | EXE, Clouds ending | `0x8e42` 75; `0x8f91` 95 | Before Alamar's first voice; as he vanishes |
 | EXE, Darkside intro | `0xac2b` 95; `0xaf13` 48; `0xce83` 95 | As JVC begins, before the fade-out to it; after the pyramid zoom publishes scale two; after the release-creature fade, before the bird (M93) |
-| EXE, other Darkside/World | `0xe318` 95, `0xe51f` 48, `0xec94` 95, `0xfa63` 95 | Presentations after the Darkside intro (`0xa9bd..0xd608`); not yet implemented |
+| EXE, Darkside ending | `0xe318` 95; `0xe51f` 48; `0xec94` 95; `0xfa63` 95 | At the switch to `dngon2.m`; at `ready2`/`sc13.end`; at `sf17.m`; on entering the score with `outday3.m` (M106). The World ending has no mixer command ([cutscenes](cutscenes.md)) |
 | DAT, Sphinx `0x2968b` | `0x29838` 48; `0x29984` 95 | After the zoom; after the speech, before the retreat |
 | DAT, Golem `0x29ab6` | `0x29e92` 48 (Clouds side byte only); `0x2a060` 48; `0x2a453` 95 | Before the slide and ogre growl; before the speech; after it, before the retreat |
 | DAT, Reaper `0x2a66a` | `0x2ab98` 48; `0x2afd2` 95 | After the slide; at the end, after any retreat |
@@ -923,7 +923,7 @@ NPC invocations start them; F8 replay is omitted by maintainer decision
 Logical deadlines use accumulated presentation time, retaining their remaining
 duration across title/session epochs. NPC, YesNo and WhoWill dismissal stops
 playback, as does confirmed Quit; an actual disc change also clears operands.
-None of these values belongs to save v18 (schema 9, content 14).
+None of these values belongs to the save (schema 9, content 14).
 
 **DOS static, high:** Efx off masks sample starts, stops and queries at
 `0xdea9..0xdecd`; it does not issue a driver stop. Speech toggling at

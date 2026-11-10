@@ -109,7 +109,8 @@ this chapter; original-data export tests check boundary bits and padding.
 
 ## MMModern v23 framing
 
-The envelope version is 23; its side byte equals the camera's side. Unknown
+This framing dates from envelope version 23; the current version is 26
+(`kJourneyVersion`). The side byte equals the camera's side. Unknown
 or mismatched sides fail before publication. The existing roster records
 are followed by 85 little-endian 32-bit counters, 60 one-byte quest flags,
 512 one-byte game flags, four sound options, 960 one-byte character flags

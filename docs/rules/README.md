@@ -18,6 +18,7 @@ is implemented.
 | [World Events](world-events.md) | Event dispatch on every input, the Event tail, post-combat Event calls and door text; wall items, cell walls and surfaces, physical Event replacement/deletion, Spawn, the Battle Master and Warzone, and map-state lifetimes, with pointers to the Clouds map-load rules; If/SetVar/TakeOrGive value modes, rewards, lock picking, Gold Veins and random draws; teleports, mirrors and typed passwords; entrance scenes; the Quests and Awards screens; the open-door view and service borders |
 | [Audio](audio.md) | CD promus commands, stereo, ticks/fades, song selection, saved options, fixed-layout VOC playback and waits, CD addressing/lifecycle, Text off, mix balance, output recovery and remaining gaps |
 | [Cutscenes](cutscenes.md) | Calibrated EXE primitives, startup intro dispatch and title return, timing, the Clouds and Darkside intros (sequencing, resources, captions and input), title lightning, the Clouds ending's entry, save, score and presentation, and explicit scene-evidence gaps |
+| [DOS saves](dos-saves.md) | The original save layout as MMModern's DOS export writes it: member offsets, what the export projects and keeps at New Game values, and MMModern's own save framing |
 | [Evidence and unresolved questions](evidence.md) | Exact original identity, REA evidence, calibration, original file offsets, limitations and the next questions to resolve |
 
 The reading order for implementation is the relevant rule, its evidence label,

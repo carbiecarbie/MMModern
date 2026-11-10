@@ -71,8 +71,8 @@ with a controller as a pointer with two click buttons.
    screen and the launcher change that one key and keep the others.
 8. **Steam Input.** MMModern never calls Steam. A connected controller that
    is not pressed makes no key, no click and no pass. Binding one physical
-   button to both a key and a controller button would act twice; the README
-   says so.
+   button to both a key and a controller button would act twice; the player
+   guide says so.
 9. **Android.** Everything is SDL2's game controller API and SDL events, so
    it carries over.
 10. **Input after a refusal.** A controller press is a key or a click before

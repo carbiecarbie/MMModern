@@ -562,7 +562,7 @@ clears status, regardless of lifecycle, and Spawn resets it too. The save
 validates live statuses and captures Physical, retaining
 its existing bytes without replaying RNG or time. Same as the pin
 ([`MonsterObjectData::synchronize`](https://github.com/scummvm/scummvm/blob/6814ee9ba54582f5b5adcffab49efbbd8f589edd/engines/mm/xeen/map.cpp#L500)).
-The maintainer's DOSBox check is pending. Offsets and calibration are in
+The maintainer's DOSBox check confirmed it (reported 2026-11-10). Offsets and calibration are in
 [original quirks](../original-quirks.md#original-findings-and-current-discrepancies).
 
 ### Items and Use in combat

@@ -41,9 +41,12 @@ The [Darkside arc](#darkside-arc) followed with its towns (M102), Events
 Events (M105), and the Darkside and World wins with the Darkside ending
 (M106, save v25). The World ending's presentation (M107) completed the arc:
 every ending of the CD now plays. A Darkside audit followed; its
-[follow-up steps](#after-the-darkside-audit) come next. Of the
-[later goals](#later-goals), Russian over the CD edition (M110, save v26)
-and automated builds and tests on GitHub (M109) are done.
+[follow-up steps](#after-the-darkside-audit) and M111 are done. Of
+the [later goals](#later-goals), these are done: automated builds and tests
+on GitHub (M109), Russian over the CD edition (M110, save v26), the Steam
+Deck through Proton (M112), the native Linux build (M113), the setup screen
+and AppImage (M114) and opt-in game controller support (M115). Release
+0.18.0 has all of them except the controller.
 
 ## Completed arc: closing Vertigo and the first release
 
@@ -109,8 +112,8 @@ five digital drivers silent with a notice, their open questions recorded in
 the [M94 plan](milestone-94-plan.md#scope). A switch between devices while
 playing would be an opt-in approved deviation (maintainer, 2026-10-21).
 
-The Darkside and World endings (`showdown`, `genesis`) wait for the
-Darkside arc; M101 added the Pyramid.
+The Darkside and World endings (`showdown`, `genesis`) came with the
+[Darkside arc](#darkside-arc) (M106, M107); M101 added the Pyramid.
 
 ## Next arc: release quality and the Darkside start
 
@@ -201,10 +204,10 @@ A Darkside fidelity and integration audit (2026-11-02) ran every Darkside
 Event cell twice, with saves, loads, trips away and keys pressed during
 waits. It found two hangs, fixed in `a6949b7` (a fall with a dead member and
 a Space defeat on a flagged cell), and stale or missing documentation, fixed
-in `8e52743`. The maintainer set this order for the rest (2026-11-02); steps
-are direction, not approved plans.
+in `8e52743`. The maintainer set this order for the rest (2026-11-02), and
+all four steps are done.
 
-1. **Maintenance round:** Darkside Create gives level 5, as DOS does (Tier B);
+1. **Maintenance round, done (`b75e050`):** Darkside Create gives level 5, as DOS does (Tier B);
    a presentation error that cannot recover ends with a notice instead of
    blocking input (Tier A); the Event interpreter's instruction limit counts
    only since the last wait for the player, so the dials of maps 50, 76, 80
@@ -221,8 +224,7 @@ are direction, not approved plans.
    shows that DOS, like MMModern, leaves the distant copies of a used stone
    in view on Darkside; the reference hides them. Kept as an original bug,
    with no code change ([details](original-quirks.md#sv-pin-data-patches)).
-4. **Release** with all of the above; the maintainer sees no need for an
-   earlier one.
+4. **Release** with all of the above: 0.15.1 (2026-11-02).
 
 ## Later goals
 
@@ -247,9 +249,12 @@ Roughly in this order, each with its own decision and plan:
 5. A study of the community MM3 conversion
    ([mm345-conversion](https://github.com/hooby3dfx/mm345-conversion)), then
    mod support and modding tools.
-6. The opt-in extras the README lists. Game controller support is done:
-   M115 (Tier A, [plan](milestone-115-plan.md), accepted 2026-11-10).
-   Graphics filters and switching sound devices while playing remain.
+6. Opt-in extras: things the original never had, each one an option that is
+   off by default, so the game stays faithful unless the player turns it on.
+   Game controller support is done: M115 (Tier A,
+   [plan](milestone-115-plan.md), accepted 2026-11-10). Still to study:
+   graphics filters for the scaled picture, switching between the original
+   sound devices while playing, and possibly some interface improvements.
 7. Other language editions of the original. Russian is done: M110 (Tier A,
    [plan](milestone-110-plan.md), accepted 2026-11-03) lays the old-games.ru
    fan translation over the CD edition. A reader of Russian has not yet

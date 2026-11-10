@@ -339,28 +339,28 @@ the party to Clouds, and Town Portal, Lloyd's Beacon, Teleport, Jump and falls
 work from every one of them. Save v24 refuses 0.13.0 saves.
 [Plan](milestone-104-plan.md).
 
-**M105 - The last mixed-map Event refusals**. Darkstone Tower's fourth head
+**M105 - The last mixed-map Event refusals** (`ade37b9`). Darkstone Tower's fourth head
 and the Dungeon of Death's book run as on the CD, from a DOS program check
 made first: world flags beyond 127 are the quest-flag bits that follow them,
 and DisplayLarge shows a line of the map's large text in the main window,
 continuing an open window's text. Darkside now plays up to its ending. Save
 v24 unchanged. [Plan](milestone-105-plan.md).
 
-**M106 - Darkside and World wins, Darkside ending** (Tier A). Bringing the
+**M106 - Darkside and World wins, Darkside ending** (Tier A, `397bfd6`). Bringing the
 Soul Box to Alamar wins Darkside as in DOS: the party is saved at
 Castleview and the original Darkside ending plays with its score. The World
 win saves as in DOS and says its ending is not supported yet. The ending
 mirror words and the title's E, V and W replay rows follow DOS, and both
 wins are remembered in `settings.ini`. Save v25. [Plan](milestone-106-plan.md).
 
-**M107 - World ending presentation**. The original World of Xeen ending
+**M107 - World ending presentation** (`567666a`). The original World of Xeen ending
 plays after the World win, the `genesis` mirror word and the title's W row,
 from a DOS program check made first and confirmed frame for frame by a
 DOSBox capture: the unification ceremony, three CD animations the reference
 omits, the score and a fresh title. Every ending of the CD now plays. Save
 v25 unchanged. [Plan](milestone-107-plan.md).
 
-**M108 - Darkside audit invariants as tests**. The invariants that the
+**M108 - Darkside audit invariants as tests** (`cdc48e8`). The invariants that the
 Darkside audit checked across every Event are now original-data tests:
 rewarding Events pay a bounded number of times, with purchases, the
 unguarded skill grants and the six-stage statue as the original exceptions;
@@ -371,15 +371,7 @@ a fall change nothing; and an Event chain interrupted by saves and trips ends
 as an uninterrupted one. Tests only; save v25 unchanged.
 [Plan](milestone-108-plan.md).
 
-**M110 - Russian language layer over the CD edition** (Tier A). With the
-old-games.ru fan translation installed beside the World of Xeen CD, the game
-plays in Russian: the translation's texts, pictures, font and program text
-over the CD's maps, rules, timing, music and English speech, an approved
-deviation. The keyboard, hotkeys, item descriptions, combat rows and caption
-strip follow the Russian Darkside program, its key defects included. Save
-v26 admits Cyrillic names. [Plan](milestone-110-plan.md).
-
-**M109 - Automated builds and tests on GitHub** (Tier A). Every push builds
+**M109 - Automated builds and tests on GitHub** (Tier A, `da53048`). Every push builds
 the project on a clean Windows machine on GitHub Actions, with the documented
 MSYS2 packages pinned by checksum and the pinned ScummVM revision, and runs
 the tests that need no original data. A new switch,
@@ -387,7 +379,15 @@ the tests that need no original data. A new switch,
 local default keeps every test. No game behavior changes.
 [Plan](milestone-109-plan.md).
 
-**M111 - Xeen Slayer selector and whole-Event discard** (Tier A). After a
+**M110 - Russian language layer over the CD edition** (Tier A, `b5aa7c8`). With the
+old-games.ru fan translation installed beside the World of Xeen CD, the game
+plays in Russian: the translation's texts, pictures, font and program text
+over the CD's maps, rules, timing, music and English speech, an approved
+deviation. The keyboard, hotkeys, item descriptions, combat rows and caption
+strip follow the Russian Darkside program, its key defects included. Save
+v26 admits Cyrillic names. [Plan](milestone-110-plan.md).
+
+**M111 - Xeen Slayer selector and whole-Event discard** (Tier A, `bbe1add`). After a
 Xeen Slayer Sword attack, physical spells ignore physical resistance, because
 DOS keeps the last weapon attack's ID; calibrated program analysis settled
 the selector's writers. An Event MMModern has to refuse is now discarded
@@ -395,14 +395,15 @@ whole: party, items, flags, position, time and random state return to their
 pre-Event values, an approved deviation, since DOS never stops an Event. Save
 v26 unchanged. [Plan](milestone-111-plan.md).
 
-**M112 - Steam Deck through Proton** (Tier B). The Windows package plays on
+**M112 - Steam Deck through Proton** (Tier B, `f8ec0a9`). The Windows package plays on
 a Steam Deck through Proton, started from Game Mode with the game folder as
-a launch option and a Steam Input layout that the README gives. The Deck
+a launch option and a Steam Input layout, now in the
+[player guide](player-guide.md#keyboard-layout-for-the-deck). The Deck
 play-test showed that every exploration input wrote the whole Journey state
 to the player log; title sessions now keep it out. Save v26 unchanged.
 [Plan](milestone-112-plan.md).
 
-**M113 - Native Linux build** (Tier A). MMModern builds, plays, saves and
+**M113 - Native Linux build** (Tier A, `fbda844`). MMModern builds, plays, saves and
 passes its complete suite natively on 64-bit Linux with GCC, behind one
 platform layer: the user folder follows XDG, saves keep their rules with a
 POSIX file layer and are refused on network file systems, and the build and
@@ -413,7 +414,7 @@ A manual job builds a test bundle for a native check by a friend of the
 maintainer. No Linux package or launcher yet; save v26 unchanged.
 [Plan](milestone-113-plan.md).
 
-**M114 - Linux setup screen and AppImage** (Tier B). `mmodern` with no
+**M114 - Linux setup screen and AppImage** (Tier B, `fd054d8`). `mmodern` with no
 arguments opens a setup screen inside the game's 320x200 window, built only
 on SDL: the game folder (remembered, found under the GOG, Heroic and Wine
 install roots, or browsed), the original installer's sound choice, the
@@ -423,7 +424,7 @@ play-test found that text input was restarted every loop cycle, which kept
 the Steam keyboard open; it now changes only when needed. Save v26
 unchanged. [Plan](milestone-114-plan.md).
 
-**M115 - Game controller support** (Tier A). The first opt-in extra: with
+**M115 - Game controller support** (Tier A, `ff39d7d`). The first opt-in extra: with
 `controller=on` in `window.ini`, set by a box in the Windows launcher or a
 row on the Linux setup screen and off by default, a controller plays through
 the original keys, the right stick moves the original pointer and RT

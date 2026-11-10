@@ -34,7 +34,9 @@ size and checksum and never written. Normal play reads `language` and
 ## Entry modes
 
 The per-user folder holds `Saves/`, `settings.ini`, the owned `XEEN.CFG`,
-`logs/`, `roms/` and `window.ini`. It is `%LOCALAPPDATA%\MMModern` on Windows
+`logs/`, `roms/`, `window.ini` (window placement, `aspect` and the
+`controller` switch of the [game controller](controls.md#game-controller)
+option) and the remembered `game-folder.txt`. It is `%LOCALAPPDATA%\MMModern` on Windows
 and, since M113, `$XDG_DATA_HOME/MMModern` on Linux, or
 `~/.local/share/MMModern` when `XDG_DATA_HOME` is unset or relative; a missing
 one is created with mode 0700. Below, `%LOCALAPPDATA%\MMModern` stands for
@@ -44,9 +46,11 @@ WSL's `/mnt` drives, and network FUSE mounts), so a home folder on one needs
 
 Linux builds and runs natively ([setup](dependencies.md#linux-toolchain));
 `build-linux-rel/mmodern <game-directory>` takes the same options as
-`mmodern.exe`. The Windows launcher has no Linux counterpart yet: use the
-installed `WORLD/XEEN.CFG` or `--sound-setup`, and `--russian <folder>` or
-`--language-setup` for the translation.
+`mmodern.exe`. Since M114, `mmodern` with no arguments opens the setup
+screen, the counterpart of the Windows launcher: game folder, sound setup,
+language, diagnostics and Play. The command-line forms still work:
+`--sound-setup`, and `--russian <folder>` or `--language-setup` for the
+translation.
 
 Run from a terminal to see diagnostics, and quote paths containing spaces:
 `--ui-data <path>` and `--xeen-cfg <path>` select sources for the game and
@@ -68,6 +72,7 @@ Borland conversion. This clock is independent of presentation ticks and
 Journey randomness.
 
 ```text
+mmodern
 mmodern <game-directory>
 mmodern --version
 mmodern --diagnostics <game-directory>
@@ -83,6 +88,10 @@ mmodern --event-fixture <game-directory> <map> <x> <y> <north|east|south|west> [
 mmodern --inspect-map|--inspect-party|--inspect-events <game-directory> ...
 ```
 
+- `mmodern` with no arguments opens the setup screen in the game's window,
+  then plays the chosen folder as `mmodern <game-directory>` does. It
+  remembers the folder in `game-folder.txt`. The Linux AppImage starts this
+  way; the Windows package starts through its launcher instead.
 - `--version` prints the CMake project version without game data.
 - `--diagnostics` prints stable `key: value` lines for data, configuration,
   ROM identification, saves, settings and log paths. An unusable game folder
