@@ -13,8 +13,9 @@ content becomes cheaper to add.
 
 Deviations from the original are allowed only when the maintainer explicitly
 approves them, and must be documented where they live. Quality-of-life options
-may come later, but only as opt-in additions that leave faithful behavior as
-the default; they are not part of current work.
+are allowed only as opt-in additions that leave faithful behavior as the
+default; the maintainer starts each one as its own milestone, and it is
+recorded as an approved deviation.
 
 ## Specialized instruction files
 

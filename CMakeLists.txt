@@ -174,6 +174,7 @@ add_library(mmodern_platform_sdl STATIC
 	src/platform/sdl/SdlAudioStream.cpp
 	src/platform/sdl/SdlWindow.cpp
 	src/platform/sdl/SdlWindowPlacement.cpp
+	src/platform/sdl/SdlController.cpp
 )
 target_link_libraries(mmodern_platform_sdl PUBLIC mmodern_core PRIVATE SDL2::SDL2 mmodern_platform_libs mmodern_platform_files)
 
@@ -879,7 +880,7 @@ endif()
     endif()
     # M110 Part C: Russian rules and input; the data test reads both programs.
     add_executable(mmodern_russian_rules_tests tests/XeenRussianRulesTests.cpp)
-    target_link_libraries(mmodern_russian_rules_tests PRIVATE mmodern_app mmodern_xeen mmodern_scummvm_xeen)
+    target_link_libraries(mmodern_russian_rules_tests PRIVATE mmodern_app mmodern_xeen mmodern_scummvm_xeen SDL2::SDL2)
     mmodern_part_a_test(NAME xeen_russian_rules COMMAND mmodern_russian_rules_tests)
     mmodern_test_properties(xeen_russian_rules PROPERTIES LABELS "fast")
     if(MMODERN_RU_DATA_DIR)
@@ -1441,6 +1442,11 @@ endif()
 		"SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software")
 	mmodern_test_properties(sdl_input sdl_main_screen PROPERTIES ENVIRONMENT
 		"SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software")
+	add_executable(mmodern_sdl_controller_tests tests/SdlControllerTests.cpp)
+	target_link_libraries(mmodern_sdl_controller_tests PRIVATE mmodern_platform_sdl SDL2::SDL2)
+	mmodern_part_a_test(NAME sdl_controller COMMAND mmodern_sdl_controller_tests)
+	mmodern_test_properties(sdl_controller PROPERTIES ENVIRONMENT
+		"SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software")
 	add_executable(mmodern_sdl_window_placement_tests tests/SdlWindowPlacementTests.cpp)
 	target_link_libraries(mmodern_sdl_window_placement_tests PRIVATE mmodern_platform_sdl SDL2::SDL2)
 	mmodern_part_a_test(NAME sdl_window_placement COMMAND mmodern_sdl_window_placement_tests)
@@ -1723,7 +1729,7 @@ endif()
 	# development machine, 1.0-1.4 s beside three other tests on a 4-processor CI runner.
 	mmodern_test_properties(xeen_input_scheduling xeen_main_screen xeen_native_responsiveness
 		xeen_title_flow xeen_myra_original_sdl xeen_save_cli xeen_combat_cli xeen_save_state
-		sdl_input sdl_main_screen sdl_motion sdl_window_placement xeen_member_prompt_click xeen_setup_screen xeen_setup_screen_original PROPERTIES RUN_SERIAL TRUE)
+		sdl_input sdl_main_screen sdl_motion sdl_window_placement sdl_controller xeen_member_prompt_click xeen_setup_screen xeen_setup_screen_original PROPERTIES RUN_SERIAL TRUE)
 	# CTest starts the costliest tests first. CTestCostData.txt is not reliable
 	# for that: a run without -j (`ctest -R name`) divides the test's average by
 	# its run count, which left 100-second tests for the end of the suite. These

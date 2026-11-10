@@ -11,15 +11,19 @@
 namespace mmodern {
 
 // Host window presentation only (never game state): borderless desktop
-// fullscreen and the windowed client size, remembered between runs.
+// fullscreen and the windowed client size, remembered between runs, and the
+// host input option for game controllers.
 enum class PictureAspect { FourThree, Square };
 
 struct WindowPlacement {
 	bool fullscreen = false;
 	int width = 0, height = 0; // Windowed client size; 0 = choose from the display.
 	PictureAspect aspect = PictureAspect::FourThree;
+	// M115 opt-in game controller support (approved deviation dev-controller).
+	bool controller = false;
 	bool operator==(const WindowPlacement &other) const {
-		return fullscreen == other.fullscreen && width == other.width && height == other.height && aspect == other.aspect;
+		return fullscreen == other.fullscreen && width == other.width && height == other.height && aspect == other.aspect &&
+			controller == other.controller;
 	}
 	bool operator!=(const WindowPlacement &other) const { return !(*this == other); }
 };

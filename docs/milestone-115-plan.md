@@ -82,7 +82,8 @@ Focus navigation can be a later opt-in if play shows the pointer is too
 slow somewhere.
 
 **2. Default mapping.** *Decided* (names as on an Xbox controller; SDL maps
-other controllers by position):
+other controllers by position, except Nintendo ones, which it maps by their
+button labels, so their own A confirms):
 
 | Control | Exploration | Combat | Dialogs, services, title, setup screen |
 | --- | --- | --- | --- |
@@ -197,7 +198,9 @@ layout of M112 (to verify on the device).
      Ctrl modifier itself, with no Ctrl key event (a Ctrl make re-resolves
      every held key, turning a held forward into an unmatched key), and
      uses a scancode of its own so that it cannot collide with a held
-     D-pad Left or Right.
+     D-pad Left or Right. When the last strafe key is released, the
+     controller also sends the Ctrl release a keyboard would, so the loop
+     does not go on reading later repeats as Ctrl keys.
 4. **Held buttons repeat as held keys.** The controller sends one make and
    one break per press and never repeats by itself; `SdlWindow`'s existing
    model repeats where it does for keys (queued contexts: 500 ms, then the
@@ -277,14 +280,15 @@ layout of M112 (to verify on the device).
 - **Part A - keys.** The `controller` field in `window.ini`;
   `SdlController` with hot-plug, hysteresis, the event watch and the
   context snapshot; the mapping header with English and Russian
-  resolution; exploration, combat and dialog keys. Check that the
-  AppImage's SDL2 build has controller support (its package list has
-  `libudev1` but may lack the development package), and amend the pinned
-  list if not. In the same change: `original-quirks.md` gets the approved
-  deviation `dev-controller` with the DOS finding above,
-  `scummvm-differences.md` its item, and the root `AGENTS.md`, which still
-  says quality-of-life options "are not part of current work", is amended
-  with wording the maintainer approves.
+  resolution; exploration, combat and dialog keys. The AppImage's SDL2
+  build was checked: without the udev development package it still reads
+  controllers through its evdev driver, with hot-plug, which is how Steam's
+  virtual controller appears; its build script now asserts that driver. In
+  the same change: `original-quirks.md` gets the approved deviation
+  `dev-controller` with the DOS finding above, `scummvm-differences.md` its
+  item, and the root `AGENTS.md`, which said quality-of-life options "are
+  not part of current work", now allows them as opt-in milestones the
+  maintainer starts (the maintainer delegated the wording, 2026-11-10).
 - **Part B - pointer, text entry, switch UI.** The stick pointer and click;
   text entry with its follow-up; the setup screen row and the launcher
   checkbox; `controls.md` (including that B in exploration completes a
@@ -311,6 +315,9 @@ layout of M112 (to verify on the device).
   Desktop Mode SDL's own Steam Deck driver may open the built-in controls
   while Steam's desktop layout sends keys and mouse. If the second holds,
   the option's text says to use it in Game Mode with the Gamepad template.
+  The AppImage's SDL2 has no access to those raw devices, which makes the
+  second unlikely there; the Windows package under Proton still needs the
+  check.
 - **Processor use.** With a joystick present SDL's wait polls every
   millisecond instead of sleeping in the system. Loop timing is unchanged;
   the play-test looks at the Deck's load once.
@@ -347,9 +354,13 @@ layout of M112 (to verify on the device).
     Event word entry, in English and in Russian; a fast second press is
     neither lost nor doubled, and a Russian entry never receives a raw
     arrow.
-- One original-data scenario replayed with controller input reaches the
-  same approved digest as its keyboard run, and the refusal test of
-  decision 10 passes.
+- The refusal test of decision 10 passes on original data. It replaces a
+  digest scenario replayed by controller: the approved scenarios call the
+  handler directly instead of sending SDL events, so such a replay would
+  prove nothing that the loop tests do not.
+- A loop test on SDL's virtual joystick opens a controller, walks a step,
+  releases the key when it is detached while held, and closes it when the
+  option is turned off.
 - The complete suite passes on Windows and WSL Linux; the independent
   implementation review has no open finding.
 - One play-test session, only for what devices and feel decide: on a Steam

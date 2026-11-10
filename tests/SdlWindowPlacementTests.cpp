@@ -42,6 +42,13 @@ void placementText() {
     check(parseWindowPlacement("aspect=square\naspect=invalid\n").aspect == PictureAspect::FourThree, "unknown resets default");
     const WindowPlacement square{false, 800, 500, PictureAspect::Square};
     check(parseWindowPlacement(formatWindowPlacement(square)) == square, "square format round trip");
+    // M115: the game controller option, off by default.
+    check(!parseWindowPlacement("").controller && parseWindowPlacement("controller=on\n").controller, "controller option");
+    check(!parseWindowPlacement("controller=on\ncontroller=yes\n").controller && !parseWindowPlacement("controller=off\n").controller,
+        "anything but on turns the controller off");
+    const WindowPlacement controller{false, 800, 500, PictureAspect::FourThree, true};
+    check(parseWindowPlacement(formatWindowPlacement(controller)) == controller, "controller format round trip");
+    check(formatWindowPlacement({}).find("controller=off\n") != std::string::npos, "the default names the option");
 	const WindowPlacement stored{true, 1280, 800};
 	check(parseWindowPlacement(formatWindowPlacement(stored)) == stored, "format/parse round trip");
 	check(parseWindowPlacement(formatWindowPlacement({})) == WindowPlacement{}, "default round trip");
@@ -304,7 +311,7 @@ void fullscreenToggle() {
 void persistedPlacement() {
 	const auto directory = scratchDirectory("run");
 	const auto file = directory / "window.ini";
-	check(writeWindowPlacement(file, {false, 800, 500}), "seed settings");
+	check(writeWindowPlacement(file, {false, 800, 500, PictureAspect::FourThree, true}), "seed settings");
 	SdlWindow::rememberPlacement(file);
 	WindowRun run;
 	run.run("persisted", [](WindowRun &run) {
@@ -316,7 +323,8 @@ void persistedPlacement() {
 			WindowRun::quit();
 		}
 	});
-	check(readWindowPlacement(file) == WindowPlacement{true, 800, 500}, "toggle saved with the windowed size");
+	check(readWindowPlacement(file) == WindowPlacement{true, 800, 500, PictureAspect::FourThree, true},
+		"toggle saved with the windowed size and the controller option kept");
 	// A placement larger than the display falls back to the integer default.
 	check(writeWindowPlacement(file, {false, 3000, 2000}), "seed oversized settings");
 	SdlWindow::rememberPlacement(file);

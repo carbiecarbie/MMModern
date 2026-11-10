@@ -24,6 +24,9 @@ public:
 	static void rememberPlacement(std::optional<std::filesystem::path> file);
     // Developer entries use the host picture shape without persisting placement.
     static void useAspectSetting(const std::optional<std::filesystem::path> &file);
+    // M115: turns the game controller option on or off for the next loop
+    // without a settings file (tests); normal play reads it from window.ini.
+    static void useControllerSetting(bool enabled);
 	struct FrameUpdateHandler : std::function<std::optional<IndexedFrame>(const PlayerAction &)> {
 		using Function = std::function<std::optional<IndexedFrame>(const PlayerAction &)>;
 		using Function::Function;

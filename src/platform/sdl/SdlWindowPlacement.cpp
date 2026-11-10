@@ -50,6 +50,7 @@ WindowPlacement parseWindowPlacement(std::string_view text) {
 		} else if (key == "width") width = number(value, 1, maximumWindowExtent);
 		else if (key == "height") height = number(value, 1, maximumWindowExtent);
         else if (key == "aspect") placement.aspect = value == "square" ? PictureAspect::Square : PictureAspect::FourThree;
+        else if (key == "controller") placement.controller = value == "on";
 	}
 	// A size is meaningful only as a pair.
 	if (width && height) { placement.width = *width; placement.height = *height; }
@@ -61,6 +62,8 @@ std::string formatWindowPlacement(const WindowPlacement &placement) {
 	text << "# MMModern window settings. Alt+Enter toggles fullscreen.\n"
 		<< "# Picture shape: aspect=4:3 (default) or aspect=square.\n"
         << "aspect=" << (placement.aspect == PictureAspect::Square ? "square" : "4:3") << '\n'
+		<< "# Game controller: controller=off (default) or controller=on.\n"
+		<< "controller=" << (placement.controller ? "on" : "off") << '\n'
 		<< "fullscreen=" << (placement.fullscreen ? 1 : 0) << '\n';
 	if (placement.width > 0 && placement.height > 0)
 		text << "width=" << placement.width << "\nheight=" << placement.height << '\n';

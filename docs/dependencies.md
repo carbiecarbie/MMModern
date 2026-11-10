@@ -884,7 +884,9 @@ Ubuntu 22.04's SDL2 2.0.20 lacks `SDL_GetDefaultAudioInfo` (2.24 or later), so
 `tools/linux-bundle/build-sdl2.sh` builds SDL2 2.32.10 from its upstream release
 with SHA-256 `5f5993c530f084535c65a6879e9b26ad441169b3e25d789d83287040a9ca5165`.
 It enables X11, Wayland, PulseAudio, PipeWire, ALSA and OpenGL/EGL and checks
-that the backends load their host libraries dynamically. ScummVM and MMModern
+that the backends load their host libraries dynamically, and that the Linux
+joystick driver is present (game controllers, without udev: `/dev/input` is
+watched with inotify, and the Linux HIDAPI backend is absent). ScummVM and MMModern
 use that SDL2; the package list contains its backend development dependencies
 instead of `libsdl2-dev`. ScummVM's `USE_` set must match
 `.github/ci/scummvm-use-linux-bundle.txt` (no `USE_SNDIO` on 22.04), and its

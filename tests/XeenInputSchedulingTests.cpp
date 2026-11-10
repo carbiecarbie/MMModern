@@ -111,26 +111,56 @@ void movementRedraw(Inputs &in) {
  std::cout<<"MOVEMENT REDRAW W=2 delivered=2 moved=2 silent-handle-refusals=0 PASS\n";
 }
 
-void wallRefusal(Inputs &in) {
+// M115 decision 10: a controller press is a key before any fence or handler
+// sees it, so input after a refusal acts the same from either device.
+void controllerButton(SDL_GameControllerButton button,bool down) {
+ SDL_Event e{};e.type=down?SDL_CONTROLLERBUTTONDOWN:SDL_CONTROLLERBUTTONUP;e.cbutton.which=3;e.cbutton.button=Uint8(button);
+ e.cbutton.state=down?SDL_PRESSED:SDL_RELEASED;check(SDL_PushEvent(&e)==1,"scheduling controller enqueue");
+}
+struct RefusalRun {std::vector<std::string> actions;XeenCamera camera;};
+RefusalRun wallRefusal(Inputs &in,bool controller=false) {
  Harness h(in);auto s=h.services();auto source=in.service();unsigned dispatches=0,loops=0;std::uint64_t now=0;s.clock=[&]{return now;};
+ RefusalRun run;bool quitSent=false;
  source.camera={28,7,14,XeenDirection::East};
  XeenWorld geometry(in.mapLoader());const auto cell=geometry.sampleCell(28,7,14);
  check(cell && wallAt(*cell->cell,XeenDirection::East)==9,"wall-refusal fixture must face an original closed grate");
+ const auto press=[&](SDL_Keycode code,SDL_GameControllerButton button) {
+  if(!controller){tap(code);return;}
+  controllerButton(button,true);controllerButton(button,false);
+ };
+ SdlWindow::useControllerSetting(controller);
  s.show=[&](const auto &first,const auto &handler,const auto &escape,const auto &idle,const auto &status){
   auto native=handler;native.withPresentedInput=[&](const auto &action,auto input,const auto &origin){
    check(handler.inputContext(origin).readyForAction,"wall action drained before ready");
    const auto before=*h.camera;++dispatches;auto next=handler.withPresentedInput(action,input,origin);
+   const auto *navigation=std::get_if<NavigationAction>(&action);
+   run.actions.push_back(std::to_string(action.index())+(navigation?":"+std::to_string(int(*navigation)):""));
    check(h.camera->x==before.x && h.camera->y==before.y,"wall refusal moved party");return next;
   };
   native.beginCycle=[&](auto cycle){now+=100;handler.beginCycle(cycle);};
   return SdlWindow().showInteractive(first,"Ready wall refusal",native,escape,[&]()->std::optional<IndexedFrame>{
-   if(++loops==1)tap(SDLK_UP);
-   if(loops==8){check(dispatches==1,"wall refusal was lost or retried");quit();return {};}
+   if(quitSent)return {};
+   if(++loops==1)press(SDLK_UP,SDL_CONTROLLER_BUTTON_DPAD_UP);
+   if(loops==8){check(dispatches==1,"wall refusal was lost or retried");press(SDLK_RIGHT,SDL_CONTROLLER_BUTTON_DPAD_RIGHT);}
+   if(loops==20){
+    // One close only: with the controller option on, SDL's queue outlives the loop.
+    check(dispatches==2,"input after the wall refusal was lost or doubled");run.camera=*h.camera;quit();quitSent=true;return {};
+   }
    return idle();
   },status);
  };
- check(h.run(s,source,"wall")==0,"wall refusal Application failed");
- std::cout<<"READY WALL REFUSAL delivered=1 retried=0 PASS\n";
+ check(h.run(s,source,controller?"wall-controller":"wall")==0,"wall refusal Application failed");
+ SdlWindow::useControllerSetting(false);
+ std::cout<<"READY WALL REFUSAL "<<(controller?"controller":"keyboard")<<" delivered=1 retried=0 then turn PASS\n";
+ return run;
+}
+void controllerRefusalEquivalence(Inputs &in,const RefusalRun &keyboard) {
+ const auto controller=wallRefusal(in,true);
+ check(controller.actions==keyboard.actions && controller.camera.mapId==keyboard.camera.mapId &&
+  controller.camera.x==keyboard.camera.x && controller.camera.y==keyboard.camera.y &&
+  controller.camera.direction==keyboard.camera.direction,"controller refusal run differs from the keyboard run");
+ check(keyboard.camera.direction==XeenDirection::South,"the turn after the refusal did not act");
+ std::cout<<"CONTROLLER REFUSAL EQUIVALENCE actions="<<controller.actions.size()<<" PASS\n";
 }
 
 void contextAuthority(Inputs &in) {
@@ -499,5 +529,5 @@ int main(int argc,char **argv){probe_fired::expect("SDL_UpdateTexture");probe_fi
  check(argc==2 || argc==3,"usage: input-scheduling <installation> [mouse]");SDL_setenv("SDL_VIDEODRIVER","dummy",1);SDL_setenv("SDL_RENDER_DRIVER","software",1);
  const auto installation=xeenTestInstallationDetector().detect(argv[1]);check(bool(installation),"original installation absent");Inputs in(*installation);
  if(argc==3){mouseNotices(in);combatQueue(in,true);originalDialogs(in);mouseJourney(in);return 0;}
- contextAuthority(in);wallRefusal(in);combatQueue(in);movementRedraw(in);boundaries(in);services(in);stress(in);return 0;
+ contextAuthority(in);controllerRefusalEquivalence(in,wallRefusal(in));combatQueue(in);movementRedraw(in);boundaries(in);services(in);stress(in);return 0;
 }catch(const std::exception &e){uploadHook={};copyHook={};std::cerr<<e.what()<<'\n';return 1;}}

@@ -1,8 +1,10 @@
 #include "platform/sdl/SdlWindow.h"
 #include "core/DiagnosticNotice.h"
 #include "platform/sdl/SdlAudioDevice.h"
+#include "platform/sdl/SdlController.h"
 #include "platform/sdl/SdlWindowPlacement.h"
 #include "platform/sdl/XeenMainScreenInput.h"
+#include "platform/sdl/XeenProgramKeys.h"
 #include "platform/sdl/XeenRussianKeys.h"
 #include "core/PresentationClock.h"
 
@@ -151,24 +153,13 @@ unsigned dosCode(const SDL_KeyboardEvent &key) {
     else if(key.keysym.mod & KMOD_SHIFT)code=shiftedSymbol(code,symbol);
     return code;
 }
-unsigned inputKey(const SDL_KeyboardEvent &key) {
-    const auto code=dosCode(key);
-    if(code==0xd2)return 0; // F10's DOS-prompt wrapper consumes it.
-    if(code>=0xc9 && code<=0xd1)return InputKey::F1+code-0xc9;
-    switch(code) {
-    case 0xf0:return InputKey::Left;case 0xf1:return InputKey::Right;
-    case 0xf2:return InputKey::Up;case 0xf3:return InputKey::Down;
-    case 0xdc:return InputKey::Home;case 0xdd:return InputKey::End;
-    case 0xde:return InputKey::PageUp;case 0xdf:return InputKey::PageDown;
-    default:return code>='A' && code<='Z'?code+('a'-'A'):code;
-    }
-}
+// The internal key, shared with the controller mapping (XeenProgramKeys.h).
+unsigned inputKey(const SDL_KeyboardEvent &key) {return xeenProgramInputKey(dosCode(key));}
 // The internal key of a Russian program key in this context's key set.
 unsigned contextKey(unsigned code,const InputContext &context) {
     if(!russianKeyboard || !code)return code;
-    if(context.dialog)return context.dialog->keySet?russianKeyboard->key(context.dialog->keySet,code):code;
-    return russianKeyboard->key(context.mainScreen==MainScreen::Combat?"COMBAT":
-        context.mainScreen==MainScreen::Exploration?"MAIN":"YESNO",code);
+    const auto *set=xeenContextKeySet(context);
+    return set?russianKeyboard->key(set,code):code;
 }
 unsigned inputKey(const SDL_KeyboardEvent &key,const InputContext &context) {return contextKey(inputKey(key),context);}
 std::optional<PlayerAction> playerAction(unsigned code, MainScreen screen) {
@@ -256,6 +247,17 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 		~KeyboardScope() {russianKeyboard=saved;}
 	} keyboardScope;
 	russianKeyboard=handler.keyboard.get();
+	// M115: the controller's context snapshot of this loop. Until the loop
+	// publishes its own, presses translate to nothing; nested loops restore
+	// their caller's, and the outermost loop withdraws it.
+	struct ControllerScope {
+		std::optional<ControllerContext> saved;
+		ControllerScope() {
+			auto &controller=SdlController::instance();
+			if(controller.enabled()) {saved=controller.published();controller.publish(std::nullopt);}
+		}
+		~ControllerScope() {SdlController::instance().publish(saved);}
+	} controllerScope;
 	try {
 	if (!initialFrame.isValid()) {
 		std::cerr << "Invalid indexed framebuffer.\n";
@@ -292,6 +294,8 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 	auto &placement = placementMemory();
 	if (placement.file && !placement.loaded) placement.placement = placement.saved = readWindowPlacement(*placement.file);
 	placement.loaded = true;
+	// M115: SDL's game controller subsystem only while the option is on.
+	SdlController::instance().configure(placement.placement.controller);
 	std::pair<int, int> windowed{initialFrame.width * 3,
         placement.placement.aspect == PictureAspect::FourThree ? initialFrame.width * 9 / 4 : initialFrame.height * 3};
 	SDL_Rect usable{};
@@ -491,7 +495,12 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
     const auto navigationNow = [&] {
         return handler.presentationClock ? handler.presentationClock() : SdlWindow::presentationNanoseconds();
     };
+    // M115: publish a context the loop has sampled; never samples one itself.
+    const auto publishContext = [&](const InputContext &context) {
+        if(SdlController::instance().enabled())SdlController::instance().publish(xeenControllerContext(context,handler.keyboard));
+    };
     auto acquiredContext = contextFor(presentedFrame);
+    publishContext(acquiredContext);
     auto keyboardClear=acquiredContext.keyboardClear,mouseClear=acquiredContext.mouseClear;
     const auto clearKeyboard = [&](bool markNativeMakes=true) {
         pendingActions.erase(std::remove_if(pendingActions.begin(),pendingActions.end(),[](const auto &p){return !p.mouse;}),pendingActions.end());
@@ -588,7 +597,9 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             const auto nextFrame = input && handler.withPresentedInput ?
                 handler.withPresentedInput(action,*input,origin) :
                 input && handler.withDisplayedInput ? handler.withDisplayedInput(action,*input) : handler(action);
-            synchronizeQueue(contextFor(presentedFrame));
+            const auto delivered=contextFor(presentedFrame);
+            publishContext(delivered);
+            synchronizeQueue(delivered);
             if (handler.frameCurrent && !handler.frameCurrent()) throw std::runtime_error("Stale gameplay frame handoff");
             if (nextFrame && !upload(*nextFrame)) { success = false; running = false; }
         } catch (const std::exception &error) {
@@ -622,6 +633,10 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         if(event.type==SDL_AUDIODEVICEREMOVED && !event.adevice.iscapture) {
             SdlAudioDevice::removed(event.adevice.which);return;
         }
+        // M115: controller hot-plug; its presses arrive as ordinary key events.
+        if((event.type==SDL_CONTROLLERDEVICEADDED || event.type==SDL_CONTROLLERDEVICEREMOVED) && SdlController::instance().enabled()) {
+            SdlController::instance().deviceEvent(event);return;
+        }
         // Host window control, as in DOSBox: the game never receives Alt+Enter,
         // including its repeats; a plain Enter is unaffected.
         if(event.type==SDL_KEYDOWN && fullscreenToggleKey(event.key.keysym.sym,event.key.keysym.mod)) {
@@ -644,6 +659,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             spaceDown = blockDown = revisitDown = inspectDown = false;
             mouseButtons=0;strictMouse.reset();restoreMouseFeedback();
             pendingActions.clear();
+            SdlController::instance().releaseAll();
         } else if(event.type==SDL_MOUSEBUTTONUP) {
             mouseButtons&=~SDL_BUTTON(event.button.button);
             if(!mouseButtons)restoreMouseFeedback();
@@ -852,6 +868,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 		const auto batchInput = displayedInput;
 		const auto batchFrame = presentedFrame;
 		const auto batchContext = contextFor(batchFrame);
+		publishContext(batchContext);
 		// Start or stop text input only when it changes: in Steam Deck Game Mode each call
 		// sends Steam an open- or close-keyboard request.
 		const bool textInput=batchContext.dialog && batchContext.dialog->textEntry && !russianKeyboard;
@@ -891,6 +908,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         if(cutsceneQuitPending && (!handler.cutsceneControlQuitReady || handler.cutsceneControlQuitReady()))break;
         if(handler.finished && handler.finished())break;
         const auto drainContext = contextFor(presentedFrame);
+        publishContext(drainContext);
         synchronizeQueue(drainContext);
         releaseMouseAction();
         const bool hasHeldRepeat=std::any_of(heldKeys.begin(),heldKeys.end(),[&](const auto &held) {
@@ -1013,6 +1031,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 		const auto nextInput = handler.displayedInput ? handler.displayedInput() : std::nullopt;
 		if (!cosmetic && (concreteChanged || nextInput != displayedInput)) { readyAt = SDL_GetTicks(); retireQueuedKeys(); }
         const auto nextContext = contextFor(presentedFrame);
+        publishContext(nextContext);
         synchronizeQueue(nextContext);
         if (handler.inputContext && acquiredContext.contextId != nextContext.contextId && !nextContext.retainEventKeys) {
             // clearEvents boundary: retain releases, non-input events and the
@@ -1052,6 +1071,10 @@ void SdlWindow::rememberPlacement(std::optional<std::filesystem::path> file) {
 
 void SdlWindow::useAspectSetting(const std::optional<std::filesystem::path> &file) {
     placementMemory().placement.aspect = file ? readWindowPlacement(*file).aspect : PictureAspect::FourThree;
+}
+
+void SdlWindow::useControllerSetting(bool enabled) {
+    placementMemory().placement.controller = enabled;
 }
 
 bool SdlWindow::show(const IndexedFrame &frame, const std::string &title) const {

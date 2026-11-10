@@ -21,6 +21,7 @@
 #include "games/xeen/XeenItemCatalog.h"
 #include "games/xeen/XeenTextInput.h"
 #include "games/xeen/XeenTextRenderer.h"
+#include "platform/sdl/XeenControllerInput.h"
 #include "platform/sdl/XeenMainScreenInput.h"
 #include "platform/sdl/XeenRussianKeys.h"
 
@@ -306,6 +307,34 @@ void programKeys(const Bytes &cd, const Bytes &program) {
 	check(k.click("CREATE_EXCHANGE", 'm') == 'M' && k.key("CREATE_EXCHANGE", 0xab) == 'm' && k.key("CREATE", 0xa1) == 'r',
 		"Create's attribute exchange: keys only");
 	check(k.key("LLOYD", 0xa2) == 'r' && k.key("LLOYD", 0xe3) == 's', "Lloyd's Beacon keys");
+	// M115: a controller sends the Russian program's key for the same button.
+	{
+		using Control = ControllerControl;
+		const auto sends = [&](Control control, MainScreen screen, std::shared_ptr<const DialogInput> dialog = {}) {
+			InputContext context;context.mainScreen = screen;context.dialog = std::move(dialog);
+			return xeenControllerKeyEvent(control, xeenControllerContext(context, text.keyboard()));
+		};
+		const auto at = [&](Control control, MainScreen screen, SDL_Scancode scancode) {
+			const auto event = sends(control, screen);
+			return event && event->scancode == scancode && event->mod == KMOD_NONE;
+		};
+		check(at(Control::LeftShoulder, MainScreen::Exploration, SDL_SCANCODE_LEFTBRACKET) &&
+			at(Control::RightShoulder, MainScreen::Exploration, SDL_SCANCODE_RIGHTBRACKET), "controller strafes on the х and ъ keys");
+		check(at(Control::Y, MainScreen::Exploration, SDL_SCANCODE_F) && at(Control::LeftTrigger, MainScreen::Exploration, SDL_SCANCODE_K) &&
+			at(Control::A, MainScreen::Combat, SDL_SCANCODE_F) && at(Control::Y, MainScreen::Combat, SDL_SCANCODE_S),
+			"controller Shoot, Bash, Attack and Quick Fight are the Russian letters");
+		for (const auto control : {Control::X, Control::View})
+			check(sends(control, MainScreen::Exploration) && sends(control, MainScreen::Combat), "controller Cast and Rest/Run are typable");
+		// The Russian combat key set has no Map key, so neither has the controller.
+		check(sends(Control::RightStick, MainScreen::Exploration) && !sends(Control::RightStick, MainScreen::Combat),
+			"controller Map: exploration only in Russian");
+		check(!sends(Control::LeftStick, MainScreen::Exploration) && !sends(Control::LeftStick, MainScreen::Combat),
+			"the controller's W sends nothing in Russian");
+		auto yesNo = std::make_shared<DialogInput>();
+		yesNo->keys = {'y', 'n', InputKey::Escape};yesNo->keySet = "YESNO";
+		const auto yes = sends(Control::A, MainScreen::None, yesNo);
+		check(yes && yes->scancode == SDL_SCANCODE_L, "controller Yes is the Russian program's д key");
+	}
 	const auto rows = text.combatTargets();
 	check(rows.top == 10 && rows.stride == 18 && rows.height == 18, "Russian combat rows");
 	check(XeenDosText(cd).combatTargets().top == 27 && XeenDosText(cd).combatTargets().stride == 10, "CD combat rows");

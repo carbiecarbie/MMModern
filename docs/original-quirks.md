@@ -1018,6 +1018,32 @@ stays documented here and in the plan that implements it.
   [M99 plan](milestone-99-plan.md). **ScummVM:** the pin also corrects the
   aspect ratio by default (`base/commandLine.cpp:311`, `aspect_ratio` true)
   and lets the player turn the correction off.
+- <a id="dev-controller"></a> **Game controllers are an opt-in input**
+  (maintainer, 2026-11-09). The original has no joystick or gamepad support,
+  so there is no DOS behavior to reproduce. With the host setting
+  `controller=on` in `window.ini` (default off; never game state) every
+  controller press becomes a key the original already accepts: the CD key in
+  English, the Russian program's key in Russian, and nothing where that
+  program has no key (W-Wait, combat Map). The press then passes the same
+  translation, queue, held-key repeat and stale-input fences as a keyboard
+  press. With the option off no controller subsystem is started.
+  **DOS static, high:** `WORLD/XEEN.DAT` never loads the game port address
+  `0x201` and has no joystick text; its only BIOS INT 15h calls are the
+  extended-memory moves at file offsets `0x402af` and `0x40300` (AH `87h`),
+  not the joystick service (AH `84h`), calibrated on the input code the scan
+  does find (INT 33h mouse calls at `0x7ca5` and `0x4373d..0x43985`, the
+  keyboard port read at `0x455c2`). `WORLD/XEEN.EXE` is the same (INT 15h AH
+  `87h` at `0x14f33` and `0x14f84`; INT 33h at `0x4ccd` and
+  `0x183c3..0x1860b`); `WORLD/INSTALL.EXE` asks for sound only and the 29
+  bytes of `XEEN.CFG` are sound fields. MMModern: `SdlController`,
+  `XeenControllerInput.h`, `SdlWindow::showLoop`.
+  [M115 plan](milestone-115-plan.md). **ScummVM:** the pin's Xeen engine reads
+  keys and the mouse only (`engines/mm/xeen/events.cpp`);
+  `engines/mm/metaengine.cpp:178..198` (`MMMetaEngine::initKeymaps`) maps
+  `JOY_A` to a left click and `JOY_B` to a right click, and ScummVM's backend
+  moves the pointer with a stick, so the pin plays Xeen with a controller as
+  a pointer with two click buttons rather than through the original keys.
+  Pin: differs; master not rechecked.
 - <a id="dev-rolmus-fade-bx"></a> **Rolmus fade fixes its first cache index at 8.**
   **DOS static, high:** INTRO rolmus installs its own IRQ0 handler at `0x640`
   (`0x206..0x225`); on the idle path the first fade access at `0x9ac` indexes

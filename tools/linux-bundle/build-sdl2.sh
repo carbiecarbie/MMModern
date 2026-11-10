@@ -7,8 +7,9 @@
 #
 # SDL2 is configured with its X11, Wayland, PulseAudio, PipeWire and ALSA
 # backends, each loaded at run time from the running system as distribution
-# builds do; the script fails when one of them, or OpenGL/EGL, is not
-# enabled. The -dev packages they need are pinned in
+# builds do; the script fails when one of them, OpenGL/EGL or the Linux
+# joystick driver (game controllers, M115) is not enabled. The -dev
+# packages they need are pinned in
 # .github/ci/linux-bundle-packages.txt. The installed prefix gets
 # SOURCE-SDL2.txt, which make-appimage.sh copies into the AppImage's SOURCE.txt.
 #
@@ -49,7 +50,8 @@ for define in \
 	SDL_VIDEO_OPENGL SDL_VIDEO_OPENGL_GLX SDL_VIDEO_OPENGL_EGL SDL_VIDEO_RENDER_OGL \
 	SDL_AUDIO_DRIVER_PULSEAUDIO SDL_AUDIO_DRIVER_PULSEAUDIO_DYNAMIC \
 	SDL_AUDIO_DRIVER_PIPEWIRE SDL_AUDIO_DRIVER_PIPEWIRE_DYNAMIC \
-	SDL_AUDIO_DRIVER_ALSA SDL_AUDIO_DRIVER_ALSA_DYNAMIC
+	SDL_AUDIO_DRIVER_ALSA SDL_AUDIO_DRIVER_ALSA_DYNAMIC \
+	SDL_JOYSTICK_LINUX
 do
 	line=$(grep -E "^#define $define( |$)" "$config" || true)
 	if [ -z "$line" ]; then
