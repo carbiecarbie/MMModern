@@ -1,9 +1,11 @@
 #include "platform/sdl/SdlController.h"
+#include "core/PlayerAction.h"
 
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 
 #include <cstdlib>
+#include <cstring>
 #include <iostream>
 
 namespace mmodern {
@@ -55,6 +57,14 @@ void ControllerTracker::change(ControllerControl control, bool down, const std::
     const auto index = unsigned(control);
     if (down) {
         if (holders_[index]++) return;
+        // Part B: in a text entry the directions, A and B type (SdlController).
+        using C = ControllerControl;
+        if (context && context->textEntry && (control == C::Up || control == C::Down || control == C::Left ||
+            control == C::Right || control == C::A || control == C::B)) {
+            made_[index].reset();
+            textPresses_.push_back({control, *context});
+            return;
+        }
         // Resolved against the frame on screen when pressed; nothing without a snapshot.
         made_[index] = context ? xeenControllerKeyEvent(control, *context) : std::nullopt;
         if (made_[index] && !heldScancodes_[made_[index]->scancode]++) {
@@ -95,9 +105,18 @@ std::vector<ControllerKeyChange> ControllerTracker::button(std::int32_t instance
 std::vector<ControllerKeyChange> ControllerTracker::axis(std::int32_t instance, int sdlAxis, int value,
         const std::optional<ControllerContext> &context) {
     std::vector<ControllerKeyChange> changes;
-    if (sdlAxis != SDL_CONTROLLER_AXIS_LEFTX && sdlAxis != SDL_CONTROLLER_AXIS_LEFTY &&
-        sdlAxis != SDL_CONTROLLER_AXIS_TRIGGERLEFT) return changes; // The right stick and RT belong to the pointer.
+    if (sdlAxis < SDL_CONTROLLER_AXIS_LEFTX || sdlAxis > SDL_CONTROLLER_AXIS_TRIGGERRIGHT) return changes;
     auto &state = instances_[instance];
+    // The right stick and RT are the pointer and its click (Part B).
+    if (sdlAxis == SDL_CONTROLLER_AXIS_RIGHTX || sdlAxis == SDL_CONTROLLER_AXIS_RIGHTY) {
+        (sdlAxis == SDL_CONTROLLER_AXIS_RIGHTX ? state.pointerX : state.pointerY) = value;
+        return changes;
+    }
+    if (sdlAxis == SDL_CONTROLLER_AXIS_TRIGGERRIGHT) {
+        const bool pressed = state.click ? value >= kRelease : value >= kPress;
+        if (pressed != state.click) { state.click = pressed; click(pressed); }
+        return changes;
+    }
     if (sdlAxis == SDL_CONTROLLER_AXIS_TRIGGERLEFT) {
         const bool pressed = state.trigger ? value >= kRelease : value >= kPress;
         if (pressed != state.trigger) { state.trigger = pressed; change(ControllerControl::LeftTrigger, pressed, context, changes); }
@@ -121,7 +140,33 @@ void ControllerTracker::release(Instance &state, std::vector<ControllerKeyChange
         }
     if (state.stick) change(*state.stick, false, std::nullopt, changes);
     if (state.trigger) change(ControllerControl::LeftTrigger, false, std::nullopt, changes);
+    if (state.click) click(false);
     state = {};
+}
+
+void ControllerTracker::click(bool down) {
+    if (down ? clickHolders_++ == 0 : (clickHolders_ && --clickHolders_ == 0)) clicks_.push_back(down);
+}
+
+std::vector<ControllerTextPress> ControllerTracker::takeTextPresses() {
+    std::vector<ControllerTextPress> presses;
+    presses.swap(textPresses_);
+    return presses;
+}
+
+std::vector<bool> ControllerTracker::takeClicks() {
+    std::vector<bool> clicks;
+    clicks.swap(clicks_);
+    return clicks;
+}
+
+std::pair<int, int> ControllerTracker::pointerAxes() const {
+    std::pair<int, int> result{0, 0};
+    for (const auto &[id, state] : instances_)
+        if (std::max(std::abs(state.pointerX), std::abs(state.pointerY)) >
+            std::max(std::abs(result.first), std::abs(result.second)))
+            result = {state.pointerX, state.pointerY};
+    return result;
 }
 
 std::vector<ControllerKeyChange> ControllerTracker::removed(std::int32_t instance) {
@@ -162,6 +207,8 @@ void SdlController::configure(bool enabled) {
             std::lock_guard lock(mutex_);
             tracker_ = {};
             context_.reset();
+            text_.reset();
+            clicks_.clear();
         }
         if (SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER) != 0) {
             std::cerr << "Cannot start game controller support: " << SDL_GetError() << '\n';
@@ -181,7 +228,11 @@ void SdlController::configure(bool enabled) {
     {
         std::lock_guard lock(mutex_);
         changes = tracker_.releaseAll();
+        tracker_.takeClicks();
+        tracker_.takeTextPresses();
         context_.reset();
+        text_.reset();
+        clicks_.clear();
     }
     push(changes);
     SDL_QuitSubSystem(SDL_INIT_GAMECONTROLLER);
@@ -221,10 +272,149 @@ void SdlController::releaseAll() {
     {
         std::lock_guard lock(mutex_);
         changes = tracker_.releaseAll();
+        for (const bool click : tracker_.takeClicks()) clicks_.push_back(click);
+        tracker_.takeTextPresses();
+        text_.reset();
     }
     // Pushed outside the lock: a watch running on another thread holds SDL's
     // watcher lock while it waits for this one.
     push(changes);
+}
+
+std::vector<bool> SdlController::takeClicks() {
+    if (!enabled_.load()) return {};
+    std::lock_guard lock(mutex_);
+    std::vector<bool> clicks;
+    clicks.swap(clicks_);
+    return clicks;
+}
+
+std::pair<int, int> SdlController::pointerAxes() const {
+    if (!enabled_.load()) return {0, 0};
+    std::lock_guard lock(mutex_);
+    return tracker_.pointerAxes();
+}
+
+namespace {
+bool sameEntry(const ControllerContext &a, const ControllerContext &b) {
+    return a.textEntry && b.textEntry && a.stringEntry == b.stringEntry && a.keySet == b.keySet &&
+        a.screen == b.screen && a.keyboard == b.keyboard;
+}
+}
+
+void SdlController::type(const ControllerTextPress &press) {
+    using C = ControllerControl;
+    using Kind = TextInput::Kind;
+    if (!text_ || !sameEntry(text_->context, press.context)) text_ = TextEntry{press.context};
+    else text_->context = press.context;
+    auto &entry = *text_;
+    auto &pending = entry.pending;
+    const bool pendingCharacter = !pending.empty() && pending.back().kind == Kind::Character;
+    switch (press.control) {
+    case C::Up: case C::Down: {
+        const auto characters = xeenControllerCharacters(press.context);
+        const auto next = xeenControllerStep(characters, entry.added, press.control == C::Up);
+        if (entry.added && pendingCharacter) pending.back().character = next; // Not sent yet: change it.
+        else {
+            // Change a typed character: Backspace, then the new one.
+            if (entry.added) pending.push_back({Kind::Backspace});
+            pending.push_back({Kind::Character, next});
+        }
+        entry.added = next;
+        break;
+    }
+    case C::Left: // Deletes one character: a pending one, or a typed one.
+        if (pendingCharacter) pending.pop_back();
+        else pending.push_back({Kind::Backspace});
+        entry.added.reset();
+        break;
+    case C::Right: // The next Up or Down adds a character.
+        entry.added.reset();
+        break;
+    default: // A and B: Enter or Escape (or Y/N), after the pending typing.
+        if (const auto key = xeenControllerKeyEvent(press.control, press.context))
+            pending.push_back({Kind::Key, 0, *key});
+        entry.added.reset();
+        break;
+    }
+}
+
+void SdlController::delivered(const PlayerAction &action) {
+    if (!enabled_.load()) return;
+    std::lock_guard lock(mutex_);
+    if (!text_) return;
+    const auto *key = std::get_if<DialogKeyAction>(&action);
+    const bool closing = (key && (key->key == InputKey::Enter || key->key == InputKey::Escape)) ||
+        std::holds_alternative<AcknowledgeAction>(action) || std::holds_alternative<CancelInteractionAction>(action);
+    // Enter or Escape, the controller's own or the keyboard's, ends the entry:
+    // what is still pending must not reach the next one.
+    if (closing) { text_.reset(); return; }
+    if (text_->flight == TextEntry::Flight::Sent) { text_->flight = TextEntry::Flight::Delivered; return; }
+    // Typing on the keyboard leaves the controller unable to know the last character.
+    if (std::holds_alternative<TextInputAction>(action) || (key && key->key == 8)) text_->added.reset();
+}
+
+void SdlController::acquired() {
+    if (!enabled_.load()) return;
+    std::vector<SDL_Event> events;
+    {
+        std::lock_guard lock(mutex_);
+        const auto now = ++acquisitions_;
+        if (!text_) return;
+        auto &entry = *text_;
+        // The acquired context (published just before) is no longer this
+        // entry: drop what it still had to type.
+        if (!context_ || !sameEntry(entry.context, *context_)) { text_.reset(); return; }
+        entry.context = *context_;
+        using Flight = TextEntry::Flight;
+        // Delivered: this is the frame that answered it. Sent and still not
+        // delivered one acquisition later: a fence dropped it, as its key. The
+        // controller then no longer knows the field: the next Up or Down adds,
+        // and the typing it still had pending is dropped (a Backspace could
+        // delete the player's own character).
+        if (entry.flight == Flight::Sent && entry.sentAt < now) {
+            entry.added.reset();
+            entry.pending.erase(std::remove_if(entry.pending.begin(), entry.pending.end(),
+                [](const TextInput &input) { return input.kind != TextInput::Kind::Key; }), entry.pending.end());
+            entry.flight = Flight::None;
+        }
+        if (entry.flight == Flight::Delivered) entry.flight = Flight::None;
+        const auto key = [&](const ControllerKeyEvent &event, bool down) {
+            SDL_Event e{};
+            e.type = down ? SDL_KEYDOWN : SDL_KEYUP;
+            e.key.state = down ? SDL_PRESSED : SDL_RELEASED;
+            e.key.keysym.sym = event.sym;e.key.keysym.scancode = event.scancode;e.key.keysym.mod = event.mod;
+            events.push_back(e);
+        };
+        while (entry.flight == Flight::None && !entry.pending.empty() && events.empty()) {
+            const auto input = entry.pending.front();
+            entry.pending.pop_front();
+            if (input.kind == TextInput::Kind::Character) {
+                const auto typed = xeenControllerTypedKey(input.character, entry.context);
+                if (!typed) continue;
+                // As a keyboard types it: key down, text input, key up.
+                key(typed->key, true);
+                if (!typed->text.empty()) {
+                    SDL_Event text{};
+                    text.type = SDL_TEXTINPUT;
+                    std::strncpy(text.text.text, typed->text.c_str(), sizeof text.text.text - 1);
+                    events.push_back(text);
+                }
+                key(typed->key, false);
+            } else {
+                const auto event = input.kind == TextInput::Kind::Backspace ? kControllerBackspace : input.key;
+                key(event, true);key(event, false);
+            }
+            entry.flight = Flight::Sent;
+            entry.sentAt = now;
+        }
+    }
+    pushEvents(events);
+}
+
+void SdlController::pushEvents(const std::vector<SDL_Event> &events) {
+    for (auto event : events)
+        if (SDL_PushEvent(&event) != 1) std::cerr << "Cannot queue controller input: " << SDL_GetError() << '\n';
 }
 
 void SdlController::push(const std::vector<ControllerKeyChange> &changes) {
@@ -260,6 +450,10 @@ int SdlController::watch(void *self, SDL_Event *event) {
     else
         changes = controller.tracker_.button(event->cbutton.which, event->cbutton.button,
             event->type == SDL_CONTROLLERBUTTONDOWN, controller.context_);
+    // Part B: text-entry presses wait for the loop's next acquisition, and RT
+    // for the loop to push at its pointer.
+    for (const auto &press : controller.tracker_.takeTextPresses()) controller.type(press);
+    for (const bool click : controller.tracker_.takeClicks()) controller.clicks_.push_back(click);
     // Under the lock, so that makes and breaks keep their order; the loop
     // thread never holds this lock while it calls into SDL.
     controller.push(changes);

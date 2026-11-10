@@ -27,6 +27,7 @@ public:
     // M115: turns the game controller option on or off for the next loop
     // without a settings file (tests); normal play reads it from window.ini.
     static void useControllerSetting(bool enabled);
+    static bool controllerSetting();
 	struct FrameUpdateHandler : std::function<std::optional<IndexedFrame>(const PlayerAction &)> {
 		using Function = std::function<std::optional<IndexedFrame>(const PlayerAction &)>;
 		using Function::Function;

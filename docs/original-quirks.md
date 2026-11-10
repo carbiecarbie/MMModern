@@ -1026,7 +1026,15 @@ stays documented here and in the plan that implements it.
   English, the Russian program's key in Russian, and nothing where that
   program has no key (W-Wait, combat Map). The press then passes the same
   translation, queue, held-key repeat and stale-input fences as a keyboard
-  press. With the option off no controller subsystem is started.
+  press. The right stick moves the original pointer and RT clicks at it, as a
+  mouse press and release through the same click handling; the mouse takes
+  the pointer back when it moves. In text entry the D-pad types: changing a
+  character is Backspace and the new character. Every controller text input
+  is sent one at a time, each right after the loop acquires a frame, so the
+  strict entries' fences never see two inputs for one frame; the entry lasts
+  while every acquired context is a text entry of the same kind, and ends on
+  any other context or on a delivered Enter or Escape. With the option off no
+  controller subsystem is started and the pointer is the mouse alone.
   **DOS static, high:** `WORLD/XEEN.DAT` never loads the game port address
   `0x201` and has no joystick text; its only BIOS INT 15h calls are the
   extended-memory moves at file offsets `0x402af` and `0x40300` (AH `87h`),

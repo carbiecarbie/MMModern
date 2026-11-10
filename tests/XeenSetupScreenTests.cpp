@@ -1,6 +1,7 @@
 #include "app/XeenSetupScreen.h"
 #include "formats/xeen/XeenSoundSetup.h"
 #include "platform/XeenUserFolders.h"
+#include "platform/sdl/SdlWindow.h"
 #include "platform/sdl/SdlWindowPlacement.h"
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
@@ -174,6 +175,78 @@ void nativePlay(XeenSetupScreen &screen, bool mouse) {
     check(selected && *selected == fs::u8path("/games/world"),
           mouse ? "native mouse Play" : "native keyboard Play");
 }
+#ifndef _WIN32
+// M115: the Linux setup screen's controller row changes only the controller
+// key of window.ini, written with the other window settings when it closes.
+void nativeControllerRow(XeenSetupScreen &screen, const fs::path &scratch) {
+    const auto file = scratch / "controller-window.ini";
+    WindowPlacement before;before.fullscreen = true;before.width = 800;before.height = 600;before.aspect = PictureAspect::Square;
+    check(writeWindowPlacement(file, before), "seed window settings");
+    XeenSetupScreenTestAccess::fixture(screen, XeenSetupScreen::Page::Main);
+    std::atomic<bool> done{false};
+    std::thread sender([&] {
+        SDL_Window *window = nullptr;
+        for (int attempt = 0; attempt < 200 && !done && !window; ++attempt) {
+            if (SDL_WasInit(SDL_INIT_VIDEO))
+                for (unsigned id = 1; id < 200; ++id)
+                    if (auto *w = SDL_GetWindowFromID(id))
+                        if (std::string(SDL_GetWindowTitle(w)) == "MMModern setup") {
+                            window = w;
+                            break;
+                        }
+            if (!window)
+                std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        }
+        if (!window)
+            return;
+        const auto click = [&](int x, int y) {
+            int ww = 0, wh = 0, ow = 0, oh = 0;
+            SDL_GetWindowSize(window, &ww, &wh);
+            auto *renderer = SDL_GetRenderer(window);
+            if (!renderer || SDL_GetRendererOutputSize(renderer, &ow, &oh) != 0)
+                return;
+            const auto point = frameToWindow(x, y, ww, wh, ow, oh, 320, 200, PictureAspect::Square);
+            if (!point)
+                return;
+            SDL_Event event{};
+            event.type = SDL_MOUSEBUTTONDOWN;
+            event.button.button = SDL_BUTTON_LEFT;
+            event.button.windowID = SDL_GetWindowID(window);
+            event.button.x = point->first;
+            event.button.y = point->second;
+            SDL_PushEvent(&event);
+            event.type = SDL_MOUSEBUTTONUP;
+            SDL_PushEvent(&event);
+        };
+        // Early clicks can precede the frame that accepts input, as for Play.
+        for (int attempt = 0; attempt < 20 && !done && !SdlWindow::controllerSetting(); ++attempt) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(150));
+            if (!SdlWindow::controllerSetting()) click(180, 47 + 19 * 4); // Game controller.
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+        for (int attempt = 0; attempt < 20 && !done; ++attempt) {
+            click(180, 47); // Play.
+            std::this_thread::sleep_for(std::chrono::milliseconds(150));
+        }
+        if (!done) {
+            SDL_Event event{};
+            event.type = SDL_QUIT;
+            SDL_PushEvent(&event);
+        }
+    });
+    const auto selected = screen.run(file);
+    done = true;
+    sender.join();
+    check(bool(selected), "Play after the controller row");
+    auto expected = before;
+    expected.controller = true;
+    const auto after = readWindowPlacement(file);
+    check(after == expected, ("the controller row changed more than the controller key: " + formatWindowPlacement(after)).c_str());
+    SdlWindow::useControllerSetting(false);
+    SdlWindow::rememberPlacement(std::nullopt);
+    std::cout << "Setup screen controller row passed" << std::endl;
+}
+#endif
 int main(int argc, char **argv) {
     try {
         const auto outputDir = argc > 2 ? fs::absolute(fs::u8path(argv[2])) : fs::path{};
@@ -367,7 +440,7 @@ int main(int argc, char **argv) {
         #ifdef _WIN32
         const std::uint64_t mainDigest = 7728170877540825945ULL;
 #else
-        const std::uint64_t mainDigest = 14492834640385554265ULL;
+        const std::uint64_t mainDigest = 13229519516257890217ULL; // M115: the controller row.
 #endif
         const std::uint64_t expected[] = {mainDigest, 16505137804929558265ULL,
             8930215273459613646ULL, 12098287078506398707ULL,
@@ -398,17 +471,36 @@ int main(int argc, char **argv) {
         XeenSetupScreenTestAccess::fixture(s, XeenSetupScreen::Page::Main);
         SDL_SetMainReady();
         check(SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_EVENTS) == 0, "clipboard SDL setup");
-        for (int i = 0; i < 4; ++i)
+        // Down to Copy diagnostics (on Linux the controller row comes before it).
+        for (int i = 0; i < 10 && s.rows().at(s.focus()).action != "copy"; ++i)
             s.dispatch(DialogKeyAction{InputKey::Down});
+        check(s.rows().at(s.focus()).action == "copy", "Copy diagnostics not reachable with Down");
         s.dispatch(DialogKeyAction{InputKey::Enter});
         char *copied = SDL_GetClipboardText();
         check(copied && std::string(copied).find("game.status:") != std::string::npos &&
                   s.notice() == "Diagnostics copied.",
               "copy diagnostics");
         SDL_free(copied);
+#ifndef _WIN32
+        {
+            // M115: the controller row toggles the window.ini option.
+            XeenSetupScreenTestAccess::fixture(s, XeenSetupScreen::Page::Main);
+            const auto &rows = s.rows();
+            const auto row = std::find_if(rows.begin(), rows.end(), [](const auto &r) { return r.action == "controller"; });
+            check(row != rows.end() && row->label == "Game controller: off" && !SdlWindow::controllerSetting(), "controller row, off by default");
+            const unsigned hit = 1000 + unsigned(row - rows.begin());
+            s.dispatch(DialogKeyAction{hit});
+            check(SdlWindow::controllerSetting() && s.rows().at(hit - 1000).label == "Game controller: on", "controller row turns it on");
+            s.dispatch(DialogKeyAction{hit});
+            check(!SdlWindow::controllerSetting() && s.rows().at(hit - 1000).label == "Game controller: off", "controller row turns it off");
+        }
+#endif
         SDL_QuitSubSystem(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
         nativePlay(s, false);
         nativePlay(s, true);
+#ifndef _WIN32
+        nativeControllerRow(s, scratch);
+#endif
         std::cout << "Setup screen model passed\n";
         return 0;
     } catch (const std::exception &e) {

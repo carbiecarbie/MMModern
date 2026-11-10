@@ -1,6 +1,7 @@
 // M115 Part A: game controller keys. Mapping and tracker units without SDL,
 // then the production SDL loop driven by pushed SDL_CONTROLLER* events whose
 // state comes entirely from the event payloads (no device is needed).
+#include "SdlMouseTestSupport.h"
 #include "core/PresentationClock.h"
 #include "platform/sdl/SdlController.h"
 #include "platform/sdl/SdlWindow.h"
@@ -8,7 +9,13 @@
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 
+#include <algorithm>
+#include <atomic>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
 #include <functional>
+#include <thread>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -16,6 +23,29 @@
 #include <vector>
 
 using namespace mmodern;
+
+// Part B: the wait the loop asks SDL for, while a test records it.
+static std::vector<int> waits;
+static bool recordWaits = false;
+static std::optional<std::pair<int, int>> *cursorTarget = nullptr;
+static bool *cursorRecording = nullptr;
+extern "C" int __real_SDL_RenderCopy(SDL_Renderer *, SDL_Texture *, const SDL_Rect *, const SDL_Rect *);
+extern "C" int __wrap_SDL_RenderCopy(SDL_Renderer *renderer, SDL_Texture *texture, const SDL_Rect *source, const SDL_Rect *target) {
+    // The test cursor is 2x2: its copies are the only 2x2 destinations.
+    if (cursorRecording && *cursorRecording && target && target->w == 2 && target->h == 2) *cursorTarget = std::pair<int, int>{target->x, target->y};
+    return __real_SDL_RenderCopy(renderer, texture, source, target);
+}
+// SDL's dummy video driver gives every window mouse focus; a test can report
+// none, as when the mouse is outside the window.
+static bool noMouseFocus = false;
+extern "C" SDL_Window *__real_SDL_GetMouseFocus();
+extern "C" SDL_Window *__wrap_SDL_GetMouseFocus() { return noMouseFocus ? nullptr : __real_SDL_GetMouseFocus(); }
+extern "C" int __real_SDL_WaitEventTimeout(SDL_Event *, int);
+extern "C" int __wrap_SDL_WaitEventTimeout(SDL_Event *event, int timeout) {
+    if (!recordWaits) return __real_SDL_WaitEventTimeout(event, timeout);
+    waits.push_back(timeout);
+    return __real_SDL_WaitEventTimeout(event, std::min(timeout, 2));
+}
 
 namespace {
 
@@ -332,6 +362,7 @@ std::string label(const PlayerAction &action) {
     if (std::holds_alternative<YesAction>(action)) return "yes";
     if (std::holds_alternative<NoAction>(action)) return "no";
     if (const auto *k = std::get_if<DialogKeyAction>(&action)) return "key:" + std::to_string(k->key);
+    if (const auto *t = std::get_if<TextInputAction>(&action)) return "text:" + t->text;
     if (const auto *k = std::get_if<ExplorationKeyAction>(&action)) return "ex:" + std::to_string(k->key);
     return "?" + std::to_string(action.index());
 }
@@ -347,8 +378,14 @@ struct Loop {
     std::shared_ptr<const DialogInput> dialog;
     std::shared_ptr<const XeenKeyboard> keyboard;
     bool queueable = true, ready = true, redraw = false, retainEventKeys = false;
+    bool contextPerAction = false; // As the title's name entry: a new context id at every key.
+    bool newEntryOnEnter = false;  // Enter opens another entry of the same kind.
+    bool cursor = false;           // Draw the original-style cursor (2x2).
+    std::function<bool()> finished;
     std::function<void(const PlayerAction &)> observe;
     std::uint64_t context = 1, epoch = 1, presented = 0, clock = 0;
+    std::optional<std::uint64_t> deadline; // After the clock: the loop's presentation deadline.
+    std::string field; // A text entry's value, from the delivered actions.
     unsigned stage = 0;
     std::vector<std::string> delivered;
     std::vector<std::uint64_t> deliveredAt;
@@ -367,6 +404,9 @@ struct Loop {
         handler.keyboard = keyboard;
         handler.displayedInput = [&] { return std::optional<std::uint64_t>{epoch}; };
         handler.presentationClock = [&] { return clock; };
+        if (deadline) handler.nextPresentationDeadline = [&] { return std::optional<std::uint64_t>{clock + *deadline}; };
+        if (finished) handler.finished = finished;
+        if (cursor) handler.cursorImage = [] { IndexedFrame image(2, 2, {1, 1, 1, 1});image.palette[3] = 255;return image; };
         handler.inputContext = [&](const auto &) {
             InputContext c;c.contextId = context;c.acceptsQueuedInput = queueable;c.readyForAction = ready && presented == epoch;
             c.mainScreen = screen;c.dialog = dialog;c.retainEventKeys = retainEventKeys;return c;
@@ -378,7 +418,13 @@ struct Loop {
         handler.withPresentedInput = [&](const PlayerAction &action, auto token, const auto &) -> std::optional<IndexedFrame> {
             if (token != epoch) return {};
             delivered.push_back(label(action));deliveredAt.push_back(clock);
+            if (const auto *t = std::get_if<TextInputAction>(&action)) field += t->text;
+            if (const auto *k = std::get_if<DialogKeyAction>(&action); k && k->key == 8 && !field.empty()) field.pop_back();
             if (observe) observe(action);
+            if (contextPerAction) ++context;
+            if (const auto *k = std::get_if<DialogKeyAction>(&action); newEntryOnEnter && k && k->key == InputKey::Enter) {
+                field.clear();++context;
+            }
             ++epoch;return frame;
         };
         const bool ok = SdlWindow().showInteractive(frame, name, handler, [] { return true; }, [&]() -> std::optional<IndexedFrame> {
@@ -735,10 +781,375 @@ void virtualController() {
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, nullptr);
 }
 
+
+// ---- Part B: text entry (decision 6) ------------------------------------
+
+void textEntryUnits() {
+    ControllerContext english;english.textEntry = english.stringEntry = true;
+    const auto letters = xeenControllerCharacters(english);
+    check(letters.size() == 37 && letters.front() == 'A' && letters[25] == 'Z' && letters[26] == ' ' &&
+        letters[27] == '0' && letters.back() == '9', "English string entries cycle A-Z, space, 0-9");
+    ControllerContext number;number.textEntry = true;
+    const auto digits = xeenControllerCharacters(number);
+    check(digits.size() == 10 && digits.front() == '0' && digits.back() == '9', "number entries cycle digits");
+    check(xeenControllerStep(letters, std::nullopt, true) == 'A' && xeenControllerStep(letters, std::nullopt, false) == '9',
+        "Up adds the first character, Down the last");
+    check(xeenControllerStep(letters, 'Z', true) == ' ' && xeenControllerStep(letters, '9', true) == 'A' &&
+        xeenControllerStep(letters, 'A', false) == '9', "the cycle wraps");
+    const auto typedA = xeenControllerTypedKey('A', english);
+    check(typedA && typedA->key == ControllerKeyEvent{SDLK_a, SDL_SCANCODE_A} && typedA->text == "A", "English A: key down and text");
+    const auto typed0 = xeenControllerTypedKey('0', number);
+    check(typed0 && typed0->key == ControllerKeyEvent{SDLK_0, SDL_SCANCODE_0} && typed0->text == "0", "English 0");
+    ControllerContext russian = english;russian.keyboard = russianKeyboard();
+    const auto cyrillic = xeenControllerCharacters(russian);
+    check(cyrillic.size() > 11 && std::is_sorted(cyrillic.begin(), cyrillic.end() - 11) && cyrillic.front() >= 0x80 &&
+        cyrillic[cyrillic.size() - 11] == ' ', "Russian entries cycle the Russian program's letters, space, digits");
+    const auto typedC = xeenControllerTypedKey(0xe1, russian);
+    check(typedC && typedC->key == ControllerKeyEvent{SDLK_c, SDL_SCANCODE_C} && typedC->text.empty(),
+        "a Russian letter is its key, without text input");
+    for (const auto c : cyrillic) check(bool(xeenControllerTypedKey(c, russian)), "every Russian cycle character is typable");
+    // The setup screen's path line is free text: the controller sends its keys.
+    auto path = std::make_shared<DialogInput>();path->textEntry = true;path->freeText = true;
+    path->keys = {InputKey::Enter, InputKey::Escape, InputKey::Up, InputKey::Down};
+    const auto pathContext = xeenControllerContext(contextOf(MainScreen::None, path), nullptr);
+    check(!pathContext.textEntry && xeenControllerKey(C::Up, pathContext) == std::optional<unsigned>(InputKey::Up),
+        "the path line has no character cycle");
+    // The tracker hands text-entry presses to SdlController instead of keys.
+    ControllerTracker t;
+    const auto entry = xeenControllerContext(contextOf(MainScreen::None, dialogWith({InputKey::Enter, InputKey::Escape, 8}, true)), nullptr);
+    check(t.button(1, SDL_CONTROLLER_BUTTON_DPAD_UP, true, entry).empty() && t.axis(1, SDL_CONTROLLER_AXIS_LEFTY, -30000, entry).empty() &&
+        t.button(1, SDL_CONTROLLER_BUTTON_A, true, entry).empty(), "text entry presses make no key");
+    const auto presses = t.takeTextPresses();
+    check(presses.size() == 2 && presses[0].control == C::Up && presses[1].control == C::A, "D-pad and stick merged; A typed in order");
+    t.button(1, SDL_CONTROLLER_BUTTON_DPAD_UP, false, entry);t.axis(1, SDL_CONTROLLER_AXIS_LEFTY, 0, entry);
+    check(t.button(1, SDL_CONTROLLER_BUTTON_A, false, entry).empty() && t.takeTextPresses().empty(), "breaks type nothing");
+    // RT is merged like a control; the right stick is read, not translated.
+    check(t.axis(1, SDL_CONTROLLER_AXIS_TRIGGERRIGHT, 30000, entry).empty() && t.axis(2, SDL_CONTROLLER_AXIS_TRIGGERRIGHT, 30000, entry).empty(),
+        "RT sends no key");
+    t.axis(1, SDL_CONTROLLER_AXIS_TRIGGERRIGHT, 12000, entry); // Above a third: still held.
+    t.axis(1, SDL_CONTROLLER_AXIS_TRIGGERRIGHT, 0, entry);
+    check(t.takeClicks() == std::vector<bool>{true}, "two controllers press once");
+    t.removed(2);
+    check(t.takeClicks() == std::vector<bool>{false}, "removal releases RT");
+    t.axis(3, SDL_CONTROLLER_AXIS_RIGHTX, -20000, entry);t.axis(4, SDL_CONTROLLER_AXIS_RIGHTY, 30000, entry);
+    check(t.pointerAxes() == std::pair<int, int>{0, 30000}, "the most deflected right stick moves the pointer");
+    std::cout << "Controller text entry and pointer units passed" << std::endl;
+}
+
+std::string bytes(std::initializer_list<unsigned char> characters) { return std::string(characters.begin(), characters.end()); }
+
+void textEntryLoop(bool russian, bool retained, bool contextPerAction = false) {
+    Loop loop;loop.screen = MainScreen::None;loop.queueable = false;loop.retainEventKeys = retained;
+    loop.contextPerAction = contextPerAction;loop.newEntryOnEnter = true;
+    if (russian) loop.keyboard = russianKeyboard();
+    loop.dialog = retained ? dialogWith({8, 127, InputKey::Escape, InputKey::Enter}, true) :
+        dialogWith({InputKey::Escape, InputKey::Enter, 8, InputKey::Left}, true);
+    ControllerContext context;context.textEntry = context.stringEntry = true;context.keyboard = loop.keyboard;
+    const auto characters = xeenControllerCharacters(context);
+    // Event word entries take letters from key events, which the CD program lowercases.
+    const auto shown = [&](unsigned char c) { return !russian && retained && c >= 'A' && c <= 'Z' ? (unsigned char)(c + 32) : c; };
+    pushedKeys.clear();SDL_AddEventWatch(&recordKeys, nullptr);
+    const std::string name = std::string(russian ? "russian" : "english") + (retained ? "-event-word" : "-strict") +
+        (contextPerAction ? "-new-context-per-key" : "") + "-text-entry";
+    loop.run(name.c_str(), [&](Loop &l) {
+        if (l.stage == 0) tapButton(SDL_CONTROLLER_BUTTON_DPAD_UP);
+        else if (l.stage == 4) {
+            l.expect(l.field == bytes({shown(characters[0])}), "the first Up adds the first character");
+            tapButton(SDL_CONTROLLER_BUTTON_DPAD_UP);
+        } else if (l.stage == 8) {
+            l.expect(l.field == bytes({shown(characters[1])}), "Up changes the character the controller added");
+            tapButton(SDL_CONTROLLER_BUTTON_DPAD_UP);tapButton(SDL_CONTROLLER_BUTTON_DPAD_UP); // A fast second press.
+        } else if (l.stage == 14) {
+            l.expect(l.field == bytes({shown(characters[3])}), "a fast second press was lost or doubled");
+            tapButton(SDL_CONTROLLER_BUTTON_DPAD_RIGHT);axis(7, SDL_CONTROLLER_AXIS_LEFTY, 30000);axis(7, SDL_CONTROLLER_AXIS_LEFTY, 0);
+        } else if (l.stage == 20) {
+            l.expect(l.field == bytes({shown(characters[3]), shown(characters.back())}), "Right then Down (stick) adds the last character");
+            tapButton(SDL_CONTROLLER_BUTTON_DPAD_LEFT);
+        } else if (l.stage == 24) {
+            l.expect(l.field == bytes({shown(characters[3])}), "Left deletes one character");
+            tapButton(SDL_CONTROLLER_BUTTON_A);tapButton(SDL_CONTROLLER_BUTTON_DPAD_UP); // Up in the same batch as A.
+        } else if (l.stage == 28) {
+            l.expect(!l.delivered.empty() && l.delivered.back() == "key:13", "A confirms");
+            l.expect(l.field.empty(), "a press after A reached the next entry"); // A opened another entry.
+            l.expect(std::count(l.delivered.begin(), l.delivered.end(), "key:8") == 3, "Backspaces doubled or lost");
+        } else if (l.stage == 30) tapButton(SDL_CONTROLLER_BUTTON_DPAD_UP);
+        else if (l.stage == 34) {
+            l.expect(l.field == bytes({shown(characters[0])}) && std::count(l.delivered.begin(), l.delivered.end(), "key:8") == 3,
+                "a new entry continued the last one's character");
+            quit();
+        }
+    });
+    SDL_DelEventWatch(&recordKeys, nullptr);
+    for (const auto &[type, scancode] : pushedKeys)
+        check(scancode != SDL_SCANCODE_UP && scancode != SDL_SCANCODE_DOWN && scancode != SDL_SCANCODE_LEFT &&
+            scancode != SDL_SCANCODE_RIGHT, "a text entry received a raw arrow");
+}
+
+void numberAndPathEntries() {
+    {   Loop loop;loop.screen = MainScreen::None;loop.queueable = false;
+        loop.dialog = dialogWith({InputKey::Enter, InputKey::Escape, 8, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'}, true);
+        auto number = std::make_shared<DialogInput>(*loop.dialog);number->stringEntry = false;loop.dialog = number;
+        loop.run("number-entry-digits", [](Loop &l) {
+            if (l.stage == 0) tapButton(SDL_CONTROLLER_BUTTON_DPAD_UP);
+            else if (l.stage == 4) tapButton(SDL_CONTROLLER_BUTTON_DPAD_UP);
+            else if (l.stage == 9) {
+                // The digit key acts; its text input then belongs to a stale frame, as on a keyboard.
+                l.expect(l.delivered == std::vector<std::string>{"key:48", "key:8", "key:49"}, "number entry cycles digits");
+                quit();
+            }
+        });
+    }
+    {   Loop loop;loop.screen = MainScreen::None;loop.queueable = false;
+        auto path = std::make_shared<DialogInput>();path->textEntry = true;path->freeText = true;
+        path->keys = {8, 22, InputKey::Enter, InputKey::Escape, InputKey::Up, InputKey::Down, InputKey::Left, InputKey::Right};
+        loop.dialog = path;
+        loop.run("setup-path-line-no-cycle", [](Loop &l) {
+            if (l.stage == 0) tapButton(SDL_CONTROLLER_BUTTON_DPAD_UP);
+            else if (l.stage == 3) {
+                l.expect(l.delivered == std::vector<std::string>{"key:" + std::to_string(InputKey::Up)}, "the path line moved the focus");
+                quit();
+            }
+        });
+    }
+}
+
+// ---- Part B: the pointer (decision 5) -------------------------------------
+
+void warp(int x, int y, PictureAspect aspect) {
+    SDL_MouseButtonEvent at{};
+    sdl_mouse_test::position(at, x, y, aspect);
+    SDL_WarpMouseInWindow(sdl_mouse_test::window(), at.x, at.y);
+}
+void mouseClick(int x, int y, PictureAspect aspect) {
+    SDL_Event e{};e.type = SDL_MOUSEBUTTONDOWN;e.button.button = SDL_BUTTON_LEFT;e.button.state = SDL_PRESSED;
+    sdl_mouse_test::position(e.button, x, y, aspect);push(e);
+    e.type = SDL_MOUSEBUTTONUP;e.button.state = SDL_RELEASED;push(e);
+}
+void rtTap() { axis(7, SDL_CONTROLLER_AXIS_TRIGGERRIGHT, 32767);axis(7, SDL_CONTROLLER_AXIS_TRIGGERRIGHT, 0); }
+
+void pointerClicks(PictureAspect aspect) {
+    const auto directory = std::filesystem::temp_directory_path() / "mmodern-m115-pointer";
+    std::filesystem::create_directories(directory);
+    const auto settings = directory / "window.ini";
+    { std::ofstream out(settings); out << (aspect == PictureAspect::Square ? "aspect=square" : "aspect=4:3") << std::endl; }
+    SdlWindow::useAspectSetting(settings);
+    Loop loop;
+    loop.run(aspect == PictureAspect::Square ? "stick-pointer-click-square" : "stick-pointer-click-4:3", [&](Loop &l) {
+        if (l.stage == 0) warp(160, 100, aspect);
+        else if (l.stage == 2) axis(7, SDL_CONTROLLER_AXIS_RIGHTX, 32767); // Takes the pointer at (160,100).
+        else if (l.stage == 3) l.clock += 560000000;                        // 200 px/s: x 272.
+        else if (l.stage == 4) axis(7, SDL_CONTROLLER_AXIS_RIGHTX, 0);
+        else if (l.stage == 5) axis(7, SDL_CONTROLLER_AXIS_RIGHTY, -32767);
+        else if (l.stage == 6) l.clock += 75000000;                         // y 85: on Cast.
+        else if (l.stage == 7) { axis(7, SDL_CONTROLLER_AXIS_RIGHTY, 0);l.expect(l.delivered.empty(), "moving the pointer made a pass"); }
+        else if (l.stage == 8) rtTap();
+        else if (l.stage == 12) { l.expect(l.delivered == std::vector<std::string>{"cast"}, "RT did not click Cast at the pointer");mouseClick(272, 85, aspect); }
+        else if (l.stage == 16) { l.expect(l.delivered == std::vector<std::string>{"cast", "cast"}, "the mouse hit another button");warp(247, 85, aspect); }
+        else if (l.stage == 18) rtTap();
+        else if (l.stage == 22) {
+            l.expect(l.delivered == std::vector<std::string>{"cast", "cast", "shoot"}, "the mouse did not take the pointer back");
+            quit();
+        }
+    });
+    SdlWindow::useAspectSetting(std::nullopt);
+    std::error_code ignored;std::filesystem::remove_all(directory, ignored);
+}
+
+void pointerWaitCap() {
+    Loop loop;loop.deadline = 500000000;
+    loop.run("pointer-wait-cap", [](Loop &l) {
+        if (l.stage == 0) { axis(7, SDL_CONTROLLER_AXIS_RIGHTX, 4000);waits.clear();recordWaits = true; } // Inside the dead zone.
+        else if (l.stage == 3) {
+            l.expect(!waits.empty() && *std::min_element(waits.begin(), waits.end()) >= 400, "the dead zone capped the wait");
+            waits.clear();axis(7, SDL_CONTROLLER_AXIS_RIGHTX, 30000);
+        } else if (l.stage == 5) {
+            l.expect(!waits.empty() && *std::max_element(waits.begin(), waits.end()) <= 8, "a moving stick did not cap the wait");
+            recordWaits = false;axis(7, SDL_CONTROLLER_AXIS_RIGHTX, 0);
+            l.expect(l.delivered.empty(), "moving the pointer made a pass");
+            quit();
+        }
+    });
+}
+
+std::vector<Uint32> mouseEvents;
+std::atomic<bool> recordingMouse{false};
+int recordMouse(void *, SDL_Event *event) {
+    if (!recordingMouse) return 1; // Not the focus loss of the window closing.
+    if (event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEBUTTONUP ||
+        (event->type == SDL_WINDOWEVENT && event->window.event == SDL_WINDOWEVENT_FOCUS_LOST)) mouseEvents.push_back(event->type);
+    return 1;
+}
+
+// RT held: the loop waits for the release without idle work; removing the
+// controller or losing focus pushes the release.
+void pointerReleaseOnLoss(bool focus) {
+    auto &pointer = SdlController::instance().pointer();
+    pointer.stick = true;pointer.known = true; // RT clicks at the stick's pointer.
+    Loop loop;
+    std::atomic<bool> finished{false};
+    std::vector<std::chrono::steady_clock::time_point> stages;
+    std::thread helper;
+    mouseEvents.clear();recordingMouse = true;SDL_AddEventWatch(&recordMouse, nullptr);
+    loop.run(focus ? "rt-held-focus-loss" : "rt-held-removal", [&](Loop &l) {
+        stages.push_back(std::chrono::steady_clock::now());
+        if (l.stage == 0) {
+            axis(7, SDL_CONTROLLER_AXIS_TRIGGERRIGHT, 32767);
+            helper = std::thread([&] {
+                std::this_thread::sleep_for(std::chrono::milliseconds(300));
+                if (focus) focusLost(); else removed(7);
+                for (int i = 0; i < 30 && !finished; ++i) std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                if (!finished) quit(); // Never released: end the loop so that the test fails.
+            });
+        } else if (l.stage == 5) { recordingMouse = false;finished = true;quit(); }
+    });
+    finished = true;helper.join();
+    SDL_DelEventWatch(&recordMouse, nullptr);
+    check(stages.size() == 6, "idle work did not resume after the loss");
+    std::chrono::steady_clock::duration longest{};
+    for (std::size_t i = 1; i < stages.size(); ++i) longest = std::max(longest, stages[i] - stages[i - 1]);
+    check(longest >= std::chrono::milliseconds(250), "idle work ran while RT held the mouse button");
+    const std::vector<Uint32> expected = focus ?
+        std::vector<Uint32>{SDL_MOUSEBUTTONDOWN, SDL_WINDOWEVENT, SDL_MOUSEBUTTONUP} : std::vector<Uint32>{SDL_MOUSEBUTTONDOWN, SDL_MOUSEBUTTONUP};
+    check(mouseEvents == expected, "the controller did not push the release");
+    std::cout << (focus ? "RT focus-loss release passed" : "RT removal release passed") << std::endl;
+}
+
+
+// ---- Part B fix round ------------------------------------------------------
+
+// S1: an RT press taken in the batch that finishes a loop is left to the next
+// loop, whose RT release then ends the hold: no frozen loop.
+void rtAcrossLoops() {
+    auto &pointer = SdlController::instance().pointer();
+    pointer.stick = true;pointer.known = true;pointer.x = 160;pointer.y = 100;
+    {   Loop first;bool finishing = false;
+        first.finished = [&] { return finishing; };
+        first.run("rt-press-as-a-loop-finishes", [&](Loop &l) {
+            if (l.stage == 1) { axis(7, SDL_CONTROLLER_AXIS_TRIGGERRIGHT, 32767);finishing = true; }
+            else if (l.stage > 3) quit();
+        });
+    }
+    Loop second;
+    std::atomic<bool> finished{false};
+    std::thread helper;
+    mouseEvents.clear();recordingMouse = true;SDL_AddEventWatch(&recordMouse, nullptr);
+    second.run("rt-release-in-the-next-loop", [&](Loop &l) {
+        if (l.stage == 0)
+            helper = std::thread([&] {
+                std::this_thread::sleep_for(std::chrono::milliseconds(300));
+                axis(7, SDL_CONTROLLER_AXIS_TRIGGERRIGHT, 0);
+                for (int i = 0; i < 30 && !finished; ++i) std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                if (!finished) quit(); // Frozen: end the loop so that the test fails.
+            });
+        else if (l.stage == 5) { recordingMouse = false;finished = true;quit(); }
+    });
+    finished = true;helper.join();
+    SDL_DelEventWatch(&recordMouse, nullptr);
+    check(second.stage >= 6, "the next loop froze on the RT press");
+    check(!mouseEvents.empty() && mouseEvents.back() == SDL_MOUSEBUTTONUP, "the RT release was not pushed");
+    std::cout << "RT across loops passed" << std::endl;
+}
+
+// N3: the pointer keeps its place and owner across loops.
+void pointerAcrossLoops() {
+    auto &pointer = SdlController::instance().pointer();
+    pointer.stick = false;pointer.known = false;
+    {   Loop first;
+        first.run("pointer-moved-in-one-loop", [](Loop &l) {
+            if (l.stage == 0) warp(160, 100, PictureAspect::FourThree);
+            else if (l.stage == 2) axis(7, SDL_CONTROLLER_AXIS_RIGHTX, 32767); // Takes the pointer at (160,100).
+            else if (l.stage == 3) l.clock += 560000000;
+            else if (l.stage == 4) axis(7, SDL_CONTROLLER_AXIS_RIGHTX, 0);
+            else if (l.stage == 5) axis(7, SDL_CONTROLLER_AXIS_RIGHTY, -32767);
+            else if (l.stage == 6) l.clock += 75000000;
+            else if (l.stage == 7) { axis(7, SDL_CONTROLLER_AXIS_RIGHTY, 0);quit(); }
+        });
+    }
+    Loop second;
+    second.run("pointer-kept-in-the-next-loop", [](Loop &l) {
+        if (l.stage == 0) rtTap();
+        else if (l.stage == 4) { l.expect(l.delivered == std::vector<std::string>{"cast"}, "the pointer did not keep its place");quit(); }
+    });
+}
+
+// N4: RT never clicks where no pointer is drawn; it shows the stick's pointer.
+void rtWithoutPointer() {
+    auto &pointer = SdlController::instance().pointer();
+    pointer.stick = false;pointer.known = false;
+    Loop loop;
+    noMouseFocus = true; // The mouse is not over the window.
+    loop.run("rt-shows-the-pointer-first", [&](Loop &l) {
+        if (l.stage == 2) { pointer.stick = false;rtTap(); }
+        else if (l.stage == 6) {
+            l.expect(l.delivered.empty(), "RT clicked where no pointer is drawn");
+            l.expect(pointer.stick && pointer.x == 160 && pointer.y == 100, "RT did not show the pointer at the frame center");
+            rtTap();
+        } else if (l.stage == 10) { l.expect(l.delivered == std::vector<std::string>{"space"}, "the next RT did not click at the pointer");quit(); }
+    });
+    noMouseFocus = false;
+}
+
+// N11: RT in a strict dialog acts on release, as a mouse click does.
+void rtStrictDialog() {
+    auto &pointer = SdlController::instance().pointer();
+    pointer.stick = true;pointer.known = true;pointer.x = 15;pointer.y = 15;
+    Loop loop;loop.screen = MainScreen::None;loop.queueable = false;
+    DialogInput input;input.hits.push_back({10, 10, 30, 30, 'e'});input.keys = {'e', InputKey::Escape};
+    loop.dialog = std::make_shared<const DialogInput>(std::move(input));
+    loop.run("rt-in-a-strict-dialog", [](Loop &l) {
+        if (l.stage == 0) rtTap();
+        else if (l.stage == 4) { l.expect(l.delivered == std::vector<std::string>{"key:101"}, "RT in a strict dialog");quit(); }
+    });
+}
+
+// N11: the cursor is drawn at the kept position while the stick owns it.
+std::optional<std::pair<int, int>> cursorAt;
+bool recordCursor = false;
+void cursorAtKeptPosition() {
+    const auto directory = std::filesystem::temp_directory_path() / "mmodern-m115-cursor";
+    std::filesystem::create_directories(directory);
+    const auto settings = directory / "window.ini";
+    { std::ofstream out(settings); out << "aspect=square" << std::endl; }
+    SdlWindow::useAspectSetting(settings); // Square: the cursor is drawn at frame scale 1.
+    auto &pointer = SdlController::instance().pointer();
+    pointer.stick = true;pointer.known = true;pointer.x = 100.7;pointer.y = 50.2;
+    Loop loop;loop.cursor = true;
+    cursorAt.reset();recordCursor = true;
+    loop.run("cursor-at-the-kept-position", [&](Loop &l) {
+        if (l.stage == 2) {
+            l.expect(cursorAt == std::pair<int, int>{100, 50}, "the cursor is not drawn at the kept position");
+            warp(30, 40, PictureAspect::Square);cursorAt.reset(); // The mouse moves.
+        } else if (l.stage == 5) {
+            l.expect(!pointer.stick && cursorAt == std::pair<int, int>{30, 40}, "the mouse did not take the cursor back");
+            quit();
+        }
+    });
+    recordCursor = false;
+    SdlWindow::useAspectSetting(std::nullopt);
+    std::error_code ignored;std::filesystem::remove_all(directory, ignored);
+}
+
+// S2: a controller character dropped by a fence leaves the field unknown: the
+// next Up adds, and no Backspace deletes a character the player typed.
+void droppedCharacter() {
+    Loop loop;loop.screen = MainScreen::None;loop.queueable = false;loop.ready = false;
+    loop.dialog = dialogWith({InputKey::Escape, InputKey::Enter, 8, InputKey::Left}, true);
+    loop.run("dropped-controller-character", [](Loop &l) {
+        if (l.stage == 0) tapButton(SDL_CONTROLLER_BUTTON_DPAD_UP); // The entry is not ready yet.
+        else if (l.stage == 4) { l.expect(l.delivered.empty(), "a character reached a busy entry");l.ready = true; }
+        else if (l.stage == 5) tapButton(SDL_CONTROLLER_BUTTON_DPAD_UP);
+        else if (l.stage == 9) {
+            l.expect(l.delivered == std::vector<std::string>{"text:A"}, "a Backspace followed a dropped character");
+            quit();
+        }
+    });
+}
+
 int main(int argc, char **) {
     try {
         mappingTable();
         trackerUnits();
+        textEntryUnits();
         if (argc > 1) return 0;
         optionOff();
         SdlWindow::useControllerSetting(true);
@@ -756,6 +1167,22 @@ int main(int argc, char **) {
         optionOffWhileHeld();
         nestedLoopRestoresSnapshot();
         virtualController();
+        for (const bool russian : {false, true})
+            for (const bool retained : {false, true}) textEntryLoop(russian, retained);
+        textEntryLoop(false, false, true);
+        numberAndPathEntries();
+        pointerClicks(PictureAspect::FourThree);
+        pointerClicks(PictureAspect::Square);
+        pointerWaitCap();
+        pointerReleaseOnLoss(false);
+        pointerReleaseOnLoss(true);
+        cursorTarget = &cursorAt;cursorRecording = &recordCursor;
+        rtAcrossLoops();
+        pointerAcrossLoops();
+        rtWithoutPointer();
+        rtStrictDialog();
+        cursorAtKeptPosition();
+        droppedCharacter();
         SdlWindow::useControllerSetting(false);
         optionOff();
         std::cout << "SDL controller tests passed\n";

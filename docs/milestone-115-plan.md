@@ -212,8 +212,12 @@ layout of M112 (to verify on the device).
    can make phantom steps. Losing focus or a controller releases every key
    and click it holds. SDL reports a button that was pressed while the
    window was unfocused when focus returns; it then counts as a press.
-5. **The pointer.** `SdlWindow` keeps one pointer position in frame
-   coordinates, set by whichever device moved it last. This is new
+5. **The pointer.** One pointer position in frame coordinates, set by
+   whichever device moved it last, is kept for the process, so it keeps
+   its place from one window to the next. RT never clicks where no pointer
+   is drawn: when the mouse is not over the window, the first RT shows the
+   stick's pointer (at the frame center the first time) and the next one
+   clicks. This is new
    handling on both sides: today the loop ignores `SDL_MOUSEMOTION` and
    reads the OS mouse position and mouse focus when it draws. Both drawing
    paths (4:3 and square) draw the kept position, and the mouse-focus test
@@ -238,10 +242,19 @@ layout of M112 (to verify on the device).
    - Changing a character is two inputs, Backspace and the new character.
      Name, save-name and number entries are strict: the loop rightly drops
      a second input that arrives before the frame answering the first is
-     acquired. `SdlController` therefore holds the new character as a
-     one-slot follow-up, which the loop releases right after it acquires
-     that frame, and drops if the context changed. This is the one place
-     where the loop gains controller-specific sequencing.
+     acquired. `SdlController` therefore queues the text inputs of an
+     entry and sends them one at a time, each right after the loop
+     acquires a frame. This is the one place where the loop gains
+     controller-specific sequencing: it tells the controller what it
+     delivered and when it acquired a frame.
+   - An entry lasts while every acquired context is a text entry of the
+     same kind, not while the context id stays the same: the title's name
+     entry takes a new id at every key. Any other context, a delivered
+     Enter or Escape, focus loss or the option going off ends the entry and
+     drops what it still had to type, so nothing leaks into the next
+     entry. An input a fence dropped is not sent again, and the controller
+     then forgets its last character, so that it never deletes one the
+     player typed.
    - String entries cycle A-Z, space and 0-9 (the Russian program's
      letters in Russian); number entries cycle digits. The setup screen's
      path line has no cycle: its arrows move the focus, and the folder is

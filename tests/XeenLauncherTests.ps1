@@ -154,6 +154,30 @@ Check ($missingRom['roms.control'] -eq 'missing') 'Empty ROM folder'
 [IO.File]::WriteAllText((Join-Path $env:MMODERN_MT32_ROM_DIR 'wrong.rom'),'wrong')
 $wrong=ConvertFrom-MMReport (Invoke-MMCommand $Exe @('--diagnostics',$GameDir))
 Check ($wrong['roms.control'] -like 'wrong*') 'Wrong ROM'
+
+# M115: the controller checkbox changes only the controller line of window.ini.
+$windowIni=Join-Path $TestRoot 'window settings\window.ini'
+Check (-not (Get-MMController $windowIni)) 'A missing window.ini has the controller off'
+Set-MMController $windowIni $true
+Check ([IO.File]::ReadAllText($windowIni) -eq "controller=on`n") 'A missing window.ini gets only the controller line'
+$gameText="# MMModern window settings. Alt+Enter toggles fullscreen.`n# Picture shape: aspect=4:3 (default) or aspect=square.`naspect=square`n# Game controller: controller=off (default) or controller=on.`ncontroller=off`nfullscreen=1`nwidth=800`nheight=600`n"
+[IO.File]::WriteAllText($windowIni,$gameText)
+Check (-not (Get-MMController $windowIni)) 'The game file has the controller off'
+Set-MMController $windowIni $true
+Check ((Get-MMController $windowIni) -and [IO.File]::ReadAllText($windowIni) -eq $gameText.Replace("controller=off`nfullscreen","controller=on`nfullscreen")) 'Only the controller line changes'
+Set-MMController $windowIni $false
+Check ([IO.File]::ReadAllText($windowIni) -eq $gameText) 'Turning it off restores the file'
+[IO.File]::WriteAllText($windowIni,"fullscreen=1`r`nwidth=960`r`nheight=600`r`ncontroller = on `r`ncontroller=off`r`n")
+Check (-not (Get-MMController $windowIni)) 'The last controller line wins, as in the game'
+Set-MMController $windowIni $true
+Check ([IO.File]::ReadAllText($windowIni) -eq "fullscreen=1`r`nwidth=960`r`nheight=600`r`ncontroller=on`n") 'Other lines keep their bytes; one controller line remains'
+[IO.File]::WriteAllText($windowIni,"Controller=on`ncontroller=ON`n")
+Check (-not (Get-MMController $windowIni)) 'Keys and values are case-sensitive, as in the game'
+Set-MMController $windowIni $true
+Check ([IO.File]::ReadAllText($windowIni) -eq "Controller=on`ncontroller=on`n") 'Another key spelled Controller is kept'
+Check ((Get-MMWindowSettingsPath) -eq (Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'MMModern\window.ini')) 'The game reads window.ini from Local AppData'
+Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
+Check ($null -ne (New-MMWindow $script:MMMainXaml).FindName('Controller')) 'The launcher shows the controller checkbox'
 $script:MMState=@{Exe=$Exe}
 Check (Test-GameFolder $GameDir) 'Launcher validation delegates to diagnostics'
 Check (-not (Test-GameFolder (Join-Path $TestRoot 'missing'))) 'Launcher rejects unusable folder'

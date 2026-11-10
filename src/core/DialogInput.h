@@ -34,6 +34,9 @@ struct DialogInput {
     // as opposed to numeric entry. Russian getString accepts 0x20-0xff and
     // deletes on Left (M110 Part C).
     bool stringEntry=false;
+    // Free text without a character set, such as the setup screen's path
+    // line: a game controller (M115) has no characters to cycle there.
+    bool freeText=false;
     // The Russian program key set of this dialog (XeenKeyboard); English
     // ignores it.
     const char *keySet=nullptr;

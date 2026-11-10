@@ -128,3 +128,52 @@ mouse motion, window resize and window close add no pass.
 Combat portraits show the remaining members after Run; either button or the
 corresponding F key opens that member. The acting member and selected enemy
 use the original icons.
+
+## Game controller
+
+The original game has no controller support. MMModern can add it as an
+option that is off by default: the Windows launcher's **Play with a game
+controller** box, the Linux setup screen's **Game controller** row, or
+`controller=on` in `window.ini` (under Proton, edit it while the game is
+closed). Every button sends a key or a click the original already accepts.
+Controllers can be connected and removed while playing; each one drives the
+same party.
+
+| Control | Exploration | Combat | Dialogs, services, title, setup screen |
+| --- | --- | --- | --- |
+| D-pad, left stick | Up/Down: forward, back; Left/Right: turn | Left/Right: turn; Up/Down are refused as on the keyboard | The dialog's arrow keys |
+| LB / RB | Strafe left / right | - | Page Up / Page Down |
+| A | Space: interact | A: attack | Enter; Y in a Yes/No prompt without Enter |
+| B | Escape | Escape | Escape; N in a prompt without Escape |
+| X | C: cast | C: cast | - |
+| Y | S: shoot | F: Quick Fight | - |
+| LT | B: bash | B: block | - |
+| View (Back) | R: rest | R: run | - |
+| Left stick click | W: wait | W | - |
+| Right stick click | M: map | M | - |
+| Menu (Start) | Tab: control panel | Tab | Tab |
+| Right stick | Move the pointer | Move the pointer | Move the pointer |
+| RT | Click at the pointer | Click | Click |
+
+As on the keyboard, B in exploration completes a pass, and any key the control
+panel does not use closes it. The letter buttons do nothing in dialogs, where
+the same letters are other commands. Everything else (Info, Quick Reference,
+Quests, Dismiss, Use, Quick Fight Options, portraits, item rows, service
+choices) is a click: move the pointer with the right stick and press RT.
+Moving the mouse takes the pointer back. When no pointer is shown (the mouse
+is not over the window), RT first shows the stick's pointer and clicks
+nothing. The names above are those of an Xbox controller; other controllers
+follow by button position, except Nintendo ones, which follow their button
+labels, so their own A confirms.
+
+In text entry (names, save names, Event words, Bank and spell numbers), Up and
+Down change the last character the controller added through A-Z, space and
+0-9 (digits only in number entries); otherwise they add one. Right starts a
+new character, Left deletes one, A confirms and B cancels. Save names typed
+with a controller are in capitals. The keyboard and Steam's on-screen
+keyboard keep working beside it. On the setup screen's path line the arrows
+move between the rows, as on the keyboard.
+
+With Russian selected, each button sends the Russian program's key for the
+same button, and text entry cycles the Russian program's letters. W (wait) and
+the combat Map have no Russian key, so those buttons do nothing there.

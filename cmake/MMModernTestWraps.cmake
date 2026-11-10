@@ -77,6 +77,8 @@ set(MMODERN_WRAP_SHARED_EXEMPTIONS
  SDL_PumpEvents SDL_WaitEventTimeout SDL_UpdateTexture SDL_RenderCopy
  SDL_FilterEvents SDL_PollEvent SDL_NewAudioStream SDL_GetAudioDeviceStatus
  SDL_GetDefaultAudioInfo SDL_GetTicks64 SDL_Delay SDL_RenderPresent
+ # M115: the dummy video driver gives every window mouse focus.
+ SDL_GetMouseFocus
  SHGetKnownFolderPath fsync
  # libc rename: POSIX DOS export test injects a kernel permission failure.
  rename)

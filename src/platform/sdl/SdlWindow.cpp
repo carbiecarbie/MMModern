@@ -31,6 +31,12 @@ namespace {
 constexpr Uint8 clearedKeyMake=2;
 constexpr std::uint64_t navigationRepeatDelay = 500000000;
 constexpr std::uint64_t navigationRepeatPeriod = (11000000000ULL + 119) / 120;
+// M115 Part B: the right stick moves the pointer by its deflection outside
+// the dead zone, up to this many frame pixels per second, and while it does
+// the loop wakes at least this often.
+constexpr int controllerPointerDeadZone = 8000;
+constexpr double controllerPointerSpeed = 200.0;
+constexpr int controllerPointerWait = 8;
 
 // Host window presentation shared by the title and gameplay windows.
 struct PlacementMemory {
@@ -360,6 +366,20 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         SDL_SetTextureBlendMode(resources.cursor,SDL_BLENDMODE_BLEND);
         resources.priorCursor=SDL_ShowCursor(SDL_QUERY);SDL_ShowCursor(SDL_DISABLE);
     }
+    // M115 Part B: with the controller option on, the pointer the right stick
+    // moves, in frame coordinates, while the stick owns it; the mouse takes it
+    // back when it moves. It is kept for the process (SdlController), so it
+    // keeps its place across windows. Option off: the mouse alone, as before.
+    const bool controllerPointer=SdlController::instance().enabled();
+    auto &pointer=SdlController::instance().pointer();
+    const auto stickPointer=[&] {return controllerPointer && pointer.stick;};
+    const auto keptPointer=[&] {
+        return std::pair<int,int>{int(std::clamp(pointer.x,0.0,initialFrame.width-1.0)),int(std::clamp(pointer.y,0.0,initialFrame.height-1.0))};
+    };
+    const auto centerPointer=[&] {
+        if(!pointer.known){pointer.x=initialFrame.width/2.0;pointer.y=initialFrame.height/2.0;pointer.known=true;}
+    };
+    std::optional<std::uint64_t> pointerClock;
     const auto mappedMouse = [&](int x, int y) -> std::optional<std::pair<int, int>> {
         if (!corrected) return std::pair<int, int>{x, y};
         int ww, wh, ow, oh; SDL_GetWindowSize(window, &ww, &wh);
@@ -368,10 +388,11 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
     };
     const auto drawCursor=[&](int scale) {
         if(handler.inputContext && handler.inputContext({}).hideCursor)return;
-        if(!resources.cursor || SDL_GetMouseFocus()!=window)return;
+        if(!resources.cursor || (!stickPointer() && SDL_GetMouseFocus()!=window))return;
         int x,y;SDL_GetMouseState(&x,&y);
         std::optional<std::pair<int,int>> point;
-        if (corrected) point = mappedMouse(x,y);
+        if (stickPointer()) point = keptPointer();
+        else if (corrected) point = mappedMouse(x,y);
         else {
             float lx,ly; SDL_RenderWindowToLogical(renderer,x,y,&lx,&ly);
             if(lx>=0 && ly>=0 && lx<initialFrame.width && ly<initialFrame.height) point = {int(lx),int(ly)};
@@ -408,9 +429,10 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         if(SDL_RenderCopy(renderer,texture,nullptr,&whole)!=0)throw std::runtime_error("Cannot draw picture target");
         // Restore the window target while mapping the cursor, then draw it into the picture target.
         if(SDL_SetRenderTarget(renderer,nullptr)!=0)throw std::runtime_error("Cannot select window target");
-        int mx,my; SDL_GetMouseState(&mx,&my); const auto mouse=mappedMouse(mx,my);
+        int mx,my; SDL_GetMouseState(&mx,&my);
+        const auto mouse=stickPointer()?std::optional<std::pair<int,int>>{keptPointer()}:mappedMouse(mx,my);
         if(SDL_SetRenderTarget(renderer,resources.target)!=0)throw std::runtime_error("Cannot select picture target");
-        if(mouse && resources.cursor && SDL_GetMouseFocus()==window && !(handler.inputContext && handler.inputContext({}).hideCursor)) {
+        if(mouse && resources.cursor && (stickPointer() || SDL_GetMouseFocus()==window) && !(handler.inputContext && handler.inputContext({}).hideCursor)) {
             SDL_Rect dest{mouse->first*targetScale,mouse->second*targetScale,cursorWidth*targetScale,cursorHeight*targetScale};
             if(SDL_RenderCopy(renderer,resources.cursor,nullptr,&dest)!=0)throw std::runtime_error("Original cursor presentation failed");
         }
@@ -597,6 +619,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             const auto nextFrame = input && handler.withPresentedInput ?
                 handler.withPresentedInput(action,*input,origin) :
                 input && handler.withDisplayedInput ? handler.withDisplayedInput(action,*input) : handler(action);
+            SdlController::instance().delivered(action); // M115 Part B text entry.
             const auto delivered=contextFor(presentedFrame);
             publishContext(delivered);
             synchronizeQueue(delivered);
@@ -650,6 +673,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             return;
         }
         if(event.type==SDL_WINDOWEVENT && event.window.event==SDL_WINDOWEVENT_SIZE_CHANGED)recordWindowedSize(window);
+        if(event.type==SDL_MOUSEMOTION && controllerPointer)pointer.stick=false; // The mouse takes the pointer back.
         if(handler.finished && handler.finished())return;
         if (event.type == SDL_QUIT) {
             pendingActions.clear(); running = false;
@@ -852,6 +876,77 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             }
         }
     };
+    // M115 Part B: the right stick moves the pointer on the presentation
+    // clock; it makes no pass.
+    const auto pointerAxesActive=[&] {
+        const auto [x,y]=SdlController::instance().pointerAxes();
+        return std::abs(x)>controllerPointerDeadZone || std::abs(y)>controllerPointerDeadZone;
+    };
+    const auto movePointer=[&] {
+        if(!controllerPointer)return;
+        const auto [ax,ay]=SdlController::instance().pointerAxes();
+        const auto speed=[](int value) {
+            const int magnitude=std::abs(value);
+            if(magnitude<=controllerPointerDeadZone)return 0.0;
+            const double travel=std::min(1.0,double(magnitude-controllerPointerDeadZone)/(32767-controllerPointerDeadZone));
+            return (value<0?-travel:travel)*controllerPointerSpeed;
+        };
+        const double vx=speed(ax),vy=speed(ay);
+        if(vx==0 && vy==0){pointerClock.reset();return;}
+        const auto now=navigationNow();
+        if(!pointer.stick) {
+            // The stick takes the pointer where the mouse left it, or where it
+            // was kept (the frame center the first time).
+            int x,y;SDL_GetMouseState(&x,&y);
+            std::optional<std::pair<int,int>> point;
+            if(SDL_GetMouseFocus()==window) {
+                if(corrected)point=mappedMouse(x,y);
+                else {
+                    float lx,ly;SDL_RenderWindowToLogical(renderer,x,y,&lx,&ly);
+                    if(lx>=0 && ly>=0 && lx<initialFrame.width && ly<initialFrame.height)point={int(lx),int(ly)};
+                }
+            }
+            if(point){pointer.x=point->first;pointer.y=point->second;pointer.known=true;}
+            else centerPointer();
+            pointer.stick=true;pointerClock.reset();
+        }
+        if(pointerClock && now>*pointerClock) {
+            const double seconds=double(now-*pointerClock)/1e9;
+            pointer.x=std::clamp(pointer.x+vx*seconds,0.0,initialFrame.width-1.0);
+            pointer.y=std::clamp(pointer.y+vy*seconds,0.0,initialFrame.height-1.0);
+        }
+        pointerClock=now;
+    };
+    // RT: a mouse press and release at the pointer, as a mouse sends them.
+    // The pushed-press state is the process's, so a release taken by a later
+    // window still pushes its release.
+    const auto pushPointerClick=[&](bool down) {
+        if(down==pointer.down)return;
+        std::pair<int,int> at=pointer.press;
+        if(down) {
+            if(!pointer.stick && SDL_GetMouseFocus()!=window) {
+                // No pointer is drawn (the mouse is not over the window): this
+                // press shows the stick's pointer where it was kept, and
+                // clicks nothing; its release is dropped with it.
+                centerPointer();pointer.stick=true;return;
+            }
+            if(pointer.stick) {
+                int ww,wh,ow,oh;SDL_GetWindowSize(window,&ww,&wh);
+                if(SDL_GetRendererOutputSize(renderer,&ow,&oh)!=0)return;
+                const auto kept=keptPointer();
+                const auto point=frameToWindow(kept.first,kept.second,ww,wh,ow,oh,initialFrame.width,initialFrame.height,
+                    corrected?PictureAspect::FourThree:PictureAspect::Square);
+                if(!point)return;
+                at=*point;
+            } else SDL_GetMouseState(&at.first,&at.second);
+        }
+        SDL_Event click{};
+        click.type=down?SDL_MOUSEBUTTONDOWN:SDL_MOUSEBUTTONUP;
+        click.button.windowID=SDL_GetWindowID(window);
+        click.button.button=SDL_BUTTON_LEFT;click.button.state=down?SDL_PRESSED:SDL_RELEASED;click.button.clicks=1;
+        click.button.x=at.first;click.button.y=at.second;
+        if(SDL_PushEvent(&click)==1){pointer.down=down;pointer.press=at;}
+    };
     const auto releaseMouseAction=[&] {
         if(!strictMouse || mouseButtons)return;
         const auto next=*strictMouse;strictMouse.reset();
@@ -899,6 +994,8 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         }
         if(nextRepeat && *nextRepeat>repeatSample && !mouseButtons)
             wait=std::min(wait,int(std::min<std::uint64_t>(1000,PresentationClock::ceilMilliseconds(*nextRepeat-repeatSample))));
+        // M115 Part B: only while the right stick moves the pointer.
+        if(controllerPointer && pointerAxesActive())wait=std::min(wait,controllerPointerWait);
         if (SDL_WaitEventTimeout(&event, wait)) {
 			do {
 				dispatchEvent(event,batchInput,batchFrame,batchContext);
@@ -907,6 +1004,8 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 		if (!running) break;
         if(cutsceneQuitPending && (!handler.cutsceneControlQuitReady || handler.cutsceneControlQuitReady()))break;
         if(handler.finished && handler.finished())break;
+        // An exiting loop leaves RT's clicks to the next one.
+        if(controllerPointer)for(const bool down:SdlController::instance().takeClicks())pushPointerClick(down);
         const auto drainContext = contextFor(presentedFrame);
         publishContext(drainContext);
         synchronizeQueue(drainContext);
@@ -987,6 +1086,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 			}
 		} catch (...) { success = false; break; }
 		if (!uploaded || !accepts(uploadedFrame)) continue;
+        movePointer();
 		present();
         if(mouseButtons)continue; // Release wait transports cursor pixels only.
 		if (handler.frameCurrent && !handler.frameCurrent()) throw std::runtime_error("Stale presented frame");
@@ -1042,6 +1142,9 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             },nullptr);
         }
         acquiredContext = nextContext;
+        // M115 Part B: the controller's next text input, right after the
+        // frame answering the previous one is acquired.
+        SdlController::instance().acquired();
         actionUsed = false;
 		displayedInput = nextInput;
 	}
@@ -1075,6 +1178,15 @@ void SdlWindow::useAspectSetting(const std::optional<std::filesystem::path> &fil
 
 void SdlWindow::useControllerSetting(bool enabled) {
     placementMemory().placement.controller = enabled;
+}
+
+bool SdlWindow::controllerSetting() {
+    auto &memory = placementMemory();
+    if (memory.file && !memory.loaded) {
+        memory.placement = memory.saved = readWindowPlacement(*memory.file);
+        memory.loaded = true;
+    }
+    return memory.placement.controller;
 }
 
 bool SdlWindow::show(const IndexedFrame &frame, const std::string &title) const {

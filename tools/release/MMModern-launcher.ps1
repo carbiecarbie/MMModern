@@ -89,6 +89,36 @@ function Expand-MMReportPath([string]$Value) {
     return [Environment]::ExpandEnvironmentVariables($Value)
 }
 # mmodern --language-setup arguments for the Language window's choice (M110).
+# M115: the game controller option in the game's window.ini (the game reads
+# it from Local AppData\MMModern, as SdlWindowPlacement does). Only the
+# controller line is written; every other line is kept as it was. Keys and
+# values are case-sensitive, as in the game's parser.
+function Get-MMWindowSettingsPath { return Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'MMModern\window.ini' }
+function Get-MMController([string]$Path) {
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $false }
+    $value=''
+    foreach ($line in ([IO.File]::ReadAllText($Path) -split "`n")) {
+        if ($line -cmatch '^[ \t]*controller[ \t]*=(.*)$') { $value=$Matches[1].Trim(" `t`r") }
+    }
+    return $value -ceq 'on'
+}
+function Set-MMController([string]$Path,[bool]$On) {
+    $setting="controller=$(if ($On) { 'on' } else { 'off' })"
+    $text=if (Test-Path -LiteralPath $Path -PathType Leaf) { [IO.File]::ReadAllText($Path) } else { '' }
+    $lines=New-Object Collections.Generic.List[string]
+    $found=$false
+    if ($text -ne '') {
+        foreach ($line in ($text -split "`n")) {
+            if ($line -cmatch '^[ \t]*controller[ \t]*=') { if (-not $found) { $lines.Add($setting); $found=$true } }
+            else { $lines.Add($line) }
+        }
+        if ($lines.Count -and $lines[$lines.Count-1] -eq '') { $lines.RemoveAt($lines.Count-1) }
+    }
+    if (-not $found) { $lines.Add($setting) }
+    $directory=Split-Path -Parent $Path
+    if ($directory) { New-Item -ItemType Directory -Force $directory | Out-Null }
+    [IO.File]::WriteAllText($Path, (($lines -join "`n") + "`n"))
+}
 function Get-MMLanguageArguments([string]$Language, [string]$Folder) {
     $arguments = @('--language-setup', '--language', $Language.ToLowerInvariant())
     if ($Folder) { $arguments += @('--translation', $Folder) }
@@ -261,6 +291,7 @@ $script:MMMainXaml = @'
       <Button x:Name="Language" Grid.Column="2" Content="Language"/>
       <Button x:Name="ChangeFolder" Grid.Column="4" Content="Change game folder"/>
     </Grid>
+    <CheckBox x:Name="Controller" Content="Play with a game controller (off by default)" HorizontalAlignment="Center" Margin="0,14,0,0"/>
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,14,0,0">
       <Button x:Name="CopyDiagnostics" Style="{StaticResource Link}" Content="Copy diagnostics"/>
       <TextBlock Text="&#x00B7;" Foreground="#8A8A8A" VerticalAlignment="Center"/>
@@ -516,7 +547,7 @@ function Show-MMLanguageSetup {
 }
 function Set-MMRunning([bool]$Running) {
     $w=$script:MMState.Window
-    foreach ($name in 'Play','SoundSetup','Language','ChangeFolder','CopyDiagnostics','OpenSaves','OpenLog') { $w.FindName($name).IsEnabled = -not $Running }
+    foreach ($name in 'Play','SoundSetup','Language','ChangeFolder','Controller','CopyDiagnostics','OpenSaves','OpenLog') { $w.FindName($name).IsEnabled = -not $Running }
     $w.FindName('Play').Content = if ($Running) { 'Playing...' } else { 'Play' }
 }
 function Start-MMLauncher {
@@ -544,6 +575,16 @@ function Start-MMLauncher {
     $w = New-MMWindow $script:MMMainXaml
     $app.Window = $w
     Update-MMReport
+    $app.WindowSettings = Get-MMWindowSettingsPath
+    $w.FindName('Controller').IsChecked = Get-MMController $app.WindowSettings
+    $w.FindName('Controller').Add_Click({
+        $app=$script:MMState
+        try { Set-MMController $app.WindowSettings ([bool]$app.Window.FindName('Controller').IsChecked) }
+        catch {
+            $app.Window.FindName('Notice').Text="Could not save the controller setting: $($_.Exception.Message)"
+            $app.Window.FindName('Controller').IsChecked = Get-MMController $app.WindowSettings
+        }
+    })
     $w.FindName('SoundSetup').Add_Click({ Show-MMSoundSetup })
     $w.FindName('Language').Add_Click({ Show-MMLanguageSetup })
     $w.FindName('ChangeFolder').Add_Click({

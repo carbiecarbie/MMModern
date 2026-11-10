@@ -361,6 +361,10 @@ void XeenSetupScreen::refresh() {
         add("Change game folder", "browser");
         add("Sound setup", "sound");
         add("Language", "language");
+#ifndef _WIN32
+        // M115: the window.ini option; the Windows launcher has its own box.
+        add(SdlWindow::controllerSetting() ? "Game controller: on" : "Game controller: off", "controller");
+#endif
         add("Copy diagnostics", "copy");
 #ifndef _WIN32
         add("Open saves folder", "saves");
@@ -719,6 +723,10 @@ void XeenSetupScreen::activate(std::string action) {
             _page = Page::Main;
             _focus = _offset = 0;
             _notice = "Sound setup saved.";
+        } else if (action == "controller") {
+            // Kept in the loaded window settings and written with them when
+            // this window closes; the game's windows read it when they open.
+            SdlWindow::useControllerSetting(!SdlWindow::controllerSetting());
         } else if (action == "toggle-language")
             _russian = !_russian;
         else if (action == "translation") {
@@ -842,6 +850,7 @@ DialogInput XeenSetupScreen::input() const {
                   InputKey::Right};
     input.textEntry = _page == Page::Browser && !_rows.empty() && _focus < _rows.size() &&
                       _rows[_focus].action == "path";
+    input.freeText = input.textEntry;
     if (!input.textEntry)
         input.keys.push_back(InputKey::Space);
     for (unsigned i = 0; i < visibleIndices().size(); ++i)
@@ -1088,6 +1097,8 @@ std::optional<XeenSetupScreen::Path> XeenSetupScreen::run() { return run(windowP
 std::optional<XeenSetupScreen::Path> XeenSetupScreen::run(const std::optional<Path> &placement) {
     _play = _quit = false;
     SdlWindow::rememberPlacement(placement);
+    if (_page == Page::Main)
+        refresh(); // The controller row reads the remembered window settings.
     SdlWindow::FrameUpdateHandler handler =
         [&](const PlayerAction &a) -> std::optional<IndexedFrame> {
         std::string clipboard;

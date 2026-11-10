@@ -1444,6 +1444,7 @@ endif()
 		"SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software")
 	add_executable(mmodern_sdl_controller_tests tests/SdlControllerTests.cpp)
 	target_link_libraries(mmodern_sdl_controller_tests PRIVATE mmodern_platform_sdl SDL2::SDL2)
+	target_link_options(mmodern_sdl_controller_tests PRIVATE "-Wl,--wrap=SDL_WaitEventTimeout" "-Wl,--wrap=SDL_RenderCopy" "-Wl,--wrap=SDL_GetMouseFocus")
 	mmodern_part_a_test(NAME sdl_controller COMMAND mmodern_sdl_controller_tests)
 	mmodern_test_properties(sdl_controller PROPERTIES ENVIRONMENT
 		"SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software")

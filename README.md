@@ -92,6 +92,13 @@ Steam+X opens the on-screen keyboard for names and number keys. The other
 keys are in the
 [controls](https://github.com/carbiecarbie/MMModern/blob/main/docs/controls.md).
 
+With the optional game controller support turned on (`controller=on` in
+`window.ini`, below), choose Steam's **Gamepad** template instead: MMModern
+then reads the controller itself, as the
+[controller controls](https://github.com/carbiecarbie/MMModern/blob/main/docs/controls.md#game-controller)
+describe. With it off, keep the keyboard layout above. Do not bind one
+physical button to both a key and a controller button: it would act twice.
+
 The shortcut's Proton prefix is under
 `~/.local/share/Steam/steamapps/compatdata/<shortcut-id>/pfx/`. Within it,
 `drive_c/users/steamuser/AppData/Local/MMModern/` contains `window.ini`,
@@ -131,9 +138,11 @@ a local disk.
 On a Steam Deck you can start this AppImage in **Desktop Mode**, or add the
 executable AppImage to Steam as a non-Steam game and start it in **Game Mode**.
 Leave Compatibility forcing off for the native Linux version. Use the
-keyboard and mouse layout [above](#steam-deck-proton); touch and the right
-trackpad click the setup screen's buttons. Steam+X opens the on-screen
-keyboard when choosing a folder. Your game data stays in its own folder.
+keyboard and mouse layout [above](#steam-deck-proton), or turn on the setup
+screen's **Game controller** row and use Steam's **Gamepad** template; touch
+and the right trackpad click the setup screen's buttons. Steam+X opens the
+on-screen keyboard when choosing a folder. Your game data stays in its own
+folder.
 
 ## Russian
 
@@ -230,7 +239,9 @@ most used keys:
 | Alt+Enter | Window or fullscreen |
 
 The [full list of controls](https://github.com/carbiecarbie/MMModern/blob/main/docs/controls.md)
-covers the character sheet, Items, Quick Fight and every service.
+covers the character sheet, Items, Quick Fight and every service. A game
+controller can be used instead; that option is off by default
+([controller controls](https://github.com/carbiecarbie/MMModern/blob/main/docs/controls.md#game-controller)).
 
 ## Status and plans
 
@@ -246,14 +257,14 @@ differences from the ScummVM reference.
 
 ## Planned extras
 
-Later, MMModern may add a few things the original never had. None of them has
-been studied yet, and each will be an option that is off by default, so the game
-stays faithful unless you turn it on:
+Later, MMModern may add a few more things the original never had. None of
+them has been studied yet, and each will be an option that is off by default,
+like the game controller support, so the game stays faithful unless you turn
+it on:
 
 - Graphics filters for the scaled picture.
 - Switching between the original sound devices from inside MMModern,
   instead of through `XEEN.CFG`.
-- Game controller support.
 - Possibly some interface improvements.
 
 ## Building

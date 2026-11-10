@@ -13,6 +13,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace mmodern {
 
@@ -34,9 +35,12 @@ inline constexpr unsigned kControllerControls = unsigned(ControllerControl::Coun
 // loop publishes it where it already samples the context; the controller never
 // calls the handler's inputContext itself.
 struct ControllerContext {
+    std::uint64_t contextId = 0;
     MainScreen screen = MainScreen::None;
     bool dialog = false;
-    bool textEntry = false;
+    // A text entry the controller types into by cycling characters (not free
+    // text such as the setup screen's path line); string or number entry.
+    bool textEntry = false, stringEntry = false;
     // The dialog takes Enter (or any key) / Escape; a Yes/No prompt takes Y and N.
     bool acceptsEnter = false, acceptsEscape = false, yesNo = false;
     // The Russian program key set the loop translates this context with
@@ -49,6 +53,7 @@ struct ControllerContext {
 inline ControllerContext xeenControllerContext(const InputContext &context,
         std::shared_ptr<const XeenKeyboard> keyboard) {
     ControllerContext result;
+    result.contextId = context.contextId;
     result.screen = context.mainScreen;
     result.keyboard = std::move(keyboard);
     if (const auto &dialog = context.dialog) {
@@ -56,7 +61,8 @@ inline ControllerContext xeenControllerContext(const InputContext &context,
             return std::find(dialog->keys.begin(), dialog->keys.end(), key) != dialog->keys.end();
         };
         result.dialog = true;
-        result.textEntry = dialog->textEntry;
+        result.textEntry = dialog->textEntry && !dialog->freeText;
+        result.stringEntry = result.textEntry && dialog->stringEntry;
         result.acceptsEnter = dialog->anyKey || accepts(InputKey::Enter);
         result.acceptsEscape = dialog->anyKey || accepts(InputKey::Escape);
         result.yesNo = accepts('y') && accepts('n');
@@ -79,7 +85,8 @@ inline constexpr unsigned StrafeLeft = 0xb0, StrafeRight = 0xb1, Tab = 9;
 inline std::optional<unsigned> xeenControllerKey(ControllerControl control, const ControllerContext &context) {
     using C = ControllerControl;
     if (context.dialog || context.screen == MainScreen::None) {
-        // Text entry takes A and B only; letter buttons are other commands in
+        // Text entry takes A and B as keys (the D-pad and the left stick type,
+        // see xeenControllerCharacters); letter buttons are other commands in
         // dialogs (C creates a character in the Inn) and send nothing.
         if (context.textEntry)
             return control == C::A ? std::optional<unsigned>(InputKey::Enter) :
@@ -197,6 +204,69 @@ inline std::optional<ControllerKeyEvent> xeenControllerKeyEvent(ControllerContro
     const auto key = xeenControllerKey(control, context);
     return key ? xeenControllerKeyEvent(*key, context) : std::nullopt;
 }
+
+// M115 Part B, decision 6: in a text entry Up and Down change the last
+// character the controller added through these characters: A-Z (the Russian
+// program's letters in Russian), space and 0-9 in string entries, the digits
+// in number entries.
+inline std::vector<unsigned char> xeenControllerCharacters(const ControllerContext &context) {
+    std::vector<unsigned char> characters;
+    if (context.stringEntry) {
+        if (context.keyboard) {
+            // The letters the Russian keys type without Shift, in code order
+            // (the cp866 alphabet).
+            for (unsigned usage = 4; usage <= 56; ++usage) {
+                const auto code = xeenRussianKeyCode(*context.keyboard, usage, false, false);
+                if (code >= 0x80 && code <= 0xff &&
+                    std::find(characters.begin(), characters.end(), code) == characters.end())
+                    characters.push_back(static_cast<unsigned char>(code));
+            }
+            std::sort(characters.begin(), characters.end());
+        } else {
+            for (unsigned char c = 'A'; c <= 'Z'; ++c) characters.push_back(c);
+        }
+        characters.push_back(' ');
+    }
+    for (unsigned char c = '0'; c <= '9'; ++c) characters.push_back(c);
+    return characters;
+}
+
+// The character after (Up) or before (Down) `current`, wrapping; without one,
+// the first (Up) or the last (Down).
+inline unsigned char xeenControllerStep(const std::vector<unsigned char> &characters,
+        std::optional<unsigned char> current, bool up) {
+    const auto found = current ? std::find(characters.begin(), characters.end(), *current) : characters.end();
+    if (found == characters.end()) return up ? characters.front() : characters.back();
+    const auto index = std::size_t(found - characters.begin());
+    return characters[up ? (index + 1) % characters.size() : (index + characters.size() - 1) % characters.size()];
+}
+
+// How a keyboard types `character`: the key event and, in English, the text
+// input packet (Russian entries take their text from key events). Nothing if
+// no unshifted key types it.
+struct ControllerTypedKey {
+    ControllerKeyEvent key;
+    std::string text;
+};
+inline std::optional<ControllerTypedKey> xeenControllerTypedKey(unsigned char character, const ControllerContext &context) {
+    using namespace xeen_controller_input;
+    if (context.keyboard) {
+        for (unsigned usage = 4; usage <= 56; ++usage)
+            if (usage < 40 || usage > 43)
+                if (xeenRussianKeyCode(*context.keyboard, usage, false, false) == character)
+                    return ControllerTypedKey{{printableSymbol(usage), SDL_Scancode(usage)}, {}};
+        return std::nullopt;
+    }
+    const std::string text(1, char(character));
+    if (character >= 'A' && character <= 'Z')
+        return ControllerTypedKey{{SDL_Keycode(SDLK_a + (character - 'A')), SDL_Scancode(SDL_SCANCODE_A + (character - 'A'))}, text};
+    if (character >= '1' && character <= '9')
+        return ControllerTypedKey{{SDL_Keycode(SDLK_1 + (character - '1')), SDL_Scancode(SDL_SCANCODE_1 + (character - '1'))}, text};
+    if (character == '0') return ControllerTypedKey{{SDLK_0, SDL_SCANCODE_0}, text};
+    if (character == ' ') return ControllerTypedKey{{SDLK_SPACE, SDL_SCANCODE_SPACE}, text};
+    return std::nullopt;
+}
+inline constexpr ControllerKeyEvent kControllerBackspace{SDLK_BACKSPACE, SDL_SCANCODE_BACKSPACE};
 
 } // namespace mmodern
 
