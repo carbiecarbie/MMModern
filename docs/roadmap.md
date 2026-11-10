@@ -17,8 +17,8 @@ behavior; quality-of-life options are a later, opt-in decision.
 
 Clouds of Xeen, Darkside of Xeen and World of Xeen play from a new game to
 their endings on the CD edition's data, on Windows, Linux and the Steam
-Deck, in English or with the Russian fan translation. Release 0.18.0 has all
-of that; the opt-in game controller support (M115) came after it. What is
+Deck, in English or with the Russian fan translation. Release 0.19.0 has all
+of that, plus the opt-in game controller support (M115). What is
 still open is under [later goals](#later-goals).
 
 ## Completed arcs
