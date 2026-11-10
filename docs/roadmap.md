@@ -18,40 +18,34 @@ behavior; quality-of-life options are a later, opt-in decision.
 Clouds of Xeen, Darkside of Xeen and World of Xeen play from a new game to
 their endings on the CD edition's data, on Windows, Linux and the Steam
 Deck, in English or with the Russian fan translation. Release 0.18.0 has all
-of that; the opt-in game controller support (M115) came after it.
-
-M1-M43 built the foundations one narrow certified slice at a time. M44
-removed that machinery, and since then whole maps load from the original
-resources. The arcs below are complete; they stay here for their step
-numbers, which plans cite, and [project history](project-history.md)
-describes each milestone. What is still open is under
-[later goals](#later-goals).
+of that; the opt-in game controller support (M115) came after it. What is
+still open is under [later goals](#later-goals).
 
 ## Completed arcs
+
+M1-M43 built the foundations one narrow certified slice at a time; M44
+removed that machinery, and since then whole maps load from the original
+resources. The arcs stay here for their step numbers, which plans cite.
 
 ### Closing Vertigo and the first release (M44-M66)
 
 <a id="near-term"></a><a id="deferred-presentation-work"></a><a id="next-milestones"></a>
 
 M44-M64 made input, menus and presentation original, admitted the whole of
-Vertigo with Rest, food, time, skills, magic, item services and the original
-clock, and moved to the CD edition's data (M53). A direction investigation
-(2026-10-10) chose to close Vertigo and then publish, and M56-M64 ended with
-the first public releases,
+Vertigo, moved to the CD edition's data (M53) and ended with the first
+public releases,
 [v0.1.0 and v0.1.1](https://github.com/carbiecarbie/MMModern/releases). The
 maintainer declined an opt-in faster movement option.
-[M65](archive/milestone-65-plan.md) then measured every mechanic the
-original data uses in [the coverage report](coverage.md), and
-[M66](archive/milestone-66-plan.md) cut the complete test suite from 29
-minutes to about 3.
+[M65](archive/milestone-65-plan.md) then added
+[the coverage report](coverage.md), and [M66](archive/milestone-66-plan.md)
+cut the complete test suite from 29 minutes to about 3.
 
 ### Finishing the game's systems (M67-M94)
 
 <a id="next-arc-finishing-the-games-systems"></a>
 
-What keeps an area from playing is the mechanics it uses, so this arc
-implemented them once each instead of map by map, and release 0.10.0
-delivered Clouds of Xeen from a new game to its ending.
+This arc implemented each mechanic once instead of map by map, and release
+0.10.0 delivered Clouds of Xeen from a new game to its ending.
 
 | Step | Milestones | Result |
 | --- | --- | --- |
@@ -87,24 +81,28 @@ playing would be an opt-in approved deviation (maintainer, 2026-10-21).
 <a id="next-arc-release-quality-and-the-darkside-start"></a>
 
 A next-steps analysis (2026-10-28) chose to make the finished Clouds
-sturdier and easier to test before Darkside began.
+sturdier and easier to test before Darkside began, in five steps:
 
-| Step | Result |
-| --- | --- |
-| 1. Clouds fidelity and integration audit | Ran on 2026-10-28. Release 0.10.1 fixed its save defect; [M95](milestone-95-plan.md) fixed its last finding and turned its invariants into tests |
-| 2. DOS save investigation | Finished on 2026-10-29. Picked chests stay open ([M96](milestone-96-plan.md), save v22), a developer exporter writes DOS saves and prepares DOSBox ([M97](milestone-97-plan.md)), and a Cartographer party marks its cell at every arrival ([M98](milestone-98-plan.md)). Importing DOS saves waits for policy decisions |
-| 3. 4:3 picture | [M99](milestone-99-plan.md): 4:3 by default, square pixels as an opt-in |
-| 4. Launcher and diagnostics | [M100](milestone-100-plan.md): the launcher window, the installer's sound choice through an MMModern-owned CFG, a log file and an issue template |
-| 5. Darkside start | [M101](milestone-101-plan.md): both sides' state, save v23, the Darkside export and the original Pyramid between the sides |
+1. Clouds audit: release 0.10.1 fixed its save defect, and
+   [M95](milestone-95-plan.md) turned its invariants into tests.
+2. DOS save investigation: picked chests stay open
+   ([M96](milestone-96-plan.md), save v22), a developer tool exports DOS
+   saves ([M97](milestone-97-plan.md)) and a Cartographer party marks its
+   cell at every arrival ([M98](milestone-98-plan.md)). Importing DOS saves
+   waits for policy decisions.
+3. 4:3 picture ([M99](milestone-99-plan.md)), square pixels as an opt-in.
+4. Launcher, sound setup, log and issue template
+   ([M100](milestone-100-plan.md)).
+5. Darkside start ([M101](milestone-101-plan.md)): both sides' state, save
+   v23 and the Pyramid between the sides.
 
 ### Darkside arc
 
 <a id="medium-term-darkside-and-world-of-xeen"></a>
 
-A research pass (2026-10-31) compared every remaining Darkside gap in the
-[census](coverage.md#darkside-largest-gaps) and the World of Xeen connections
-with the pinned reference. Each step started with a Part 0 of DOS program
-analysis, because the reference was wrong in comparable Clouds cases (M80).
+A research pass (2026-10-31) compared every remaining Darkside gap with the
+pinned reference. Each step started with a Part 0 of DOS program analysis,
+because the reference was wrong in comparable Clouds cases (M80).
 
 | Step | Tier | Result |
 | --- | --- | --- |
@@ -120,51 +118,36 @@ analysis, because the reference was wrong in comparable Clouds cases (M80).
 refused Event discard the whole Event
 ([approved deviation](original-quirks.md#dev-event-presentation-abandon))
 and made physical spells after a Xeen Slayer Sword attack ignore physical
-resistance, as in DOS. The sky and the Darkside entrance scenes read night
-from the clock, where DOS caches it; the maintainer kept that as an
-[accepted difference](original-quirks.md#dev-current-clock-night) on
-2026-11-02.
+resistance, as in DOS.
 
 ### After the Darkside audit
 
 A Darkside fidelity and integration audit (2026-11-02) ran every Darkside
 Event cell twice, with saves, loads, trips away and keys pressed during
 waits. It found two hangs, fixed in `a6949b7`, and stale or missing
-documentation, fixed in `8e52743`. Its four follow-up steps are done:
-
-1. **Maintenance round** (`b75e050`): Darkside Create gives level 5, as DOS
-   does; a presentation error that cannot recover ends with a notice instead
-   of blocking input; the Event interpreter's instruction limit counts only
-   since the last wait for the player; Darkside Events request their CD
-   tracks from the DOS disc table, where the reference shifts by 30; and DOS
-   puts the Darkside Quest Items title first when only Darkside items are
-   held.
-2. **Audit invariants as tests:** M108 ([plan](milestone-108-plan.md)).
-3. **Desert Paladin stone copies:** DOS, like MMModern, leaves the distant
-   copies of a used stone in view on Darkside, and the reference hides them.
-   Kept as an original bug, with no code change
-   ([details](original-quirks.md#sv-pin-data-patches)).
-4. **Release:** 0.15.1 (2026-11-02).
+documentation, fixed in `8e52743`. Its follow-up is done: a maintenance
+round (`b75e050`: Darkside Create at level 5, a notice where a presentation
+error blocked input, the Event instruction limit, the Darkside CD tracks and
+the Quest Items title order), the audit invariants as tests
+(M108, [plan](milestone-108-plan.md)), the Desert Paladin stone copies kept
+as an original bug ([details](original-quirks.md#sv-pin-data-patches)) and
+release 0.15.1 (2026-11-02).
 
 ## Later goals
 
 Roughly in this order, each with its own decision and plan:
 
-1. Automated builds and tests on GitHub: every push builds on a clean
-   machine and runs the tests that need no original data, which also proves
-   that the repository and [dependencies](dependencies.md) alone rebuild the
-   project. Tests on the original data stay local, because that data cannot
-   be published. Done: M109 (Tier A, [plan](milestone-109-plan.md),
-   accepted 2026-11-03).
+1. Automated builds and tests on GitHub. Done: M109 (Tier A,
+   [plan](milestone-109-plan.md), accepted 2026-11-03). Tests on the
+   original data stay local, because that data cannot be published.
 2. Optionally, a public announcement that World of Xeen plays from start to
    end, inviting players to report defects with the launcher's diagnostics
    and the issue template. The releases are already public.
-3. Steam Deck through Proton: done, M112 (Tier B,
-   [plan](milestone-112-plan.md), accepted 2026-11-04). The native Linux
-   build and its CI job: done, M113 (Tier A, [plan](milestone-113-plan.md),
-   accepted 2026-11-06). A setup screen inside the game that can also serve
-   Android, and an AppImage: done, M114 (Tier B,
-   [plan](milestone-114-plan.md), accepted 2026-11-07).
+3. Other systems. Done: the Steam Deck through Proton
+   (M112, [plan](milestone-112-plan.md)), the native Linux build and its CI
+   job (M113, [plan](milestone-113-plan.md)), and a setup screen inside the
+   game that can also serve Android, with an AppImage
+   (M114, [plan](milestone-114-plan.md)).
 4. Saves that survive updates, when compatibility is revisited for 1.0.
 5. A study of the community MM3 conversion
    ([mm345-conversion](https://github.com/hooby3dfx/mm345-conversion)), then
@@ -180,14 +163,11 @@ Roughly in this order, each with its own decision and plan:
    fan translation over the CD edition. A reader of Russian has not yet
    checked the text in play.
 8. **To evaluate:** whether to support Swords of Xeen, a standalone game on
-   the same engine, made by the fan group Catware and later distributed by
-   New World Computing. The maintainer decides whether it is included
+   the same engine by the fan group Catware; the maintainer decides
    (2026-11-02). It keeps Darkside's formats in one archive (`swrd.cc`), and
    the pinned reference supports it as its own game type with about 70
-   differences (item and quest tables, quest flags, the year, Town Portal,
-   some spells and services, logo and credits). It would need a game profile
-   and a save format change (Tier A), and its own analysis of `swords.exe`
-   and its `xeen.dat`, which replace `WORLD/XEEN.EXE` and `XEEN.DAT` as DOS
+   differences. It would need a game profile and a save format change
+   (Tier A), and its own analysis of `swords.exe` and its `xeen.dat` as DOS
    evidence.
 
 ## Review cadence
