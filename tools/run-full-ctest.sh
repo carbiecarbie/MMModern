@@ -74,7 +74,8 @@ fi
 build_dir=$(cd "$build_dir" && pwd -P)
 
 # Writes the complete diff of a working tree against its HEAD, untracked
-# files included, without touching that tree's index or object store.
+# files included, without touching that tree's index or object store. Full
+# blob names keep it independent of each repository's abbreviation length.
 tree_diff() {
 	local dir=$1 scratch objects
 	scratch=$(mktemp -d) || return 1
@@ -86,7 +87,7 @@ tree_diff() {
 		export GIT_ALTERNATE_OBJECT_DIRECTORIES="$objects"
 		git -C "$dir" read-tree HEAD &&
 			git -C "$dir" -c core.safecrlf=false add -A -- . ':(exclude).claude' &&
-			git -C "$dir" diff --cached --binary --no-color --no-ext-diff HEAD
+			git -C "$dir" diff --cached --binary --full-index --no-color --no-ext-diff HEAD
 	)
 	local code=$?
 	rm -rf "$scratch"
