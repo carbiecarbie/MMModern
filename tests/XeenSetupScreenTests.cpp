@@ -12,6 +12,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -115,44 +116,56 @@ std::uint64_t pageDigest(IndexedFrame f, XeenSetupScreen::Page page) {
         std::fill(f.pixels.begin(), f.pixels.begin() + 25 * f.width, std::uint8_t(0));
     return digest(f);
 }
+// One native-window step: a sender thread finds the setup window and repeats
+// its input until the screen answers. A fixed handful of tries gave up while
+// the display stalled (WSLg, 2026-11-10), so the step waits up to a minute;
+// past that the sender quits the screen and the caller's check fails.
+struct NativeStep {
+    const std::atomic<bool> &done;
+    const std::chrono::steady_clock::time_point deadline =
+        std::chrono::steady_clock::now() + std::chrono::seconds(60);
+    explicit NativeStep(const std::atomic<bool> &finished) : done(finished) {}
+    bool waiting() const { return !done && std::chrono::steady_clock::now() < deadline; }
+    SDL_Window *setupWindow() const {
+        while (waiting()) {
+            if (SDL_WasInit(SDL_INIT_VIDEO))
+                for (unsigned id = 1; id < 200; ++id)
+                    if (auto *w = SDL_GetWindowFromID(id))
+                        if (std::string(SDL_GetWindowTitle(w)) == "MMModern setup")
+                            return w;
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        }
+        return nullptr;
+    }
+};
 void nativePlay(XeenSetupScreen &screen, bool mouse) {
     XeenSetupScreenTestAccess::fixture(screen, XeenSetupScreen::Page::Main);
     std::atomic<bool> done{false};
     std::thread sender([&] {
-        SDL_Window *window = nullptr;
-        for (int attempt = 0; attempt < 200 && !done && !window; ++attempt) {
-            if (SDL_WasInit(SDL_INIT_VIDEO))
-                for (unsigned id = 1; id < 200; ++id)
-                    if (auto *w = SDL_GetWindowFromID(id))
-                        if (std::string(SDL_GetWindowTitle(w)) == "MMModern setup") {
-                            window = w;
-                            break;
-                        }
-            if (!window)
-                std::this_thread::sleep_for(std::chrono::milliseconds(20));
-        }
-        if (!window)
-            return;
-        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+        const NativeStep step(done);
+        SDL_Window *const window = step.setupWindow();
+        if (window)
+            std::this_thread::sleep_for(std::chrono::milliseconds(300));
         SDL_Event event{};
-        for (int attempt = 0; attempt < 20 && !done; ++attempt) {
+        // Early presses can precede the frame that accepts input, so repeat
+        // until the screen answers.
+        while (window && step.waiting()) {
             if (mouse) {
                 int ww = 0, wh = 0, ow = 0, oh = 0;
                 SDL_GetWindowSize(window, &ww, &wh);
                 auto *renderer = SDL_GetRenderer(window);
-                if (!renderer || SDL_GetRendererOutputSize(renderer, &ow, &oh) != 0)
-                    return;
-                const auto point =
-                    frameToWindow(180, 47, ww, wh, ow, oh, 320, 200, PictureAspect::FourThree);
-                if (!point)
-                    return;
-                event.type = SDL_MOUSEBUTTONDOWN;
-                event.button.button = SDL_BUTTON_LEFT;
-                event.button.x = point->first;
-                event.button.y = point->second;
-                SDL_PushEvent(&event);
-                event.type = SDL_MOUSEBUTTONUP;
-                SDL_PushEvent(&event);
+                const auto point = renderer && SDL_GetRendererOutputSize(renderer, &ow, &oh) == 0
+                    ? frameToWindow(180, 47, ww, wh, ow, oh, 320, 200, PictureAspect::FourThree)
+                    : std::nullopt;
+                if (point) {
+                    event.type = SDL_MOUSEBUTTONDOWN;
+                    event.button.button = SDL_BUTTON_LEFT;
+                    event.button.x = point->first;
+                    event.button.y = point->second;
+                    SDL_PushEvent(&event);
+                    event.type = SDL_MOUSEBUTTONUP;
+                    SDL_PushEvent(&event);
+                }
             } else {
                 event.type = SDL_KEYDOWN;
                 event.key.keysym.sym = SDLK_RETURN;
@@ -185,20 +198,8 @@ void nativeControllerRow(XeenSetupScreen &screen, const fs::path &scratch) {
     XeenSetupScreenTestAccess::fixture(screen, XeenSetupScreen::Page::Main);
     std::atomic<bool> done{false};
     std::thread sender([&] {
-        SDL_Window *window = nullptr;
-        for (int attempt = 0; attempt < 200 && !done && !window; ++attempt) {
-            if (SDL_WasInit(SDL_INIT_VIDEO))
-                for (unsigned id = 1; id < 200; ++id)
-                    if (auto *w = SDL_GetWindowFromID(id))
-                        if (std::string(SDL_GetWindowTitle(w)) == "MMModern setup") {
-                            window = w;
-                            break;
-                        }
-            if (!window)
-                std::this_thread::sleep_for(std::chrono::milliseconds(20));
-        }
-        if (!window)
-            return;
+        const NativeStep step(done);
+        SDL_Window *const window = step.setupWindow();
         const auto click = [&](int x, int y) {
             int ww = 0, wh = 0, ow = 0, oh = 0;
             SDL_GetWindowSize(window, &ww, &wh);
@@ -219,12 +220,12 @@ void nativeControllerRow(XeenSetupScreen &screen, const fs::path &scratch) {
             SDL_PushEvent(&event);
         };
         // Early clicks can precede the frame that accepts input, as for Play.
-        for (int attempt = 0; attempt < 20 && !done && !SdlWindow::controllerSetting(); ++attempt) {
+        while (window && step.waiting() && !SdlWindow::controllerSetting()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(150));
             if (!SdlWindow::controllerSetting()) click(180, 47 + 19 * 4); // Game controller.
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(300));
-        for (int attempt = 0; attempt < 20 && !done; ++attempt) {
+        while (window && step.waiting()) {
             click(180, 47); // Play.
             std::this_thread::sleep_for(std::chrono::milliseconds(150));
         }
