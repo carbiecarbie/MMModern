@@ -95,7 +95,7 @@ struct RomSet {
   if(!control || !pcm || !control->getROMInfo() || !pcm->getROMInfo() ||
      std::string(control->getROMInfo()->shortName)!="ctrl_mt32_1_07" ||
      std::string(pcm->getROMInfo()->shortName)!="pcm_mt32") {
-   error="MT-32 output not supported yet: place the MT-32 1.07 control and MT-32 PCM ROMs in Local AppData/MMModern/roms.";
+   error=std::string("MT-32 output not supported yet: place the MT-32 1.07 control and MT-32 PCM ROMs in ")+xeenUserFolderLabel()+"/roms.";
   }
  }
 };

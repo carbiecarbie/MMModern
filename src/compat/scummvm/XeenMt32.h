@@ -7,7 +7,7 @@
 #include <vector>
 namespace mmodern {
 // Direct mt32emu core; ROM discovery and all synth allocation happen before
-// the audio callback. An empty override uses the player's Local AppData path.
+// the audio callback. An empty override uses the roms folder of the player's user folder.
 class XeenMt32 {
 public:
  struct RomStatus {std::filesystem::path directory;std::string control,pcm;};

@@ -76,14 +76,17 @@ int main(int argc,char **argv) {try {
  check(syncCalls==2 && !interruptSync,"directory fsync did not retry EINTR");
  Environment home("HOME",scratch/"home"),xdg("XDG_DATA_HOME",scratch/"xdg");
  check(xeenUserFolder()==scratch/"xdg/MMModern","absolute XDG base");
+ check(std::string(xeenUserFolderLabel())=="$XDG_DATA_HOME/MMModern","XDG notice label");
  check(xeenPrivatePaths(xeenUserFolder().native()+"/settings.ini")=="$XDG_DATA_HOME/MMModern/settings.ini","XDG diagnostic base label");
  xdg.set(scratch/"stray/../normalized");
  check(xeenUserFolder()==scratch/"normalized/MMModern" && !fs::exists(scratch/"stray"),"XDG normalization created stray directory");
  xdg.set(scratch/"xdg");
  struct stat mode{};check(::stat(xeenUserFolder().c_str(),&mode)==0 && (mode.st_mode&0777)==0700,"private new user base mode");
  xdg.set({});check(xeenUserFolder()==scratch/"home/.local/share/MMModern","unset XDG fallback");
+ check(std::string(xeenUserFolderLabel())=="~/.local/share/MMModern","fallback notice label");
  check(xeenPrivatePaths(xeenUserFolder().native()+"/settings.ini")=="~/.local/share/MMModern/settings.ini","fallback diagnostic base label");
  xdg.set("relative");check(xeenUserFolder()==scratch/"home/.local/share/MMModern","relative XDG fallback");
+ check(std::string(xeenUserFolderLabel())=="~/.local/share/MMModern","relative XDG notice label");
  xdg.set(scratch/"xdg");home.set({});check(xeenUserFolder()==scratch/"xdg/MMModern","absolute XDG needs no HOME");
  xdg.set({});rejects([]{xeenUserFolder();},"HOME");
  home.set(scratch/"home");xdg.set(scratch/"xdg");

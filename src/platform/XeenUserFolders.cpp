@@ -34,6 +34,13 @@ std::filesystem::path xeenWindowsAppData(bool playerFailure) {
  return std::filesystem::path(value);
 }
 #endif
+const char *xeenUserFolderLabel() {
+#ifdef _WIN32
+ return "Local AppData/MMModern";
+#else
+ return xeenEnvironment("XDG_DATA_HOME").is_absolute()?"$XDG_DATA_HOME/MMModern":"~/.local/share/MMModern";
+#endif
+}
 std::filesystem::path xeenUserFolder(bool create) {
 #ifdef _WIN32
  (void)create;

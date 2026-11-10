@@ -4,6 +4,7 @@
 #include "formats/xeen/XeenAssetSource.h"
 #include "XeenTestInstallation.h"
 #include "platform/sdl/SdlAudioDevice.h"
+#include "platform/XeenUserFolders.h"
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 #include <algorithm>
@@ -150,7 +151,14 @@ int main(int argc,char **argv) {try {
    audio.startProgram(0);audio.startProgram(0);notice=captured.text.str();
   }
   const bool unsupported=id==5 || id==7 || id==8 || id==9;
-  if(id==4)check(notice=="MT-32 output not supported yet: place the MT-32 1.07 control and MT-32 PCM ROMs in Local AppData/MMModern/roms.\n","Missing MT-32 notice missing or repeated");
+  // The notice names the player's own folder: Local AppData on Windows, the XDG base on Linux.
+#ifdef _WIN32
+  const std::string romFolder="Local AppData/MMModern/roms";
+#else
+  const std::string romFolder=std::string(xeenUserFolderLabel())+"/roms";
+  check(romFolder=="$XDG_DATA_HOME/MMModern/roms" || romFolder=="~/.local/share/MMModern/roms","Linux MT-32 notice names a Windows folder");
+#endif
+  if(id==4)check(notice=="MT-32 output not supported yet: place the MT-32 1.07 control and MT-32 PCM ROMs in "+romFolder+".\n","Missing MT-32 notice missing or repeated");
   else check(notice==(unsupported?"Music device "+std::to_string(id)+": not supported yet\n":""),"Music notice missing or repeated");
  }
  for(unsigned music:{0u,1u,2u,3u,4u,5u,6u,7u,8u,9u,10u})for(unsigned digital:{0u,6u,7u,10u}) {
