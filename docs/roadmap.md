@@ -1,8 +1,8 @@
 # MMModern - Roadmap
 
-**M115 is the latest completed and accepted milestone**
-([plan](milestone-115-plan.md)), after M114
-([plan](milestone-114-plan.md)).
+**M116 is the latest completed and accepted milestone**
+([plan](milestone-116-plan.md)), after M115
+([plan](milestone-115-plan.md)).
 [Project status](project-status.md) describes what is playable now;
 [project history](project-history.md) records each completed milestone.
 Reference provenance belongs to [dependencies](dependencies.md).
@@ -18,8 +18,9 @@ behavior; quality-of-life options are a later, opt-in decision.
 Clouds of Xeen, Darkside of Xeen and World of Xeen play from a new game to
 their endings on the CD edition's data, on Windows, Linux and the Steam
 Deck, in English or with the Russian fan translation. Release 0.19.0 has all
-of that, plus the opt-in game controller support (M115). What is
-still open is under [later goals](#later-goals).
+of that, plus the opt-in game controller support (M115). The opt-in picture
+filters (M116) are not in a release yet. What is still open is under
+[later goals](#later-goals).
 
 ## Completed arcs
 
@@ -155,9 +156,11 @@ Roughly in this order, each with its own decision and plan:
 6. Opt-in extras: things the original never had, each one an option that is
    off by default, so the game stays faithful unless the player turns it on.
    Game controller support is done: M115 (Tier A,
-   [plan](milestone-115-plan.md), accepted 2026-11-10). Still to study:
-   graphics filters for the scaled picture, switching between the original
-   sound devices while playing, and possibly some interface improvements.
+   [plan](milestone-115-plan.md), accepted 2026-11-10), and so are the
+   picture filters: M116 (Tier B, [plan](milestone-116-plan.md), accepted
+   2026-11-11; a CRT shader was left out because it needs the picture drawn
+   through OpenGL). Still to study: switching between the original sound
+   devices while playing, and possibly some interface improvements.
 7. Other language editions of the original. Russian is done: M110 (Tier A,
    [plan](milestone-110-plan.md), accepted 2026-11-03) lays the old-games.ru
    fan translation over the CD edition. A reader of Russian has not yet

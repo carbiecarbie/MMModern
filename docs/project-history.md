@@ -435,3 +435,15 @@ this is an approved deviation. The play-test on a Steam Deck (Game Mode and
 Desktop Mode, also beside the M112 keyboard layout) and on Windows with a
 physical controller passed without fixes. Save v26 unchanged.
 [Plan](milestone-115-plan.md).
+
+**M116 - Picture filters** (Tier B, the closure commit). The second opt-in
+extra: with `filter=` in `window.ini`, set by a list in the Windows launcher
+or a row on the Linux setup screen and off by default, the enlarged picture
+is softened by one of eleven of the pinned ScummVM's classic scalers
+(AdvMame, HQ, Edge, SaI, SuperSaI, SuperEagle, PM), and F11 switches to the
+next one while playing. The filter runs on the CPU in `SdlWindow` before the
+picture shape fits the picture to the window, works with both shapes and
+leaves clicks and the pointer unchanged; the original has no filter, so this
+is an approved deviation. The play-test on Windows and the Linux setup screen
+passed without fixes; the Steam Deck check of the heaviest filters is still
+open. Save v26 unchanged. [Plan](milestone-116-plan.md).
