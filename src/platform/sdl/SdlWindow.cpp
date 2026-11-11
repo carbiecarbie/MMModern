@@ -288,9 +288,11 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         SDL_Texture *target = nullptr;
         SDL_Texture *filtered = nullptr;
         SDL_Texture *cursor = nullptr;
+        SDL_Texture *label = nullptr;
         int priorCursor=SDL_ENABLE;
 		~Resources() {
             if(cursor) { SDL_DestroyTexture(cursor); SDL_ShowCursor(priorCursor); }
+            if (label) SDL_DestroyTexture(label);
 			if (target) SDL_DestroyTexture(target);
 			if (filtered) SDL_DestroyTexture(filtered);
 			if (texture) SDL_DestroyTexture(texture);
@@ -445,12 +447,41 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         }
         return factor;
     };
+    // After an F11 press, the selected filter's name over the picture for about
+    // two seconds (dev-picture-filter). The window draws it after the filter,
+    // at frame-pixel size; it never enters the frame. Expiry is decided in
+    // present() against the host presentation clock; no wake is added for it.
+    PictureFilterLabelImage labelImage;
+    std::optional<std::uint64_t> labelUntil;
+    constexpr int labelInset = 4;
+    constexpr std::uint64_t labelDuration = 2000000000ULL;
+    const auto hostNow = [&] {
+        return handler.presentationClock ? handler.presentationClock() : SdlWindow::presentationNanoseconds();
+    };
+    // Without a texture the label is simply not shown.
+    const auto createLabelTexture = [&] {
+        if (resources.label) { SDL_DestroyTexture(resources.label); resources.label = nullptr; }
+        if (labelImage.pixels.empty()) return;
+        resources.label = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, labelImage.width, labelImage.height);
+        if (!resources.label) return;
+        if (SDL_UpdateTexture(resources.label, nullptr, labelImage.pixels.data(), labelImage.width * 4) != 0) {
+            SDL_DestroyTexture(resources.label); resources.label = nullptr; return;
+        }
+        SDL_SetTextureScaleMode(resources.label, SDL_ScaleModeNearest);
+        SDL_SetTextureBlendMode(resources.label, SDL_BLENDMODE_BLEND);
+    };
+    const auto drawLabel = [&](int scale) {
+        if (!labelUntil || !resources.label) return;
+        if (hostNow() >= *labelUntil) { labelUntil.reset(); return; }
+        const SDL_Rect destination{labelInset * scale, labelInset * scale, labelImage.width * scale, labelImage.height * scale};
+        SDL_RenderCopy(renderer, resources.label, nullptr, &destination);
+    };
     const auto present = [&] {
         const int factor = filterFrame();
         if (!corrected && factor == 1) {
             SDL_SetRenderDrawColor(renderer,0,0,0,255); SDL_RenderClear(renderer);
             if(SDL_RenderCopy(renderer,texture,nullptr,nullptr)!=0)throw std::runtime_error("Frame presentation failed");
-            drawCursor(1); SDL_RenderPresent(renderer); return;
+            drawLabel(1); drawCursor(1); SDL_RenderPresent(renderer); return;
         }
         int ow,oh;
         if(SDL_GetRendererOutputSize(renderer,&ow,&oh)!=0) throw std::runtime_error("Cannot query renderer output size");
@@ -485,6 +516,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         if(SDL_SetRenderTarget(renderer,resources.target)!=0)throw std::runtime_error("Cannot select picture target");
         // The original cursor is drawn after the filter, unfiltered, at frame-pixel size.
         const int cursorScale=factor*targetScale;
+        drawLabel(cursorScale);
         if(mouse && resources.cursor && (stickPointer() || SDL_GetMouseFocus()==window) && !(handler.inputContext && handler.inputContext({}).hideCursor)) {
             SDL_Rect dest{mouse->first*cursorScale,mouse->second*cursorScale,cursorWidth*cursorScale,cursorHeight*cursorScale};
             if(SDL_RenderCopy(renderer,resources.cursor,nullptr,&dest)!=0)throw std::runtime_error("Original cursor presentation failed");
@@ -703,6 +735,7 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
                         throw std::runtime_error("Cannot restore cursor after renderer reset");
                     SDL_SetTextureBlendMode(resources.cursor,SDL_BLENDMODE_BLEND);
                 }
+                createLabelTexture();
             }
             return;
         }
@@ -727,6 +760,9 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             if(!event.key.repeat) {
                 auto &memory=placementMemory();
                 memory.placement.filter=nextPictureFilter(memory.placement.filter);savePlacement();
+                labelImage=pictureFilterLabelImage("Filter: "+std::string(pictureFilterLabel(memory.placement.filter)));
+                createLabelTexture();
+                labelUntil=PresentationClock::checkedAdd(hostNow(),labelDuration);
             }
             return;
         }

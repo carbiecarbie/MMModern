@@ -135,7 +135,9 @@ the picture looks, never the game.
 Choose it in the Windows launcher's **Picture filter** list, in the Linux
 setup screen's **Picture filter** row (each click picks the next one), or set
 `filter=` in `window.ini`. While playing, F11 switches to the next filter,
-and to off after the last; MMModern remembers the choice. The names are `off`,
+and to off after the last; MMModern remembers the choice. After each F11
+press, the new filter's name shows on the picture for about two seconds.
+The names are `off`,
 `advmame2x`, `advmame3x`, `advmame4x`, `hq2x`, `hq3x`, `edge2x`, `edge3x`,
 `sai2x`, `supersai2x`, `supereagle2x` and `pm2x`; an unknown name means off.
 

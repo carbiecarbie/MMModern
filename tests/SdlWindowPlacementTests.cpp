@@ -70,6 +70,14 @@ void placementText() {
         walked = nextPictureFilter(walked);
     }
     check(walked == PictureFilter::Off, "F11 wraps to off");
+    // The readable names the setup screen and the F11 label show.
+    const char *const filterLabels[] = {"off", "AdvMame 2x", "AdvMame 3x", "AdvMame 4x", "HQ 2x", "HQ 3x", "Edge 2x",
+        "Edge 3x", "2xSaI", "Super2xSaI", "SuperEagle", "PM 2x"};
+    for (const char *label : filterLabels) {
+        check(pictureFilterLabel(walked) == label, std::string("filter label ") + label);
+        walked = nextPictureFilter(walked);
+    }
+    check(walked == PictureFilter::Off && pictureFilterLabel(static_cast<PictureFilter>(99)) == "off", "filter labels");
 	const WindowPlacement stored{true, 1280, 800};
 	check(parseWindowPlacement(formatWindowPlacement(stored)) == stored, "format/parse round trip");
 	check(parseWindowPlacement(formatWindowPlacement({})) == WindowPlacement{}, "default round trip");
@@ -419,10 +427,11 @@ void filterDigests() {
 // Runs the production loop on the software renderer; `inspect` reads the
 // picture every second cycle (after a full redraw) and returns false to quit.
 void readbackLoop(const std::string &title, const IndexedFrame &frame,
-		const std::function<bool(SDL_Window *, SDL_Renderer *, int)> &inspect) {
+		const std::function<bool(SDL_Window *, SDL_Renderer *, int)> &inspect,
+		const SdlWindow::FrameUpdateHandler &handler = {}) {
 	int cycles = 0, inspections = 0;
 	bool quitting = false;
-	const bool ok = SdlWindow().showInteractive(frame, title, {}, {}, [&]() -> std::optional<IndexedFrame> {
+	const bool ok = SdlWindow().showInteractive(frame, title, handler, {}, [&]() -> std::optional<IndexedFrame> {
 		if (quitting || cycles++ % 2) return {};
 		SDL_Window *window = nullptr;
 		for (Uint32 id = 1; id < 65536 && !window; ++id)
@@ -624,6 +633,87 @@ void filterKey() {
 	std::cout << "Picture filter key passed\n";
 }
 
+// F11 shows the new filter's name over the picture for about two seconds,
+// drawn by the window only; the presentation clock is driven, not slept.
+void filterLabel() {
+	const auto directory = scratchDirectory("filter-label");
+	const auto file = directory / "window.ini";
+	const auto frame = filterFrameIndexed();
+	struct LabelCase { PictureAspect aspect; PictureFilter from, to; };
+	const LabelCase cases[] = {
+		{PictureAspect::FourThree, PictureFilter::Off, PictureFilter::AdvMame2x},
+		{PictureAspect::FourThree, PictureFilter::Pm2x, PictureFilter::Off},
+		{PictureAspect::Square, PictureFilter::Off, PictureFilter::AdvMame2x},
+		{PictureAspect::Square, PictureFilter::Hq2x, PictureFilter::Hq3x},
+		{PictureAspect::Square, PictureFilter::Pm2x, PictureFilter::Off}};
+	for (const auto &c : cases) {
+		const bool square = c.aspect == PictureAspect::Square;
+		const int width = square ? 960 : 1000, height = square ? 600 : 700;
+		const auto name = std::string(square ? "square " : "4:3 ") + std::string(pictureFilterName(c.to));
+		const auto picture = square ? PictureRect{0, 0, 960, 600} : pictureRect(width, height, 320, 200, PictureAspect::FourThree);
+		const auto image = pictureFilterLabelImage("Filter: " + std::string(pictureFilterLabel(c.to)));
+		check(image.width > 20 && image.height > 6 && image.pixels.size() == std::size_t(image.width) * image.height,
+			name + " label image");
+		check(image.pixels[0] == 0xe0101010u && std::count(image.pixels.begin(), image.pixels.end(), 0xfff0f0f0u) > 20,
+			name + " light text on a dark box");
+		// The label's frame rectangle (4, 4) in output pixels, with a margin for the 4:3 smoothing.
+		const int x0 = picture.x + 4 * picture.width / 320 - 3, y0 = picture.y + 4 * picture.height / 200 - 3;
+		const int x1 = picture.x + (4 + image.width) * picture.width / 320 + 3, y1 = picture.y + (4 + image.height) * picture.height / 200 + 3;
+		const auto inLabel = [&](int x, int y) { return x >= x0 && x < x1 && y >= y0 && y < y1; };
+		WindowPlacement settings{false, width, height, c.aspect};
+		// The same window started with the new filter: no label at start-up.
+		settings.filter = c.to;
+		check(writeWindowPlacement(file, settings), name + " reference settings");
+		SdlWindow::rememberPlacement(file);
+		std::vector<Uint32> plain;
+		readbackLoop("Label reference " + name, frame, [&](SDL_Window *, SDL_Renderer *renderer, int step) {
+			const auto output = readViewport(renderer, width, height);
+			if (step == 0) plain = output;
+			else check(output == plain, name + " no label at start-up");
+			return step < 1;
+		});
+		settings.filter = c.from;
+		check(writeWindowPlacement(file, settings), name + " settings");
+		SdlWindow::rememberPlacement(file);
+		std::uint64_t clock = 5000000000000ULL;
+		unsigned actions = 0;
+		SdlWindow::FrameUpdateHandler handler = [&](const PlayerAction &) -> std::optional<IndexedFrame> { ++actions; return std::nullopt; };
+		handler.presentationClock = [&] { return clock; };
+		std::vector<Uint32> labelled;
+		readbackLoop("Label " + name, frame, [&](SDL_Window *, SDL_Renderer *renderer, int step) {
+			const auto output = readViewport(renderer, width, height);
+			switch (step) {
+			case 0:
+				WindowRun::key(SDLK_F11);
+				WindowRun::key(SDLK_F11, 0, SDL_KEYUP);
+				return true;
+			case 1: {
+				check(SdlWindow::pictureFilterSetting() == c.to && actions == 0, name + " F11 selects without a gameplay pass");
+				bool differs = false;
+				for (int y = 0; y < height; ++y) for (int x = 0; x < width; ++x) {
+					const std::size_t i = std::size_t(y) * width + x;
+					if (inLabel(x, y)) differs = differs || output[i] != plain[i];
+					else check(output[i] == plain[i], name + " outside the label is unchanged");
+				}
+				check(differs, name + " label shown");
+				labelled = output;
+				clock += 1900000000ULL;
+				return true;
+			}
+			case 2:
+				check(output == labelled, name + " label still shown before two seconds");
+				clock += 200000000ULL;
+				return true;
+			default:
+				check(output == plain && actions == 0, name + " label gone after two seconds");
+				return false;
+			}
+		}, handler);
+	}
+	SdlWindow::rememberPlacement(std::nullopt); removeScratch(directory);
+	std::cout << "Picture filter label passed\n";
+}
+
 } // namespace
 
 int main() {
@@ -641,6 +731,7 @@ int main() {
         squareOffReadback();
         filteredReadback();
         filterKey();
+        filterLabel();
 	} catch (const std::exception &error) {
 		std::cerr << "Window placement test failed: " << error.what() << '\n';
 		return 1;

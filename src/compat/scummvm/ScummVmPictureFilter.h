@@ -31,6 +31,14 @@ private:
 	std::unique_ptr<State> _state;
 };
 
+// The F11 filter label: light text in ScummVM's built-in g_sysfont on a dark
+// box, as an ARGB8888 bitmap; empty for empty text.
+struct PictureFilterLabelImage {
+	int width = 0, height = 0;
+	std::vector<std::uint32_t> pixels;
+};
+PictureFilterLabelImage pictureFilterLabelImage(std::string_view text);
+
 } // namespace mmodern
 
 #endif

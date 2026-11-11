@@ -350,27 +350,6 @@ void XeenSetupScreen::soundHint(const std::string &kind) {
     else
         _notice.clear();
 }
-#ifndef _WIN32
-namespace {
-// M116: the readable names of the picture filters, as the launcher shows them.
-const char *pictureFilterLabel(PictureFilter filter) {
-    switch (filter) {
-    case PictureFilter::AdvMame2x: return "AdvMame 2x";
-    case PictureFilter::AdvMame3x: return "AdvMame 3x";
-    case PictureFilter::AdvMame4x: return "AdvMame 4x";
-    case PictureFilter::Hq2x: return "HQ 2x";
-    case PictureFilter::Hq3x: return "HQ 3x";
-    case PictureFilter::Edge2x: return "Edge 2x";
-    case PictureFilter::Edge3x: return "Edge 3x";
-    case PictureFilter::Sai2x: return "2xSaI";
-    case PictureFilter::SuperSai2x: return "Super2xSaI";
-    case PictureFilter::SuperEagle2x: return "SuperEagle";
-    case PictureFilter::Pm2x: return "PM 2x";
-    default: return "off";
-    }
-}
-} // namespace
-#endif
 void XeenSetupScreen::refresh() {
     _rows.clear();
     const auto add = [&](std::string label, std::string action) {
@@ -391,7 +370,7 @@ void XeenSetupScreen::refresh() {
         // M115: the window.ini option; the Windows launcher has its own box.
         add(SdlWindow::controllerSetting() ? "Game controller: on" : "Game controller: off", "controller");
         // M116: the window.ini picture filter, cycled in F11's order.
-        add(std::string("Picture filter: ") + pictureFilterLabel(SdlWindow::pictureFilterSetting()), "filter");
+        add("Picture filter: " + std::string(pictureFilterLabel(SdlWindow::pictureFilterSetting())), "filter");
 #endif
         add("Copy diagnostics", "copy");
 #ifndef _WIN32

@@ -65,6 +65,8 @@ bool fullscreenToggleKey(std::int32_t keycode, std::uint16_t modifiers);
 
 // The window.ini name ("off", "advmame2x" ...) and the next filter of the F11 order.
 std::string_view pictureFilterName(PictureFilter filter);
+// The readable name the setup screen and the F11 label show ("off", "HQ 3x" ...).
+std::string_view pictureFilterLabel(PictureFilter filter);
 PictureFilter nextPictureFilter(PictureFilter filter);
 // F11, with any modifiers, selects the next picture filter. The game never receives it.
 bool pictureFilterKey(std::int32_t keycode);

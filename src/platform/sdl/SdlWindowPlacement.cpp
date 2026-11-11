@@ -22,6 +22,9 @@ constexpr std::string_view filterNames[] = {"off", "advmame2x", "advmame3x", "ad
 	"edge3x", "sai2x", "supersai2x", "supereagle2x", "pm2x"};
 constexpr int filterCount = static_cast<int>(sizeof filterNames / sizeof filterNames[0]);
 static_assert(filterCount == static_cast<int>(PictureFilter::Pm2x) + 1, "every picture filter has a name");
+constexpr std::string_view filterLabels[] = {"off", "AdvMame 2x", "AdvMame 3x", "AdvMame 4x", "HQ 2x", "HQ 3x", "Edge 2x",
+	"Edge 3x", "2xSaI", "Super2xSaI", "SuperEagle", "PM 2x"};
+static_assert(sizeof filterLabels / sizeof filterLabels[0] == filterCount, "every picture filter has a label");
 
 PictureFilter parsePictureFilter(std::string_view value) {
 	for (int i = 0; i < filterCount; ++i)
@@ -199,6 +202,11 @@ bool fullscreenToggleKey(std::int32_t keycode, std::uint16_t modifiers) {
 std::string_view pictureFilterName(PictureFilter filter) {
 	const int index = static_cast<int>(filter);
 	return index >= 0 && index < filterCount ? filterNames[index] : filterNames[0];
+}
+
+std::string_view pictureFilterLabel(PictureFilter filter) {
+	const int index = static_cast<int>(filter);
+	return index >= 0 && index < filterCount ? filterLabels[index] : filterLabels[0];
 }
 
 PictureFilter nextPictureFilter(PictureFilter filter) {

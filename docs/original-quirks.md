@@ -1026,8 +1026,9 @@ stays documented here and in the plan that implements it.
   (AdvMame 2x/3x/4x, HQ 2x/3x, Edge 2x/3x, 2xSaI, Super2xSaI, SuperEagle,
   PM 2x) before the existing picture shape fits it to the window; the
   original cursor is drawn after the filter. F11 selects the next filter and
-  the game never receives it: F11 produces no code in the original
-  ([controls](controls.md)). MMModern: `ScummVmPictureFilter`,
+  shows its name over the picture for about two seconds, drawn by the window
+  and never into the game's frame; the game never receives F11: it produces
+  no code in the original ([controls](controls.md)). MMModern: `ScummVmPictureFilter`,
   `SdlWindow` (present path), `WindowPlacement`.
   [M116 plan](milestone-116-plan.md). **ScummVM:** the pin offers the same
   scalers as its `scaler` option (`base/commandLine.cpp:127..128` lists
