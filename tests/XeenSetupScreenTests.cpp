@@ -224,6 +224,11 @@ void nativeControllerRow(XeenSetupScreen &screen, const fs::path &scratch) {
             std::this_thread::sleep_for(std::chrono::milliseconds(150));
             if (!SdlWindow::controllerSetting()) click(180, 47 + 19 * 4); // Game controller.
         }
+        // M116: one click on the Picture filter row selects the first filter.
+        while (window && step.waiting() && SdlWindow::pictureFilterSetting() == PictureFilter::Off) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(150));
+            if (SdlWindow::pictureFilterSetting() == PictureFilter::Off) click(180, 47 + 19 * 5);
+        }
         std::this_thread::sleep_for(std::chrono::milliseconds(300));
         while (window && step.waiting()) {
             click(180, 47); // Play.
@@ -241,9 +246,11 @@ void nativeControllerRow(XeenSetupScreen &screen, const fs::path &scratch) {
     check(bool(selected), "Play after the controller row");
     auto expected = before;
     expected.controller = true;
+    expected.filter = PictureFilter::AdvMame2x;
     const auto after = readWindowPlacement(file);
     check(after == expected, ("the controller row changed more than the controller key: " + formatWindowPlacement(after)).c_str());
     SdlWindow::useControllerSetting(false);
+    SdlWindow::usePictureFilter(PictureFilter::Off);
     SdlWindow::rememberPlacement(std::nullopt);
     std::cout << "Setup screen controller row passed" << std::endl;
 }
@@ -441,7 +448,8 @@ int main(int argc, char **argv) {
         #ifdef _WIN32
         const std::uint64_t mainDigest = 7728170877540825945ULL;
 #else
-        const std::uint64_t mainDigest = 13229519516257890217ULL; // M115: the controller row.
+        // M115: the controller row. M116: the picture filter row; the page now ends in More.
+        const std::uint64_t mainDigest = 11881435348102119593ULL;
 #endif
         const std::uint64_t expected[] = {mainDigest, 16505137804929558265ULL,
             8930215273459613646ULL, 12098287078506398707ULL,
@@ -494,6 +502,21 @@ int main(int argc, char **argv) {
             check(SdlWindow::controllerSetting() && s.rows().at(hit - 1000).label == "Game controller: on", "controller row turns it on");
             s.dispatch(DialogKeyAction{hit});
             check(!SdlWindow::controllerSetting() && s.rows().at(hit - 1000).label == "Game controller: off", "controller row turns it off");
+            // M116: the picture filter row cycles F11's list and wraps to off.
+            const auto filterRow = std::find_if(rows.begin(), rows.end(), [](const auto &r) { return r.action == "filter"; });
+            check(filterRow != rows.end() && filterRow->label == "Picture filter: off" &&
+                      SdlWindow::pictureFilterSetting() == PictureFilter::Off,
+                  "filter row, off by default");
+            const unsigned filterHit = 1000 + unsigned(filterRow - rows.begin());
+            s.dispatch(DialogKeyAction{filterHit});
+            check(SdlWindow::pictureFilterSetting() == PictureFilter::AdvMame2x &&
+                      s.rows().at(filterHit - 1000).label == "Picture filter: AdvMame 2x",
+                  "filter row selects the first filter");
+            for (int i = 0; i < 11; ++i)
+                s.dispatch(DialogKeyAction{filterHit});
+            check(SdlWindow::pictureFilterSetting() == PictureFilter::Off &&
+                      s.rows().at(filterHit - 1000).label == "Picture filter: off",
+                  "filter row wraps to off");
         }
 #endif
         SDL_QuitSubSystem(SDL_INIT_VIDEO | SDL_INIT_EVENTS);

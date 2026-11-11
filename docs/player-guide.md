@@ -124,6 +124,25 @@ display. MMModern remembers the window mode and size in `window.ini`.
 Set `aspect=square` in that file to use square pixels instead, scaled in
 whole multiples of 320x200. Set `aspect=4:3` to go back to the default.
 
+### Picture filters
+
+The original draws its 320x200 picture with plain pixels. MMModern can soften
+the enlarged picture with one of the classic pixel-art filters that ScummVM
+and DOSBox offer. It is off by default, so the picture stays sharp unless you
+choose one, and it works with both picture shapes. A filter changes only how
+the picture looks, never the game.
+
+Choose it in the Windows launcher's **Picture filter** list, in the Linux
+setup screen's **Picture filter** row (each click picks the next one), or set
+`filter=` in `window.ini`. While playing, F11 switches to the next filter,
+and to off after the last; MMModern remembers the choice. The names are `off`,
+`advmame2x`, `advmame3x`, `advmame4x`, `hq2x`, `hq3x`, `edge2x`, `edge3x`,
+`sai2x`, `supersai2x`, `supereagle2x` and `pm2x`; an unknown name means off.
+
+Edge is the heaviest filter. On a slow machine, such as a Steam Deck, it may
+draw the picture late, but the game's own timing is not affected. If it feels
+slow, pick another filter.
+
 ## Sound
 
 The original FM music, digital effects, shop and entrance voices and CD
@@ -181,7 +200,7 @@ folder:
 | Inside it | Holds |
 | --- | --- |
 | `Saves/<game-data-id>/` | The ten slots, `slot-0.mmsave` to `slot-9.mmsave` |
-| `window.ini` | Window mode and size, `aspect` and `controller` |
+| `window.ini` | Window mode and size, `aspect`, `controller` and `filter` |
 | `settings.ini` | The language choice, whether the Darkside intro was watched, and the wins |
 | `XEEN.CFG` | Your **Sound setup** choice |
 | `roms/` | Your MT-32 ROMs |

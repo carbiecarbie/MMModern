@@ -119,6 +119,40 @@ function Set-MMController([string]$Path,[bool]$On) {
     if ($directory) { New-Item -ItemType Directory -Force $directory | Out-Null }
     [IO.File]::WriteAllText($Path, (($lines -join "`n") + "`n"))
 }
+# M116: the picture filter in the same window.ini. Only the filter line is
+# written; every other line is kept. An unknown or missing value is off, as in
+# the game. The names are the game's, in the order F11 selects them.
+$script:MMPictureFilters=@(
+    @('off','Off'),@('advmame2x','AdvMame 2x'),@('advmame3x','AdvMame 3x'),@('advmame4x','AdvMame 4x'),
+    @('hq2x','HQ 2x'),@('hq3x','HQ 3x'),@('edge2x','Edge 2x (heaviest)'),@('edge3x','Edge 3x (heaviest)'),
+    @('sai2x','2xSaI'),@('supersai2x','Super2xSaI'),@('supereagle2x','SuperEagle'),@('pm2x','PM 2x'))
+function Get-MMFilter([string]$Path) {
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return 'off' }
+    $value=''
+    foreach ($line in ([IO.File]::ReadAllText($Path) -split "`n")) {
+        if ($line -cmatch '^[ 	]*filter[ 	]*=(.*)$') { $value=$Matches[1].Trim(" `t`r") }
+    }
+    if ($script:MMPictureFilters | Where-Object { $_[0] -ceq $value }) { return $value }
+    return 'off'
+}
+function Set-MMFilter([string]$Path,[string]$Name) {
+    if (-not ($script:MMPictureFilters | Where-Object { $_[0] -ceq $Name })) { throw "Unknown picture filter '$Name'." }
+    $setting="filter=$Name"
+    $text=if (Test-Path -LiteralPath $Path -PathType Leaf) { [IO.File]::ReadAllText($Path) } else { '' }
+    $lines=New-Object Collections.Generic.List[string]
+    $found=$false
+    if ($text -ne '') {
+        foreach ($line in ($text -split "`n")) {
+            if ($line -cmatch '^[ 	]*filter[ 	]*=') { if (-not $found) { $lines.Add($setting); $found=$true } }
+            else { $lines.Add($line) }
+        }
+        if ($lines.Count -and $lines[$lines.Count-1] -eq '') { $lines.RemoveAt($lines.Count-1) }
+    }
+    if (-not $found) { $lines.Add($setting) }
+    $directory=Split-Path -Parent $Path
+    if ($directory) { New-Item -ItemType Directory -Force $directory | Out-Null }
+    [IO.File]::WriteAllText($Path, (($lines -join "`n") + "`n"))
+}
 function Get-MMLanguageArguments([string]$Language, [string]$Folder) {
     $arguments = @('--language-setup', '--language', $Language.ToLowerInvariant())
     if ($Folder) { $arguments += @('--translation', $Folder) }
@@ -292,6 +326,10 @@ $script:MMMainXaml = @'
       <Button x:Name="ChangeFolder" Grid.Column="4" Content="Change game folder"/>
     </Grid>
     <CheckBox x:Name="Controller" Content="Play with a game controller (off by default)" HorizontalAlignment="Center" Margin="0,14,0,0"/>
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0">
+      <TextBlock Text="Picture filter (off by default; F11 switches it while playing):" VerticalAlignment="Center" Margin="0,0,8,0"/>
+      <ComboBox x:Name="PictureFilter" MinWidth="150" Padding="8,4"/>
+    </StackPanel>
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,14,0,0">
       <Button x:Name="CopyDiagnostics" Style="{StaticResource Link}" Content="Copy diagnostics"/>
       <TextBlock Text="&#x00B7;" Foreground="#8A8A8A" VerticalAlignment="Center"/>
@@ -547,8 +585,13 @@ function Show-MMLanguageSetup {
 }
 function Set-MMRunning([bool]$Running) {
     $w=$script:MMState.Window
-    foreach ($name in 'Play','SoundSetup','Language','ChangeFolder','Controller','CopyDiagnostics','OpenSaves','OpenLog') { $w.FindName($name).IsEnabled = -not $Running }
+    foreach ($name in 'Play','SoundSetup','Language','ChangeFolder','Controller','PictureFilter','CopyDiagnostics','OpenSaves','OpenLog') { $w.FindName($name).IsEnabled = -not $Running }
     $w.FindName('Play').Content = if ($Running) { 'Playing...' } else { 'Play' }
+    # M116: F11 may have changed the filter while the game ran.
+    $filterBox=$w.FindName('PictureFilter')
+    if (-not $Running -and $filterBox.Items.Count) {
+        $filterBox.SelectedIndex = [Array]::FindIndex($script:MMPictureFilters,[Predicate[object]]{ param($c) $c[0] -ceq (Get-MMFilter $script:MMState.WindowSettings) })
+    }
 }
 function Start-MMLauncher {
     $script:MMState=@{}
@@ -584,6 +627,16 @@ function Start-MMLauncher {
             $app.Window.FindName('Notice').Text="Could not save the controller setting: $($_.Exception.Message)"
             $app.Window.FindName('Controller').IsChecked = Get-MMController $app.WindowSettings
         }
+    })
+    $filterBox=$w.FindName('PictureFilter')
+    foreach ($choice in $script:MMPictureFilters) { [void]$filterBox.Items.Add((New-Object Windows.Controls.ComboBoxItem -Property @{ Content=$choice[1]; Tag=$choice[0] })) }
+    $filterBox.SelectedIndex = [Array]::FindIndex($script:MMPictureFilters,[Predicate[object]]{ param($c) $c[0] -ceq (Get-MMFilter $script:MMState.WindowSettings) })
+    $filterBox.Add_SelectionChanged({
+        $app=$script:MMState
+        $box=$app.Window.FindName('PictureFilter')
+        if (-not $box.SelectedItem) { return }
+        try { Set-MMFilter $app.WindowSettings ([string]$box.SelectedItem.Tag) }
+        catch { $app.Window.FindName('Notice').Text="Could not save the picture filter: $($_.Exception.Message)" }
     })
     $w.FindName('SoundSetup').Add_Click({ Show-MMSoundSetup })
     $w.FindName('Language').Add_Click({ Show-MMLanguageSetup })

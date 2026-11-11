@@ -61,6 +61,7 @@ button has the same effect at the same position; use Escape to cancel.
 | D / W in the Bank, then O / E | Deposit / Withdraw, then Gold / Gems |
 | Digits, Backspace, Enter in Bank amount entry | Enter up to ten digits, edit, confirm; Escape cancels |
 | Alt+Enter | Switch between window and fullscreen; no gameplay pass |
+| F11 | Next picture filter, or off after the last ([player guide](player-guide.md#picture-filters)); no gameplay pass, never reaches the game |
 
 With Russian selected, the keyboard is the Russian program's: the letter keys
 type lowercase Cyrillic by their position on the keyboard (ЙЦУКЕН, whatever the
@@ -113,8 +114,10 @@ Ctrl+[ is Escape. Ctrl+Up/Down are unmatched keys with a pass. Alt plus a key
 acts as the plain key, except Alt+Enter. Keypad translation ignores NumLock;
 keypad 0/1/3/7/9 are Insert/End/Page Down/Home/Page Up, and keypad 5 is 5.
 
-F10 makes no pass; Ctrl+F10 is unmatched and does. F11, F12 and Delete
-(including keypad decimal) produce no code anywhere. Shift, Ctrl, Alt and
+F10 makes no pass; Ctrl+F10 is unmatched and does. F12 and Delete
+(including keypad decimal) produce no code anywhere, and neither does F11 in
+the original: MMModern keeps F11 for itself as the host key that switches
+the picture filter, with any modifiers, and the game never receives it. Shift, Ctrl, Alt and
 Windows keys alone make no pass. Caps/Num/Scroll Lock produce unmatched
 passes; releasing NumLock clears pending keys. Ordinary releases add no pass.
 Held keys repeat after 500 ms at the existing nominal 10.9 Hz model; movement

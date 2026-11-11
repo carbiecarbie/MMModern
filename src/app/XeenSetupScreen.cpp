@@ -45,6 +45,11 @@ struct RowBox {
 RowBox rowBox(bool main, int i) {
     return main ? RowBox{164, 43 + i * 19, 146, 17} : RowBox{8, 41 + i * 15, 304, 14};
 }
+// Rows one window holds before it pages with Previous and More: the main
+// page's large buttons fit eight in the frame, the lists nine.
+constexpr std::size_t rowCapacity(bool main) {
+    return main ? 8 : 9;
+}
 // Stone and gold palette, drawn without any original game resource: the
 // setup screen runs before the game folder is known.
 enum SetupColor : std::uint8_t {
@@ -345,6 +350,27 @@ void XeenSetupScreen::soundHint(const std::string &kind) {
     else
         _notice.clear();
 }
+#ifndef _WIN32
+namespace {
+// M116: the readable names of the picture filters, as the launcher shows them.
+const char *pictureFilterLabel(PictureFilter filter) {
+    switch (filter) {
+    case PictureFilter::AdvMame2x: return "AdvMame 2x";
+    case PictureFilter::AdvMame3x: return "AdvMame 3x";
+    case PictureFilter::AdvMame4x: return "AdvMame 4x";
+    case PictureFilter::Hq2x: return "HQ 2x";
+    case PictureFilter::Hq3x: return "HQ 3x";
+    case PictureFilter::Edge2x: return "Edge 2x";
+    case PictureFilter::Edge3x: return "Edge 3x";
+    case PictureFilter::Sai2x: return "2xSaI";
+    case PictureFilter::SuperSai2x: return "Super2xSaI";
+    case PictureFilter::SuperEagle2x: return "SuperEagle";
+    case PictureFilter::Pm2x: return "PM 2x";
+    default: return "off";
+    }
+}
+} // namespace
+#endif
 void XeenSetupScreen::refresh() {
     _rows.clear();
     const auto add = [&](std::string label, std::string action) {
@@ -364,6 +390,8 @@ void XeenSetupScreen::refresh() {
 #ifndef _WIN32
         // M115: the window.ini option; the Windows launcher has its own box.
         add(SdlWindow::controllerSetting() ? "Game controller: on" : "Game controller: off", "controller");
+        // M116: the window.ini picture filter, cycled in F11's order.
+        add(std::string("Picture filter: ") + pictureFilterLabel(SdlWindow::pictureFilterSetting()), "filter");
 #endif
         add("Copy diagnostics", "copy");
 #ifndef _WIN32
@@ -507,12 +535,13 @@ void XeenSetupScreen::refresh() {
                                          [](const Row &r) { return r.action != "noop"; });
             _focus = std::size_t(it - _rows.begin());
         }
-        _offset = _rows.size() > 9 ? (_focus / pageSize) * pageSize : 0;
+        _offset = _rows.size() > rowCapacity(_page == Page::Main) ? (_focus / pageSize) * pageSize : 0;
     }
 }
 std::vector<std::size_t> XeenSetupScreen::visibleIndices() const {
     std::vector<std::size_t> result;
-    const auto count = _rows.size() > 9 ? pageSize : 9;
+    const auto capacity = rowCapacity(_page == Page::Main);
+    const auto count = _rows.size() > capacity ? pageSize : capacity;
     if (_offset > 0)
         result.push_back(previousRow);
     for (std::size_t i = _offset; i < _rows.size() && i < _offset + count; ++i)
@@ -727,6 +756,8 @@ void XeenSetupScreen::activate(std::string action) {
             // Kept in the loaded window settings and written with them when
             // this window closes; the game's windows read it when they open.
             SdlWindow::useControllerSetting(!SdlWindow::controllerSetting());
+        } else if (action == "filter") {
+            SdlWindow::usePictureFilter(nextPictureFilter(SdlWindow::pictureFilterSetting()));
         } else if (action == "toggle-language")
             _russian = !_russian;
         else if (action == "translation") {

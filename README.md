@@ -13,7 +13,7 @@ MMModern is an open-source reimplementation of the engine behind
 Might and Magic IV: Clouds of Xeen and Might and Magic V: Darkside of Xeen /
 World of Xeen. It runs on your own copy of the game data and aims to look,
 play and behave like the original DOS game. Anything the original never had,
-such as game controller support, is an option that is off by default.
+such as game controller support or picture filters, is an option that is off by default.
 
 MMModern is not a port of ScummVM's Xeen engine. It reuses some ScummVM code,
 but where ScummVM and DOS behave differently it follows DOS. The
@@ -98,6 +98,7 @@ most used keys:
 | Tab | Control panel: Save, Load, Quit |
 | Escape | Back or cancel |
 | Alt+Enter | Window or fullscreen |
+| F11 | Next picture filter (off by default) |
 
 The [full list of controls][controls] covers the character sheet, Items,
 Quick Fight and every service.
@@ -118,6 +119,14 @@ The D-pad or left stick walks and turns, A interacts and B cancels. The right
 stick moves the pointer and RT clicks, which reaches everything that has no
 button of its own. The [controller layout][controller] lists every button.
 
+### Picture filters
+
+The picture can be softened with one of ScummVM's classic pixel-art filters
+(AdvMame, HQ, Edge, SaI and others). The original has none, so it is off until
+you choose one: the **Picture filter** list in the Windows launcher, the
+setup screen row on Linux, or `filter=` in `window.ini`. F11 switches to the
+next filter while you play. The [player guide][guide-filters] lists them.
+
 ## More for players
 
 The [player guide][guide] covers what this page leaves out:
@@ -125,7 +134,8 @@ The [player guide][guide] covers what this page leaves out:
 - [Steam Deck][guide-deck] setup, through the AppImage or Proton.
 - The [Russian translation][guide-russian]: which files you need and how to
   select them.
-- [Display][guide-display]: fullscreen, and 4:3 or square pixels.
+- [Display][guide-display]: fullscreen, 4:3 or square pixels, and picture
+  filters.
 - [Sound][guide-sound]: choosing the original sound devices, and MT-32 ROMs.
 - [Saves][guide-saves] and [where MMModern keeps its files][guide-files].
 
@@ -187,6 +197,7 @@ libvorbisfile, libvorbis and libogg, their licenses and corresponding source.
 [guide-deck]: https://github.com/carbiecarbie/MMModern/blob/main/docs/player-guide.md#steam-deck
 [guide-russian]: https://github.com/carbiecarbie/MMModern/blob/main/docs/player-guide.md#russian
 [guide-display]: https://github.com/carbiecarbie/MMModern/blob/main/docs/player-guide.md#display
+[guide-filters]: https://github.com/carbiecarbie/MMModern/blob/main/docs/player-guide.md#picture-filters
 [guide-sound]: https://github.com/carbiecarbie/MMModern/blob/main/docs/player-guide.md#sound
 [guide-saves]: https://github.com/carbiecarbie/MMModern/blob/main/docs/player-guide.md#saves
 [guide-files]: https://github.com/carbiecarbie/MMModern/blob/main/docs/player-guide.md#where-mmmodern-keeps-its-files
