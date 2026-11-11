@@ -334,6 +334,9 @@ void eitherMouseButton() {
    else if(h.stage==6){if(t.dialog && t.dialog->textEntry)h.check(actions.empty(),"no-code key reached text input");h.quit();}
   });
  }
+ // M116: the F11 typed in the text entry selected the next picture filter instead.
+ if(SdlWindow::pictureFilterSetting()!=PictureFilter::AdvMame2x)throw std::runtime_error("F11 did not select the next filter in text entry");
+ SdlWindow::usePictureFilter(PictureFilter::Off);
 }
 void wordInputBoundaries() {
  QueueHarness h;h.queueable=false;h.ready=true;h.screen=MainScreen::None;
@@ -863,9 +866,16 @@ int main(int argc,char **) {
   if(!writeWindowPlacement(settings,{false,960,600,PictureAspect::Square}))throw std::runtime_error("square fixture settings");
   SdlWindow::rememberPlacement(settings);QueueHarness::mouseAspect=PictureAspect::Square;
   combatButtonClicks();
+  // M116: with a picture filter on, clicks at real window coordinates reach the same frame pixels.
+  SdlWindow::usePictureFilter(PictureFilter::Hq2x);combatButtonClicks();
   QueueHarness::mouseAspect=PictureAspect::FourThree;SdlWindow::rememberPlacement(std::nullopt);
+  SdlWindow::useAspectSetting(std::nullopt);SdlWindow::usePictureFilter(PictureFilter::Edge3x);combatButtonClicks();SdlWindow::usePictureFilter(PictureFilter::Off);
   std::error_code ignored;std::filesystem::remove_all(directory,ignored);return 0;}
- dosKeyTable();dosRepeatsAndClears();retainedEventRegressions();eitherMouseButton();
+ dosKeyTable();
+ // M116: the F11 of the key table selected the next picture filter and no game key.
+ if(SdlWindow::pictureFilterSetting()!=PictureFilter::AdvMame2x)throw std::runtime_error("F11 did not select the next filter");
+ SdlWindow::usePictureFilter(PictureFilter::Off);
+ dosRepeatsAndClears();retainedEventRegressions();eitherMouseButton();
  semanticBoundaryKeys();cutsceneControlQuit();
  boundedQueuePolicies();
  navigationObligations();

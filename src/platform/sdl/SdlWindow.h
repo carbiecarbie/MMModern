@@ -5,6 +5,7 @@
 #include "core/PlayerAction.h"
 #include "core/InputContext.h"
 #include "core/XeenKeyboard.h"
+#include "platform/sdl/SdlWindowPlacement.h"
 
 #include <filesystem>
 #include <functional>
@@ -28,6 +29,10 @@ public:
     // without a settings file (tests); normal play reads it from window.ini.
     static void useControllerSetting(bool enabled);
     static bool controllerSetting();
+    // M116: selects the picture filter for the next loop without a settings
+    // file (tests); normal play reads it from window.ini and F11 saves it.
+    static void usePictureFilter(PictureFilter filter);
+    static PictureFilter pictureFilterSetting();
 	struct FrameUpdateHandler : std::function<std::optional<IndexedFrame>(const PlayerAction &)> {
 		using Function = std::function<std::optional<IndexedFrame>(const PlayerAction &)>;
 		using Function::Function;

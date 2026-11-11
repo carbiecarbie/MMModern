@@ -176,7 +176,8 @@ add_library(mmodern_platform_sdl STATIC
 	src/platform/sdl/SdlWindowPlacement.cpp
 	src/platform/sdl/SdlController.cpp
 )
-target_link_libraries(mmodern_platform_sdl PUBLIC mmodern_core PRIVATE SDL2::SDL2 mmodern_platform_libs mmodern_platform_files)
+# M116: the picture filter uses the ScummVM scalers of the linked libgraphics.a.
+target_link_libraries(mmodern_platform_sdl PUBLIC mmodern_core PRIVATE SDL2::SDL2 mmodern_platform_libs mmodern_platform_files mmodern_scummvm_xeen)
 
 add_library(mmodern_app STATIC
  src/app/XeenSetupScreen.cpp

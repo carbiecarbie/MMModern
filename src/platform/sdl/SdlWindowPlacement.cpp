@@ -18,6 +18,16 @@ namespace mmodern {
 namespace {
 
 constexpr int maximumWindowExtent = 32768;
+constexpr std::string_view filterNames[] = {"off", "advmame2x", "advmame3x", "advmame4x", "hq2x", "hq3x", "edge2x",
+	"edge3x", "sai2x", "supersai2x", "supereagle2x", "pm2x"};
+constexpr int filterCount = static_cast<int>(sizeof filterNames / sizeof filterNames[0]);
+static_assert(filterCount == static_cast<int>(PictureFilter::Pm2x) + 1, "every picture filter has a name");
+
+PictureFilter parsePictureFilter(std::string_view value) {
+	for (int i = 0; i < filterCount; ++i)
+		if (filterNames[i] == value) return static_cast<PictureFilter>(i);
+	return PictureFilter::Off;
+}
 
 std::string_view trim(std::string_view text) {
 	while (!text.empty() && (text.front() == ' ' || text.front() == '\t')) text.remove_prefix(1);
@@ -51,6 +61,7 @@ WindowPlacement parseWindowPlacement(std::string_view text) {
 		else if (key == "height") height = number(value, 1, maximumWindowExtent);
         else if (key == "aspect") placement.aspect = value == "square" ? PictureAspect::Square : PictureAspect::FourThree;
         else if (key == "controller") placement.controller = value == "on";
+        else if (key == "filter") placement.filter = parsePictureFilter(value);
 	}
 	// A size is meaningful only as a pair.
 	if (width && height) { placement.width = *width; placement.height = *height; }
@@ -64,6 +75,9 @@ std::string formatWindowPlacement(const WindowPlacement &placement) {
         << "aspect=" << (placement.aspect == PictureAspect::Square ? "square" : "4:3") << '\n'
 		<< "# Game controller: controller=off (default) or controller=on.\n"
 		<< "controller=" << (placement.controller ? "on" : "off") << '\n'
+		<< "# Picture filter, F11 switches it: filter=off (default), advmame2x, advmame3x,\n"
+		<< "# advmame4x, hq2x, hq3x, edge2x, edge3x, sai2x, supersai2x, supereagle2x or pm2x.\n"
+		<< "filter=" << pictureFilterName(placement.filter) << '\n'
 		<< "fullscreen=" << (placement.fullscreen ? 1 : 0) << '\n';
 	if (placement.width > 0 && placement.height > 0)
 		text << "width=" << placement.width << "\nheight=" << placement.height << '\n';
@@ -180,6 +194,20 @@ std::optional<std::pair<int, int>> frameToWindow(int x, int y, int ww, int wh, i
 
 bool fullscreenToggleKey(std::int32_t keycode, std::uint16_t modifiers) {
 	return (modifiers & KMOD_ALT) && (keycode == SDLK_RETURN || keycode == SDLK_KP_ENTER);
+}
+
+std::string_view pictureFilterName(PictureFilter filter) {
+	const int index = static_cast<int>(filter);
+	return index >= 0 && index < filterCount ? filterNames[index] : filterNames[0];
+}
+
+PictureFilter nextPictureFilter(PictureFilter filter) {
+	const int index = static_cast<int>(filter);
+	return index >= 0 && index + 1 < filterCount ? static_cast<PictureFilter>(index + 1) : PictureFilter::Off;
+}
+
+bool pictureFilterKey(std::int32_t keycode) {
+	return keycode == SDLK_F11;
 }
 
 } // namespace mmodern
