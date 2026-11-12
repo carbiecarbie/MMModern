@@ -7,7 +7,7 @@ rerunning its failed tests, and when acting as its test runner. The root
 ## When
 
 - There are two complete suites: the Windows one on `build-rel`
-  (`tools/run-full-ctest.ps1`) and, since M113, the Linux one on
+  (`tools/run-full-ctest.ps1`) and the Linux one on
   `build-linux-rel` in the WSL clone (`tools/run-full-ctest.sh`; setup in
   [dependencies](../docs/dependencies.md#linux-build-under-wsl-build-linux-rel)).
   A task that changes production code, tests, CMake or the test tools runs
@@ -17,9 +17,9 @@ rerunning its failed tests, and when acting as its test runner. The root
   two systems. Where no Linux build is set up, the task says that the Linux
   suite was not run. "The complete suite" below means each of them.
 - The complete suite runs on `build-rel` once after the final production
-  build of each task, not once for the whole milestone. It takes a few minutes
-  (M66 target: under 10); a run over 15 minutes means something hangs or the
-  machine is otherwise loaded, so check that before anything else.
+  build of each task, not once for the whole milestone. It takes a few minutes;
+  a run over 15 minutes means something hangs or the machine is otherwise
+  loaded, so check that before anything else.
 - `build-rel` is also the build that releases package and the maintainer
   play-tests, so no separate Debug (`build-m44`) run is required at milestone
   closure or before a release (maintainer, 2026-10-16). Use `build-m44` only to
@@ -64,10 +64,9 @@ rerunning its failed tests, and when acting as its test runner. The root
   `%LOCALAPPDATA%\MMModern\ctest-jobs.json` when its `computerName` matches
   this computer, then half the logical processors (at least 1, at most 8).
   Omitted `-Jobs` or `-Jobs 0` selects the local preference or fallback.
-  The maintainer's `GCC` workstation uses 12 jobs, approved on 2026-10-30:
-  two complete runs per setting averaged 288.21 s at 8 and 243.83 s at 12,
-  with all 371 tests passing each time. This local file applies across
-  checkouts and is not distributed with the repository. Other machines keep
+  The maintainer's `GCC` workstation is set to 12 jobs (measured and
+  approved 2026-10-30). This local file applies across checkouts and is not
+  distributed with the repository. Other machines keep
   the conservative fallback until measured; see the
   [configuration example](../docs/dependencies.md#optimized-test-build-build-rel).
   Use `-Jobs` for an explicit machine setting, reproductions or authorized
@@ -152,7 +151,7 @@ and every checkpoint, and checks native final reload/re-save equality. Each
 build's `mmodern_save_dump` uses its own reader, checks CRC and canonical
 re-encoding, and dumps all snapshot fields. Maintain its stable field paths and
 visitor when persisted fields change; no legacy reader belongs in the new build.
-Since M69 it also writes a per-map view (`maps[side:number]...`, marked by
+It also writes a per-map view (`maps[side:number]...`, marked by
 `view.perMap`) keyed by map identity and record, independent of the save
 layout; the audit compares it only when both builds write it. The roundtrip
 scenario also resumes from checkpoints A and B in `resume-A/` and `resume-B/`

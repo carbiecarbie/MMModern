@@ -34,8 +34,8 @@ workflow documents.
 
 Tier scope, reviews and acceptance are defined in the root `AGENTS.md`.
 
-- Record the maintainer's formal acceptance in the plan's status line, as M50
-  and M51 do ("Status: completed and accepted", with the relevant commits).
+- Record the maintainer's formal acceptance in the plan's status line
+  ("Status: completed and accepted", with the relevant commits).
   Never record acceptance before the maintainer has accepted the milestone.
 - At closure, condense the plan to scope, key decisions and results. Git keeps
   everything else; a closed plan is not a transcript.

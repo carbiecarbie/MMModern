@@ -217,9 +217,10 @@ tokens per call); reasoning effort and output are a small share.
   The main agent keeps design decisions and code edits.
 - Request sandbox escalation once per validation phase, not per command.
 - Do not rescan ScummVM or original resources the docs already settle;
-  reference the plan instead of restating it; reports ~100 lines, detail in
-  side files. Other parallel work only when it materially improves
-  correctness, never while the complete suite runs.
+  reference the plan instead of restating it; keep reports to what the
+  maintainer needs to decide or verify, with detail in side files. Other
+  parallel work only when it materially improves correctness, never while the
+  complete suite runs.
 
 ## Dependencies
 
