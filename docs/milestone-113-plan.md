@@ -3,7 +3,7 @@
 **Tier A. Status: completed and accepted by the maintainer (2026-11-06)**,
 after a play-test under WSLg. Plan `537e826`, amended `885459d`; Part A
 `54f9f17`, Part B `f8d3eec`, Part C `5e6441d`. Second half of
-[later goal 3](roadmap.md#later-goals), after M112's Steam Deck through
+[later goal 2](roadmap.md#later-goals), after M112's Steam Deck through
 Proton. No game behavior changes; save v26 unchanged, since its bytes were
 already the same on both platforms.
 

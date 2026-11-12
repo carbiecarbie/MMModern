@@ -3,7 +3,7 @@
 **Tier B. Status: completed and accepted by the maintainer (2026-11-07)**,
 after a play-test under WSLg and on a Steam Deck. Plan `20c6ae3`, amended
 `26b865f`; Part A `563006e`, Part B `32e26ba`, play-test fix `b5ec6da`.
-Rest of [later goal 3](roadmap.md#later-goals), after M112 (Steam Deck
+Rest of [later goal 2](roadmap.md#later-goals), after M112 (Steam Deck
 through Proton) and M113 (native Linux build). Save v26, Journey schema and
 content unchanged: nothing here is game state. No gameplay change.
 

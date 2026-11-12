@@ -141,19 +141,16 @@ Roughly in this order, each with its own decision and plan:
 1. Automated builds and tests on GitHub. Done: M109 (Tier A,
    [plan](milestone-109-plan.md), accepted 2026-11-03). Tests on the
    original data stay local, because that data cannot be published.
-2. Optionally, a public announcement that World of Xeen plays from start to
-   end, inviting players to report defects with the launcher's diagnostics
-   and the issue template. The releases are already public.
-3. Other systems. Done: the Steam Deck through Proton
+2. Other systems. Done: the Steam Deck through Proton
    (M112, [plan](milestone-112-plan.md)), the native Linux build and its CI
    job (M113, [plan](milestone-113-plan.md)), and a setup screen inside the
    game that can also serve Android, with an AppImage
    (M114, [plan](milestone-114-plan.md)).
-4. Saves that survive updates, when compatibility is revisited for 1.0.
-5. A study of the community MM3 conversion
+3. Saves that survive updates, when compatibility is revisited for 1.0.
+4. A study of the community MM3 conversion
    ([mm345-conversion](https://github.com/hooby3dfx/mm345-conversion)), then
    mod support and modding tools.
-6. Opt-in extras: things the original never had, each one an option that is
+5. Opt-in extras: things the original never had, each one an option that is
    off by default, so the game stays faithful unless the player turns it on.
    Game controller support is done: M115 (Tier A,
    [plan](milestone-115-plan.md), accepted 2026-11-10), and so are the
@@ -161,11 +158,11 @@ Roughly in this order, each with its own decision and plan:
    2026-11-11; a CRT shader was left out because it needs the picture drawn
    through OpenGL). Still to study: switching between the original sound
    devices while playing, and possibly some interface improvements.
-7. Other language editions of the original. Russian is done: M110 (Tier A,
+6. Other language editions of the original. Russian is done: M110 (Tier A,
    [plan](milestone-110-plan.md), accepted 2026-11-03) lays the old-games.ru
    fan translation over the CD edition. A reader of Russian has not yet
    checked the text in play.
-8. **To evaluate:** whether to support Swords of Xeen, a standalone game on
+7. **To evaluate:** whether to support Swords of Xeen, a standalone game on
    the same engine by the fan group Catware; the maintainer decides
    (2026-11-02). It keeps Darkside's formats in one archive (`swrd.cc`), and
    the pinned reference supports it as its own game type with about 70

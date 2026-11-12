@@ -3,7 +3,7 @@
 **Tier B. Status: completed and accepted by the maintainer (2026-11-04)**,
 after a play-test on a Steam Deck. Plan `c8fb586`; player log fix found
 during the play-test `9161d61`. First half of
-[later goal 3](roadmap.md#later-goals): the native Linux build, its CI job
+[later goal 2](roadmap.md#later-goals): the native Linux build, its CI job
 and its package follow as their own milestone (Tier A). Save v26 unchanged;
 no gameplay change.
 

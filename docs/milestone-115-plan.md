@@ -3,7 +3,7 @@
 **Tier A. Status: completed and accepted by the maintainer (2026-11-10)**,
 after a play-test on a Steam Deck and on Windows with a physical controller.
 Plan `36ab807`; Part A `f866278`, Part B `a7c9844`. First of the opt-in
-extras of [later goal 6](roadmap.md#later-goals). Save v26, Journey schema
+extras of [later goal 5](roadmap.md#later-goals). Save v26, Journey schema
 and content unchanged: nothing here is game state. With the option off, the
 default, nothing changes.
 

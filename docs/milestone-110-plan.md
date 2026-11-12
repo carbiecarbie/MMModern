@@ -6,7 +6,7 @@ Cyrillic save name, the Bank by mouse and keyboard, combat and Quick Fight
 Next, the intro with speech under the strip, English unchanged); reading
 the Russian text in play is left to a Russian speaker. Plan `087883d`,
 Part A `7c55280`, Part B `efd7d3a`, Part C `d2d687e`.
-[Later goal 7](roadmap.md#later-goals) of the roadmap, run in parallel with
+[Later goal 6](roadmap.md#later-goals) of the roadmap, run in parallel with
 M109. Save v26, Journey schema 9 and content 14.
 
 ## Goal and scope

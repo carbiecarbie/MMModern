@@ -3,7 +3,7 @@
 **Tier B. Status: completed and accepted by the maintainer (2026-11-11)**,
 after a play-test on Windows and the Linux setup screen under WSLg. Plan and
 Parts 0 and A `728e881`, Part B `2b8667f` and the closure commit. Second of
-the opt-in extras of [later goal 6](roadmap.md#later-goals), after M115.
+the opt-in extras of [later goal 5](roadmap.md#later-goals), after M115.
 Save v26, Journey schema and content unchanged: the filter is a host window
 setting, never game state. With the filter off, the default, nothing
 changes.
