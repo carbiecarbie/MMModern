@@ -141,10 +141,11 @@ where nothing cheaper settles a change, without lowering the evidence bar.
 
 **Maintenance tasks.** Small fixes (a defect, a flaky test, a doc correction)
 may be done without a milestone plan: a scoped prompt, tests for a code or test
-fix, the complete CTest suite if production code changes, and the mandatory
-independent review when the fix touches Tier A areas. Documentation-only fixes
-use the documentation check below. If a fix turns out to be larger or
-recurring, stop and propose a milestone instead.
+fix, the complete suites if production code, tests, CMake or the test tools
+change (`tools/AGENTS.md`), and the mandatory independent review when the fix
+touches Tier A areas. Documentation-only fixes use the documentation check
+below. If a fix turns out to be larger or recurring, stop and propose a
+milestone instead.
 
 ## Building and testing
 
