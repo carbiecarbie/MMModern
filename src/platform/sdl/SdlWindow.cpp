@@ -904,7 +904,8 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
                 if (mouse) {
                     if (pendingActions.size() < 5) {
                         if(button)feedback(*button,batchFrame,false);
-                        pendingActions.push_back({*action,context.contextId,false,{},0,0,SDL_BUTTON(event.button.button)});
+                        pendingActions.push_back({*action,context.contextId,false,{},0,0,
+                            static_cast<unsigned int>(SDL_BUTTON(event.button.button))});
                     }
                     return;
                 }

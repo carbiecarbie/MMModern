@@ -225,17 +225,32 @@ On Linux, from any shell in the build directory, configure with:
   --disable-ogg --disable-vorbis
 ```
 
-The two extra flags keep Ogg and Vorbis out of ScummVM's configuration
+On macOS, configure with:
+
+```sh
+SDL_CONFIG="$(command -v sdl2-config)" \
+  <scummvm-source>/configure \
+  --backend=sdl \
+  --disable-all-engines \
+  --disable-detection-full \
+  --disable-ogg --disable-vorbis \
+  --disable-jpeg --disable-png
+```
+
+Disabling Ogg and Vorbis keeps them out of ScummVM's configuration
 whatever the machine has installed, as the Windows configure order does;
-MMModern still links the system's `vorbisfile` for CD speech. The resulting
-`USE_` set is recorded in `.github/ci/scummvm-use-linux.txt`. Compared with
-Windows it adds ALSA, the ALSA sequencer MIDI, sndio and Linux CD and drops
-libcurl, its networking options, the taskbar, system dialogs and
-text-to-speech. MMModern's configure reads the `-D` entries of `config.mk`'s
+MMModern still links the system's `vorbisfile` for CD speech. The macOS
+configuration also disables JPEG and PNG: ScummVM's Image archive otherwise
+introduces link dependencies MMModern does not use. The `USE_` set for Linux
+is recorded in `.github/ci/scummvm-use-linux.txt`. Compared with Windows it
+adds ALSA, the ALSA sequencer MIDI, sndio and Linux CD and drops libcurl, its
+networking options, the taskbar, system dialogs and text-to-speech. MMModern's
+configure reads the `-D` entries of `config.mk`'s
 `DEFINES` (`SDL_BACKEND`, `USE_SDL2`, `POSIX`, `HAS_POSIX_SPAWN`,
 `HAS_FSEEKO_OFFT_64`, `DATA_PATH` and `PLUGIN_DIRECTORY`), adds
 `HAVE_CONFIG_H`, compiles the bridge objects with them and refuses any set
-other than `.github/ci/scummvm-defines-linux.txt`.
+other than `.github/ci/scummvm-defines-linux.txt`. macOS has its own exact
+allowlist in `.github/ci/scummvm-defines-macos.txt`.
 `.github/ci/scummvm.sh` holds both configure commands and chooses by
 `uname -s`.
 
@@ -628,6 +643,22 @@ cmake -S <mmodern-source> -B <mmodern-build> \
   -DMMODERN_MT32_ROM_DIR=<mt32-rom-directory>
 cmake --build <mmodern-build> --parallel 4
 ctest --test-dir <mmodern-build> --output-on-failure
+```
+
+### macOS arm64 application build
+
+From the MMModern source directory, with the pinned ScummVM source and its
+separate build directory configured as above:
+
+```sh
+cmake -S . -B build-macos \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DSCUMMVM_SOURCE_DIR=../scummvm-master \
+  -DSCUMMVM_BUILD_DIR=../build-xeen-macos \
+  -DMMODERN_ORIGINAL_DATA_TESTS=OFF
+cmake --build build-macos --target mmodern --parallel 4
+./build-macos/mmodern --version
+./build-macos/mmodern --diagnostics "$(mktemp -d)"
 ```
 
 ### Optimized test build (`build-rel`)
