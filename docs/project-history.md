@@ -445,5 +445,10 @@ next one while playing. The filter runs on the CPU in `SdlWindow` before the
 picture shape fits the picture to the window, works with both shapes and
 leaves clicks and the pointer unchanged; the original has no filter, so this
 is an approved deviation. The play-test on Windows and the Linux setup screen
-passed without fixes; the Steam Deck check of the heaviest filters is still
-open. Save v26 unchanged. [Plan](milestone-116-plan.md).
+passed without fixes; the Steam Deck check of the heaviest filters was deferred at closure. Save v26 unchanged. [Plan](milestone-116-plan.md).
+
+**M117 - Optional CRT picture filters** (Tier B, accepted 2026-11-14).
+CRT VGA and CRT Phosphor replaced the eleven classic scalers. Both ship with
+the game. On the Steam Deck at 1280x800 the maintainer found walking and
+combat as fluid with either profile as with filtering off.
+[Plan](milestone-117-plan.md).

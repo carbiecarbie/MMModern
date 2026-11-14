@@ -123,9 +123,7 @@ function Set-MMController([string]$Path,[bool]$On) {
 # written; every other line is kept. An unknown or missing value is off, as in
 # the game. The names are the game's, in the order F11 selects them.
 $script:MMPictureFilters=@(
-    @('off','Off'),@('advmame2x','AdvMame 2x'),@('advmame3x','AdvMame 3x'),@('advmame4x','AdvMame 4x'),
-    @('hq2x','HQ 2x'),@('hq3x','HQ 3x'),@('edge2x','Edge 2x (heaviest)'),@('edge3x','Edge 3x (heaviest)'),
-    @('sai2x','2xSaI'),@('supersai2x','Super2xSaI'),@('supereagle2x','SuperEagle'),@('pm2x','PM 2x'))
+    @('off','Off'),@('crt-vga','CRT VGA'),@('crt-phosphor','CRT Phosphor'))
 function Get-MMFilter([string]$Path) {
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return 'off' }
     $value=''

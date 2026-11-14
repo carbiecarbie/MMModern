@@ -1,6 +1,7 @@
 #include "platform/sdl/SdlWindow.h"
 #include "core/DiagnosticNotice.h"
-#include "compat/scummvm/ScummVmPictureFilter.h"
+#include "compat/scummvm/PictureFilterLabel.h"
+#include "platform/sdl/SdlCrtFilter.h"
 #include "platform/sdl/SdlAudioDevice.h"
 #include "platform/sdl/SdlController.h"
 #include "platform/sdl/SdlWindowPlacement.h"
@@ -286,7 +287,6 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 		SDL_Renderer *renderer = nullptr;
 		SDL_Texture *texture = nullptr;
         SDL_Texture *target = nullptr;
-        SDL_Texture *filtered = nullptr;
         SDL_Texture *cursor = nullptr;
         SDL_Texture *label = nullptr;
         int priorCursor=SDL_ENABLE;
@@ -294,7 +294,6 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
             if(cursor) { SDL_DestroyTexture(cursor); SDL_ShowCursor(priorCursor); }
             if (label) SDL_DestroyTexture(label);
 			if (target) SDL_DestroyTexture(target);
-			if (filtered) SDL_DestroyTexture(filtered);
 			if (texture) SDL_DestroyTexture(texture);
 			if (renderer) SDL_DestroyRenderer(renderer);
 			if (window) SDL_DestroyWindow(window);
@@ -328,9 +327,21 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
 	const bool corrected = placement.placement.aspect == PictureAspect::FourThree;
 	SDL_SetWindowMinimumSize(window, initialFrame.width, corrected ? initialFrame.width * 3 / 4 : initialFrame.height);
 
-	// Both shapes ask for render targets: a picture filter draws square through one too.
-	SDL_Renderer *renderer = resources.renderer = SDL_CreateRenderer(window, -1,
-		SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_TARGETTEXTURE);
+    // Prefer SDL's desktop GL renderer for live F11 switching. Honour explicit
+    // renderer overrides and keep SDL's normal accelerated/software fallbacks.
+    constexpr Uint32 flags = SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_TARGETTEXTURE;
+    SDL_Renderer *renderer = nullptr;
+    if (!SDL_GetHint(SDL_HINT_RENDER_DRIVER)) {
+        for (int index = 0; index < SDL_GetNumRenderDrivers(); ++index) {
+            SDL_RendererInfo driver{};
+            if (SDL_GetRenderDriverInfo(index, &driver) == 0 && std::string_view(driver.name) == "opengl") {
+                renderer = SDL_CreateRenderer(window, index, flags);
+                break;
+            }
+        }
+    }
+    if (!renderer) renderer = SDL_CreateRenderer(window, -1, flags);
+    resources.renderer = renderer;
 	if (!renderer)
 		renderer = resources.renderer = SDL_CreateRenderer(window, -1,
             SDL_RENDERER_SOFTWARE | SDL_RENDERER_TARGETTEXTURE);
@@ -392,61 +403,23 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         if (SDL_GetRendererOutputSize(renderer, &ow, &oh) != 0) return std::nullopt;
         return windowToFrame(x, y, ww, wh, ow, oh, initialFrame.width, initialFrame.height, PictureAspect::FourThree);
     };
-    const auto drawCursor=[&](int scale) {
-        if(handler.inputContext && handler.inputContext({}).hideCursor)return;
-        if(!resources.cursor || (!stickPointer() && SDL_GetMouseFocus()!=window))return;
-        int x,y;SDL_GetMouseState(&x,&y);
-        std::optional<std::pair<int,int>> point;
-        if (stickPointer()) point = keptPointer();
-        else if (corrected) point = mappedMouse(x,y);
-        else {
-            float lx,ly; SDL_RenderWindowToLogical(renderer,x,y,&lx,&ly);
-            if(lx>=0 && ly>=0 && lx<initialFrame.width && ly<initialFrame.height) point = {int(lx),int(ly)};
-        }
-        if(!point)return;
-        SDL_Rect destination{point->first*scale,point->second*scale,cursorWidth*scale,cursorHeight*scale};
-        if(SDL_RenderCopy(renderer,resources.cursor,nullptr,&destination)!=0)throw std::runtime_error("Original cursor presentation failed");
+    const auto cursorPoint = [&]() -> std::optional<std::pair<int,int>> {
+        if (!resources.cursor || (handler.inputContext && handler.inputContext({}).hideCursor)) return {};
+        if (stickPointer()) return keptPointer();
+        if (SDL_GetMouseFocus() != window) return {};
+        int x, y; SDL_GetMouseState(&x, &y);
+        if (corrected) return mappedMouse(x, y);
+        float lx, ly; SDL_RenderWindowToLogical(renderer, x, y, &lx, &ly);
+        if (lx < 0 || ly < 0 || lx >= initialFrame.width || ly >= initialFrame.height) return {};
+        return std::pair<int,int>{int(lx), int(ly)};
     };
     int targetOutputWidth=0,targetOutputHeight=0,targetScale=0;
     SDL_RendererInfo rendererInfo{};
     if (SDL_GetRendererInfo(renderer, &rendererInfo) != 0) throw std::runtime_error("Cannot query renderer limits");
-    // M116 opt-in picture filter (approved deviation dev-picture-filter): the
-    // shown frame is filtered on this thread only when it or the filter
-    // changed; frame digests and captures stay before the filter.
-    std::vector<std::uint32_t> pixels; // The shown frame as uploaded.
-    ScummVmPictureFilter pictureFilter;
-    std::vector<std::uint32_t> filterSource, filterOutput;
-    PictureFilter filteredWith = PictureFilter::Off;
-    int filteredFactor = 0, targetFactor = 0;
-    bool filteredUploaded = false;
-    // The factor of the filtered texture to draw, or 1 to draw the frame itself.
-    const auto filterFrame = [&]() -> int {
-        const auto filter = placementMemory().placement.filter;
-        if (filter == PictureFilter::Off || !(rendererInfo.flags & SDL_RENDERER_TARGETTEXTURE)) return 1;
-        const auto name = pictureFilterName(filter);
-        const int factor = ScummVmPictureFilter::factor(name);
-        const int width = initialFrame.width * factor, height = initialFrame.height * factor;
-        if (factor < 2 || pixels.size() != std::size_t(initialFrame.width) * initialFrame.height ||
-            (rendererInfo.max_texture_width > 0 && width > rendererInfo.max_texture_width) ||
-            (rendererInfo.max_texture_height > 0 && height > rendererInfo.max_texture_height)) return 1;
-        if (filter != filteredWith || filterSource != pixels) {
-            if (!pictureFilter.apply(name, pixels.data(), initialFrame.width, initialFrame.height, filterOutput)) return 1;
-            filterSource = pixels; filteredWith = filter; filteredUploaded = false;
-        }
-        if (!resources.filtered || filteredFactor != factor) {
-            if (resources.filtered) SDL_DestroyTexture(resources.filtered);
-            resources.filtered = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, width, height);
-            filteredFactor = resources.filtered ? factor : 0; filteredUploaded = false;
-            if (!resources.filtered) { std::cerr << "Cannot create filtered picture: " << SDL_GetError() << '\n'; return 1; }
-            SDL_SetTextureScaleMode(resources.filtered, SDL_ScaleModeNearest);
-            SDL_SetTextureBlendMode(resources.filtered, SDL_BLENDMODE_NONE);
-        }
-        if (!filteredUploaded) {
-            if (SDL_UpdateTexture(resources.filtered, nullptr, filterOutput.data(), width * 4) != 0) return 1;
-            filteredUploaded = true;
-        }
-        return factor;
-    };
+    std::vector<std::uint32_t> pixels;
+    SdlCrtFilter crt;
+    PictureFilter fallbackNotice = PictureFilter::Off;
+    bool linearFrame = false;
     // After an F11 press, the selected filter's name over the picture for about
     // two seconds (dev-picture-filter). The window draws it after the filter,
     // at frame-pixel size; it never enters the frame. Expiry is decided in
@@ -470,61 +443,77 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         SDL_SetTextureScaleMode(resources.label, SDL_ScaleModeNearest);
         SDL_SetTextureBlendMode(resources.label, SDL_BLENDMODE_BLEND);
     };
-    const auto drawLabel = [&](int scale) {
-        if (!labelUntil || !resources.label) return;
-        if (hostNow() >= *labelUntil) { labelUntil.reset(); return; }
-        const SDL_Rect destination{labelInset * scale, labelInset * scale, labelImage.width * scale, labelImage.height * scale};
-        SDL_RenderCopy(renderer, resources.label, nullptr, &destination);
+    const auto drawOverlays = [&](PictureRect rect, std::optional<std::pair<int,int>> mouse) {
+        const auto draw = [&](SDL_Texture *overlay, int x, int y, int w, int h) {
+            const int left = x * rect.width / initialFrame.width;
+            const int top = y * rect.height / initialFrame.height;
+            SDL_Rect dest{rect.x + left, rect.y + top, (x+w)*rect.width/initialFrame.width - left,
+                          (y+h)*rect.height/initialFrame.height - top};
+            if (SDL_RenderCopy(renderer, overlay, nullptr, &dest) != 0)
+                throw std::runtime_error("Cannot draw picture overlay");
+        };
+        if (labelUntil && hostNow() >= *labelUntil) labelUntil.reset();
+        if (labelUntil && resources.label)
+            draw(resources.label, labelInset, labelInset, labelImage.width, labelImage.height);
+        if (mouse) draw(resources.cursor, mouse->first, mouse->second, cursorWidth, cursorHeight);
     };
     const auto present = [&] {
-        const int factor = filterFrame();
-        if (!corrected && factor == 1) {
-            SDL_SetRenderDrawColor(renderer,0,0,0,255); SDL_RenderClear(renderer);
-            if(SDL_RenderCopy(renderer,texture,nullptr,nullptr)!=0)throw std::runtime_error("Frame presentation failed");
-            drawLabel(1); drawCursor(1); SDL_RenderPresent(renderer); return;
+        const int sourceWidth = initialFrame.width, sourceHeight = initialFrame.height;
+        const PictureRect logical{0, 0, sourceWidth, sourceHeight};
+        int ow, oh;
+        if (SDL_GetRendererOutputSize(renderer, &ow, &oh) != 0) throw std::runtime_error("Cannot query renderer output size");
+        if (ow <= 0 || oh <= 0) { SDL_RenderPresent(renderer); return; }
+        const auto picture = pictureRect(ow, oh, sourceWidth, sourceHeight, placement.placement.aspect);
+        const auto mouse = cursorPoint();
+        const auto filter = placement.placement.filter;
+        const bool active = filter != PictureFilter::Off && crt.error().empty();
+        if (linearFrame != active) {
+            SDL_SetTextureScaleMode(texture, active ? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
+            linearFrame = active;
         }
-        int ow,oh;
-        if(SDL_GetRendererOutputSize(renderer,&ow,&oh)!=0) throw std::runtime_error("Cannot query renderer output size");
-        if(ow<=0 || oh<=0) { SDL_RenderPresent(renderer); return; }
-        // M116: with a filter on, both shapes draw the filtered texture through
-        // this path; the square picture keeps its whole-multiple rectangle.
-        const auto picture=pictureRect(ow,oh,initialFrame.width,initialFrame.height,corrected?PictureAspect::FourThree:PictureAspect::Square);
-        const int sourceWidth=initialFrame.width*factor,sourceHeight=initialFrame.height*factor;
+        if (active || !corrected) {
+            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+            SDL_RenderClear(renderer);
+        }
+        if (active && crt.draw(renderer, texture, sourceWidth, sourceHeight, picture, oh, filter)) {
+            drawOverlays(corrected ? picture : logical, mouse);
+            SDL_RenderPresent(renderer);
+            return;
+        }
+        if (filter != PictureFilter::Off && fallbackNotice != filter && !crt.error().empty()) {
+            std::cerr << "CRT unavailable: " << crt.error() << ". Showing the unfiltered picture.\n";
+            labelImage = pictureFilterLabelImage("CRT unavailable: filter off");
+            createLabelTexture();
+            labelUntil = PresentationClock::checkedAdd(hostNow(), labelDuration);
+        }
+        fallbackNotice = filter;
+        if (linearFrame) {
+            SDL_SetTextureScaleMode(texture, SDL_ScaleModeNearest);
+            linearFrame = false;
+        }
+        if (!corrected) {
+            if (SDL_RenderCopy(renderer, texture, nullptr, nullptr) != 0) throw std::runtime_error("Frame presentation failed");
+            drawOverlays(logical, mouse);
+            SDL_RenderPresent(renderer);
+            return;
+        }
         const int scale=picturePrescale(picture,sourceWidth,sourceHeight,rendererInfo.max_texture_width,rendererInfo.max_texture_height);
         if(scale<1)throw std::runtime_error("Renderer texture limit is smaller than the frame");
-        if(!resources.target || targetOutputWidth!=ow || targetOutputHeight!=oh || targetFactor!=factor) {
+        if(!resources.target || targetOutputWidth!=ow || targetOutputHeight!=oh) {
             if(resources.target)SDL_DestroyTexture(resources.target);
             resources.target=SDL_CreateTexture(renderer,SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_TARGET,sourceWidth*scale,sourceHeight*scale);
             if(!resources.target)throw std::runtime_error(std::string("Cannot create picture target: ")+SDL_GetError());
             SDL_SetTextureScaleMode(resources.target, SDL_ScaleModeLinear);
             SDL_SetTextureBlendMode(resources.target, SDL_BLENDMODE_NONE);
-            targetOutputWidth=ow;targetOutputHeight=oh;targetScale=scale;targetFactor=factor;
+            targetOutputWidth=ow;targetOutputHeight=oh;targetScale=scale;
         }
         if(SDL_SetRenderTarget(renderer,resources.target)!=0)throw std::runtime_error("Cannot select picture target");
         SDL_Rect whole{0,0,sourceWidth*targetScale,sourceHeight*targetScale};
-        if(SDL_RenderCopy(renderer,factor>1?resources.filtered:texture,nullptr,&whole)!=0)throw std::runtime_error("Cannot draw picture target");
-        // Restore the window target while mapping the cursor, then draw it into the picture target.
-        if(SDL_SetRenderTarget(renderer,nullptr)!=0)throw std::runtime_error("Cannot select window target");
-        int mx,my; SDL_GetMouseState(&mx,&my);
-        std::optional<std::pair<int,int>> mouse;
-        if(stickPointer())mouse=keptPointer();
-        else if(corrected)mouse=mappedMouse(mx,my);
-        else {
-            float lx,ly; SDL_RenderWindowToLogical(renderer,mx,my,&lx,&ly);
-            if(lx>=0 && ly>=0 && lx<initialFrame.width && ly<initialFrame.height) mouse = {int(lx),int(ly)};
-        }
-        if(SDL_SetRenderTarget(renderer,resources.target)!=0)throw std::runtime_error("Cannot select picture target");
-        // The original cursor is drawn after the filter, unfiltered, at frame-pixel size.
-        const int cursorScale=factor*targetScale;
-        drawLabel(cursorScale);
-        if(mouse && resources.cursor && (stickPointer() || SDL_GetMouseFocus()==window) && !(handler.inputContext && handler.inputContext({}).hideCursor)) {
-            SDL_Rect dest{mouse->first*cursorScale,mouse->second*cursorScale,cursorWidth*cursorScale,cursorHeight*cursorScale};
-            if(SDL_RenderCopy(renderer,resources.cursor,nullptr,&dest)!=0)throw std::runtime_error("Original cursor presentation failed");
-        }
+        if(SDL_RenderCopy(renderer,texture,nullptr,&whole)!=0)throw std::runtime_error("Cannot draw picture target");
+        drawOverlays({0, 0, whole.w, whole.h}, mouse);
         if(SDL_SetRenderTarget(renderer,nullptr)!=0)throw std::runtime_error("Cannot select window target");
         SDL_SetRenderDrawColor(renderer,0,0,0,255);SDL_RenderClear(renderer);
-        // Square keeps SDL's integer logical scaling, so its picture is the logical frame.
-        const SDL_Rect dest=corrected?SDL_Rect{picture.x,picture.y,picture.width,picture.height}:SDL_Rect{0,0,initialFrame.width,initialFrame.height};
+        const SDL_Rect dest{picture.x,picture.y,picture.width,picture.height};
         if(SDL_RenderCopy(renderer,resources.target,nullptr,&dest)!=0)throw std::runtime_error("Cannot draw picture");
         SDL_RenderPresent(renderer);
     };
@@ -720,7 +709,9 @@ bool showLoop(const IndexedFrame &suppliedInitial, const std::string &title,
         if(event.type==SDL_RENDER_TARGETS_RESET || event.type==SDL_RENDER_DEVICE_RESET) {
             if(resources.target) { SDL_DestroyTexture(resources.target); resources.target=nullptr; }
             if(event.type==SDL_RENDER_DEVICE_RESET) {
-                if(resources.filtered) { SDL_DestroyTexture(resources.filtered); resources.filtered=nullptr; filteredFactor=0; }
+                crt.reset();
+                fallbackNotice = PictureFilter::Off;
+                linearFrame = false;
                 SDL_DestroyTexture(texture);
                 texture = resources.texture = SDL_CreateTexture(renderer,SDL_PIXELFORMAT_ARGB8888,
                     SDL_TEXTUREACCESS_STREAMING,initialFrame.width,initialFrame.height);

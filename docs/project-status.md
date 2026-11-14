@@ -1,11 +1,8 @@
 # MMModern - Project Status
 
-This describes what can be played and done now. M116 is the latest
-completed and accepted milestone (2026-11-11; [plan](milestone-116-plan.md)):
-an option, off by default, softens the enlarged picture with one of eleven
-classic pixel-art filters. Before it, M115 ([plan](milestone-115-plan.md))
-let a game controller play the whole game through the original keys and
-pointer. Earlier milestones are in
+The latest completed milestone is M117, accepted on 2026-11-14. It
+replaces the eleven M116 scalers with two optional CRT profiles.
+[Milestone plan](milestone-117-plan.md). Earlier milestones are in
 [project history](project-history.md), direction is in the
 [roadmap](roadmap.md), and build and dependency setup is in
 [dependencies](dependencies.md).
@@ -214,13 +211,13 @@ the D-pad types in text entry ([controls](controls.md#game-controller)). The
 original has no controller support, so this is an
 [approved deviation](original-quirks.md#dev-controller), off by default.
 
-The enlarged picture can be softened with one of eleven classic pixel-art
-filters, chosen in the Windows launcher, on the Linux setup screen or with
-`filter=` in `window.ini`; F11 switches to the next one while playing
-([player guide](player-guide.md#picture-filters)). It works with both
-picture shapes and changes only how the picture looks. The original has no
-filter, so this is an
-[approved deviation](original-quirks.md#dev-picture-filter), off by default.
+F11 cycles through Off (the default), CRT VGA and CRT Phosphor. CRT VGA
+keeps small letters crisp with subtle scanlines. CRT Phosphor shows more
+texture in flat colours. Both work with either picture shape and can be
+selected in the Windows launcher or the Linux setup screen. On the Steam
+Deck at 1280x800, the maintainer found both profiles as fluid as Off during
+walking and combat. [Player guide](player-guide.md#picture-filters) and
+[approved deviation](original-quirks.md#dev-picture-filter).
 
 ## Russian
 
@@ -344,7 +341,5 @@ need no original data
 - Game controller: buttons cannot be remapped inside MMModern (Steam Input
   or the system does that), and there is no rumble, gyro or focus highlight.
   Under Proton the option is set by editing `window.ini`.
-- Picture filters: the heaviest ones (Edge) were not checked on a Steam Deck
-  in Game Mode; they may draw late there, never affecting game timing.
 
 Next steps are in the [roadmap](roadmap.md).

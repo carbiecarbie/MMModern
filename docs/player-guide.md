@@ -126,24 +126,18 @@ whole multiples of 320x200. Set `aspect=4:3` to go back to the default.
 
 ### Picture filters
 
-The original draws its 320x200 picture with plain pixels. MMModern can soften
-the enlarged picture with one of the classic pixel-art filters that ScummVM
-and DOSBox offer. It is off by default, so the picture stays sharp unless you
-choose one, and it works with both picture shapes. A filter changes only how
-the picture looks, never the game.
+The default, **Off**, displays the sharp game picture. **CRT VGA** adds
+fine scanlines and keeps text crisp. **CRT Phosphor** gives the monitor
+texture more contrast, particularly in the sky. Both profiles use the
+included OpenGL shader and work with either picture shape.
 
-Choose it in the Windows launcher's **Picture filter** list, in the Linux
-setup screen's **Picture filter** row (each click picks the next one), or set
-`filter=` in `window.ini`. While playing, F11 switches to the next filter,
-and to off after the last; MMModern remembers the choice. After each F11
-press, the new filter's name shows on the picture for about two seconds.
-The names are `off`,
-`advmame2x`, `advmame3x`, `advmame4x`, `hq2x`, `hq3x`, `edge2x`, `edge3x`,
-`sai2x`, `supersai2x`, `supereagle2x` and `pm2x`; an unknown name means off.
-
-Edge is the heaviest filter. On a slow machine, such as a Steam Deck, it may
-draw the picture late, but the game's own timing is not affected. If it feels
-slow, pick another filter.
+Use **Picture filter** in the Windows launcher or Linux setup screen.
+During play, F11 cycles through Off, CRT VGA and CRT Phosphor. The name
+appears for about two seconds and the player entry remembers the choice.
+In `window.ini` the corresponding values are `off`, `crt-vga` and
+`crt-phosphor`. A name from an older build or an unknown value selects
+Off. When desktop OpenGL is unavailable, the game shows a notice and
+continues with the sharp picture.
 
 ## Sound
 

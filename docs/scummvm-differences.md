@@ -89,7 +89,10 @@ Other recorded differences:
 - **Russian caption strip.** [The Russian caption strip runs with speech](original-quirks.md#ru-caption-strip), and the scenes wait for it, as in the Russian program; the pin uses its subtitle option and splits the Russian Clouds intro at periods. Pin: differs; master not rechecked.
 - **Russian combat rows.** [Russian target rows are 18 pixels apart](original-quirks.md#ru-combat-rows), with their hit rows and mark; the pin keeps the CD's positions. Pin: differs; master not rechecked.
 - **Picture shape.** The [square-pixel option](original-quirks.md#dev-square-picture) preserves MMModern's former integer-scaled display; both MMModern and the pin enable aspect correction by default. Pin checked; master not rechecked.
-- **Picture filters.** The [opt-in filters](original-quirks.md#dev-picture-filter) are the pin's AdvMame, HQ, Edge, SaI, SuperSaI, SuperEagle and PM scalers, chosen by one name that includes the factor (`hq3x`) and switched with F11 (off by default; the original has no filter). The pin chooses them through its `scaler` and `scale-factor` options and also offers Normal, dotmatrix and tv2x. Pin checked; master not rechecked.
+- **Picture filters.** The [optional CRT profiles](original-quirks.md#dev-picture-filter)
+  use zfast_crt and cycle with F11. The default is Off. The pinned
+  ScummVM classic scalers use its `scaler` and `scale-factor` options.
+  Pin checked in M116.
 - **Game controllers.** The [opt-in controller](original-quirks.md#dev-controller) sends the original game's keys and types in text entry, with a stick pointer and RT click for everything without a key (off by default; the original has no joystick support). The pin maps its A and B buttons to left and right clicks and moves the pointer with a stick. Pin: differs; master not rechecked.
 - **NPC mode 2 artwork.** [The art remains available until the Event run ends](original-quirks.md#sv-npc-mode2-art-lifetime), so later prompts animate it and keep a pending scene step. The pin deletes the NPC dialog on return. Pin: differs; master not rechecked.
 - **Play time after Load.** [The running program retains its clock mark](original-quirks.md#dos-play-time-start-mark), including time at the title or since the preceding Save. The pin restores its frame counter on Load. Pin: differs; master not rechecked.

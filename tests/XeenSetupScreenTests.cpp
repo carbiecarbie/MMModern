@@ -246,7 +246,7 @@ void nativeControllerRow(XeenSetupScreen &screen, const fs::path &scratch) {
     check(bool(selected), "Play after the controller row");
     auto expected = before;
     expected.controller = true;
-    expected.filter = PictureFilter::AdvMame2x;
+    expected.filter = PictureFilter::CrtVga;
     const auto after = readWindowPlacement(file);
     check(after == expected, ("the controller row changed more than the controller key: " + formatWindowPlacement(after)).c_str());
     SdlWindow::useControllerSetting(false);
@@ -509,10 +509,10 @@ int main(int argc, char **argv) {
                   "filter row, off by default");
             const unsigned filterHit = 1000 + unsigned(filterRow - rows.begin());
             s.dispatch(DialogKeyAction{filterHit});
-            check(SdlWindow::pictureFilterSetting() == PictureFilter::AdvMame2x &&
-                      s.rows().at(filterHit - 1000).label == "Picture filter: AdvMame 2x",
+            check(SdlWindow::pictureFilterSetting() == PictureFilter::CrtVga &&
+                      s.rows().at(filterHit - 1000).label == "Picture filter: CRT VGA",
                   "filter row selects the first filter");
-            for (int i = 0; i < 11; ++i)
+            for (int i = 0; i < 2; ++i)
                 s.dispatch(DialogKeyAction{filterHit});
             check(SdlWindow::pictureFilterSetting() == PictureFilter::Off &&
                       s.rows().at(filterHit - 1000).label == "Picture filter: off",

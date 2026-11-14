@@ -83,6 +83,9 @@ MMModern is free software under the GNU General Public License version 3 or
 later (LICENSE.txt). It contains portions of ScummVM (https://www.scummvm.org/),
 also licensed GPL-3.0-or-later.
 
+The included CRT shader adapts zfast_crt_standard, copyright 2017 Greg Hogan
+(SoltanGris42), GPL-2.0-or-later. Source: https://github.com/libretro/glsl-shaders/blob/a35069864b4bf30f8c8e740d57206543fb7e745e/crt/shaders/zfast_crt.glsl
+
 The statically linked Nuked OPL3 core is LGPL-2.1-or-later
 (licenses\Nuked-LGPL.txt), copyright 2013-2020 Nuke.YKT and 2026 Tony Gies.
 It is the Nuked-OPL3-fast 1.8-fast.2 core from the pinned ScummVM source below.

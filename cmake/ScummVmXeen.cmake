@@ -113,7 +113,7 @@ function(add_mmodern_scummvm_xeen_bridge target_name)
 		"${sprite_stream_object}"
 		"${nuked_core}"
 		"${CMAKE_CURRENT_SOURCE_DIR}/src/compat/scummvm/XeenOpl3.cpp"
-		"${CMAKE_CURRENT_SOURCE_DIR}/src/compat/scummvm/ScummVmPictureFilter.cpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/compat/scummvm/PictureFilterLabel.cpp"
 	)
 	target_include_directories(${target_name}
 		PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src"

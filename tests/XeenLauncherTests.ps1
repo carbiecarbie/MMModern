@@ -182,26 +182,26 @@ Check ($null -ne (New-MMWindow $script:MMMainXaml).FindName('Controller')) 'The 
 # M116: the picture filter list changes only the filter line of window.ini.
 $filterIni=Join-Path $TestRoot 'filter settings\window.ini'
 Check ((Get-MMFilter $filterIni) -eq 'off') 'A missing window.ini has the filter off'
-Set-MMFilter $filterIni 'hq3x'
-Check ([IO.File]::ReadAllText($filterIni) -eq "filter=hq3x`n") 'A missing window.ini gets only the filter line'
+Set-MMFilter $filterIni 'crt-phosphor'
+Check ([IO.File]::ReadAllText($filterIni) -eq "filter=crt-phosphor`n") 'A missing window.ini gets only the filter line'
 $filterText="# MMModern window settings.`naspect=square`ncontroller=on`n# Picture filter, F11 switches it: filter=off (default).`nfilter=off`nfullscreen=1`nwidth=800`nheight=600`n"
 [IO.File]::WriteAllText($filterIni,$filterText)
 Check ((Get-MMFilter $filterIni) -eq 'off') 'The game file has the filter off'
-Set-MMFilter $filterIni 'supersai2x'
-Check ((Get-MMFilter $filterIni) -eq 'supersai2x' -and [IO.File]::ReadAllText($filterIni) -eq $filterText.Replace("filter=off`nfullscreen","filter=supersai2x`nfullscreen")) 'Only the filter line changes'
+Set-MMFilter $filterIni 'crt-vga'
+Check ((Get-MMFilter $filterIni) -eq 'crt-vga' -and [IO.File]::ReadAllText($filterIni) -eq $filterText.Replace("filter=off`nfullscreen","filter=crt-vga`nfullscreen")) 'Only the filter line changes'
 Set-MMFilter $filterIni 'off'
 Check ([IO.File]::ReadAllText($filterIni) -eq $filterText) 'Choosing off restores the file'
-[IO.File]::WriteAllText($filterIni,"fullscreen=1`r`ncontroller=on`r`nfilter = edge3x `r`nfilter=pm2x`r`n")
-Check ((Get-MMFilter $filterIni) -eq 'pm2x') 'The last filter line wins, as in the game'
-Set-MMFilter $filterIni 'edge2x'
-Check ([IO.File]::ReadAllText($filterIni) -eq "fullscreen=1`r`ncontroller=on`r`nfilter=edge2x`n") 'Other lines keep their bytes; one filter line remains'
-[IO.File]::WriteAllText($filterIni,"filter=bogus`nFilter=hq2x`n")
+[IO.File]::WriteAllText($filterIni,"fullscreen=1`r`ncontroller=on`r`nfilter = edge3x `r`nfilter=crt-phosphor`r`n")
+Check ((Get-MMFilter $filterIni) -eq 'crt-phosphor') 'The last filter line wins, as in the game'
+Set-MMFilter $filterIni 'crt-vga'
+Check ([IO.File]::ReadAllText($filterIni) -eq "fullscreen=1`r`ncontroller=on`r`nfilter=crt-vga`n") 'Other lines keep their bytes; one filter line remains'
+[IO.File]::WriteAllText($filterIni,"filter=hq2x`nFilter=crt-vga`n")
 Check ((Get-MMFilter $filterIni) -eq 'off') 'An unknown or differently cased filter reads as off'
-Set-MMFilter $filterIni 'hq2x'
-Check ([IO.File]::ReadAllText($filterIni) -eq "filter=hq2x`nFilter=hq2x`n") 'Another key spelled Filter is kept'
+Set-MMFilter $filterIni 'crt-vga'
+Check ([IO.File]::ReadAllText($filterIni) -eq "filter=crt-vga`nFilter=crt-vga`n") 'Another key spelled Filter is kept'
 $threw=$false; try { Set-MMFilter $filterIni 'bilinear' } catch { $threw=$true }
-Check ($threw -and (Get-MMFilter $filterIni) -eq 'hq2x') 'An unknown filter name is refused and writes nothing'
-Check ($script:MMPictureFilters.Count -eq 12 -and $script:MMPictureFilters[0][0] -eq 'off') 'The list has off and eleven filters'
+Check ($threw -and (Get-MMFilter $filterIni) -eq 'crt-vga') 'An unknown filter name is refused and writes nothing'
+Check ($script:MMPictureFilters.Count -eq 3 -and $script:MMPictureFilters[0][0] -eq 'off') 'The list has off and two CRT profiles'
 $filterWindow=New-MMWindow $script:MMMainXaml
 Check ($null -ne $filterWindow.FindName('PictureFilter')) 'The launcher shows the picture filter list'
 $script:MMState=@{Exe=$Exe}

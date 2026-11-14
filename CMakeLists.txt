@@ -173,10 +173,10 @@ add_library(mmodern_platform_sdl STATIC
 	src/platform/sdl/SdlAudioDevice.cpp
 	src/platform/sdl/SdlAudioStream.cpp
 	src/platform/sdl/SdlWindow.cpp
+	src/platform/sdl/SdlCrtFilter.cpp
 	src/platform/sdl/SdlWindowPlacement.cpp
 	src/platform/sdl/SdlController.cpp
 )
-# M116: the picture filter uses the ScummVM scalers of the linked libgraphics.a.
 target_link_libraries(mmodern_platform_sdl PUBLIC mmodern_core PRIVATE SDL2::SDL2 mmodern_platform_libs mmodern_platform_files mmodern_scummvm_xeen)
 
 add_library(mmodern_app STATIC
@@ -1450,6 +1450,10 @@ endif()
 	mmodern_test_properties(sdl_controller PROPERTIES ENVIRONMENT
 		"SDL_VIDEODRIVER=dummy;SDL_RENDER_DRIVER=software")
 	add_executable(mmodern_sdl_window_placement_tests tests/SdlWindowPlacementTests.cpp)
+	add_executable(mmodern_sdl_crt_tests tests/SdlCrtFilterTests.cpp)
+	target_link_libraries(mmodern_sdl_crt_tests PRIVATE mmodern_platform_sdl SDL2::SDL2)
+	mmodern_part_a_test(NAME sdl_crt_output COMMAND mmodern_sdl_crt_tests)
+	mmodern_test_properties(sdl_crt_output PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE)
 	target_link_libraries(mmodern_sdl_window_placement_tests PRIVATE mmodern_platform_sdl SDL2::SDL2)
 	mmodern_part_a_test(NAME sdl_window_placement COMMAND mmodern_sdl_window_placement_tests)
 	mmodern_test_properties(sdl_window_placement PROPERTIES ENVIRONMENT

@@ -1,4 +1,4 @@
-#include "compat/scummvm/ScummVmPictureFilter.h"
+#include "compat/scummvm/PictureFilterLabel.h"
 #include "platform/sdl/SdlWindow.h"
 #include "platform/sdl/SdlWindowPlacement.h"
 
@@ -56,10 +56,12 @@ void placementText() {
     check(parseWindowPlacement("filter=hq2x\nfilter=xbrz\n").filter == PictureFilter::Off &&
         parseWindowPlacement("filter=HQ2X\n").filter == PictureFilter::Off && parseWindowPlacement("filter=\n").filter == PictureFilter::Off,
         "unknown filter is off");
-    check(parseWindowPlacement("filter = supereagle2x \r\n").filter == PictureFilter::SuperEagle2x, "filter with spaces and CRLF");
+    check(parseWindowPlacement("filter = crt-phosphor \r\n").filter == PictureFilter::CrtPhosphor, "filter with spaces and CRLF");
     check(formatWindowPlacement({}).find("filter=off\n") != std::string::npos, "the default names the filter");
-    const char *const filterNames[] = {"off", "advmame2x", "advmame3x", "advmame4x", "hq2x", "hq3x", "edge2x", "edge3x",
-        "sai2x", "supersai2x", "supereagle2x", "pm2x"};
+    const char *const filterNames[] = {"off", "crt-vga", "crt-phosphor"};
+    for (auto removed : {"advmame2x", "advmame3x", "advmame4x", "hq2x", "hq3x", "edge2x", "edge3x",
+                         "sai2x", "supersai2x", "supereagle2x", "pm2x"})
+        check(parseWindowPlacement(std::string("filter=") + removed).filter == PictureFilter::Off, "removed filter reads as Off");
     auto walked = PictureFilter::Off;
     for (const char *name : filterNames) {
         check(pictureFilterName(walked) == name, std::string("F11 order at ") + name);
@@ -71,8 +73,7 @@ void placementText() {
     }
     check(walked == PictureFilter::Off, "F11 wraps to off");
     // The readable names the setup screen and the F11 label show.
-    const char *const filterLabels[] = {"off", "AdvMame 2x", "AdvMame 3x", "AdvMame 4x", "HQ 2x", "HQ 3x", "Edge 2x",
-        "Edge 3x", "2xSaI", "Super2xSaI", "SuperEagle", "PM 2x"};
+    const char *const filterLabels[] = {"off", "CRT VGA", "CRT Phosphor"};
     for (const char *label : filterLabels) {
         check(pictureFilterLabel(walked) == label, std::string("filter label ") + label);
         walked = nextPictureFilter(walked);
@@ -390,40 +391,6 @@ IndexedFrame filterFrameIndexed() {
 	for (int y = 0; y < 200; ++y) for (int x = 0; x < 320; ++x) frame.pixels[y * 320 + x] = std::uint8_t(filterIndex(x, y));
 	return frame;
 }
-std::uint64_t fnv(const std::vector<std::uint32_t> &pixels) {
-	std::uint64_t hash = 1469598103934665603ull;
-	for (const auto p : pixels) for (int s = 0; s < 32; s += 8) { hash ^= (p >> s) & 0xff; hash *= 1099511628211ull; }
-	return hash;
-}
-struct FilterCase { PictureFilter filter; int factor; std::uint64_t digest; };
-// Part 0: the same digests on Windows (UCRT64) and WSL Linux.
-const FilterCase filterCases[] = {
-	{PictureFilter::AdvMame2x, 2, 0xcc43aeb2a8a96f9bull}, {PictureFilter::AdvMame3x, 3, 0x7e7a4e9cd4e521cbull},
-	{PictureFilter::AdvMame4x, 4, 0xbf2eac2d425b0183ull}, {PictureFilter::Hq2x, 2, 0xee4923c8e0697076ull},
-	{PictureFilter::Hq3x, 3, 0x952c679c7b270f93ull}, {PictureFilter::Edge2x, 2, 0xacfba73784d3f43full},
-	{PictureFilter::Edge3x, 3, 0x7f703bdfbce57133ull}, {PictureFilter::Sai2x, 2, 0xdea98a89e514c97bull},
-	{PictureFilter::SuperSai2x, 2, 0xff09bf2398440756ull}, {PictureFilter::SuperEagle2x, 2, 0xfca082ca3dd551b3ull},
-	{PictureFilter::Pm2x, 2, 0xa7f0cfb6821ed07eull}};
-
-void filterDigests() {
-	const auto frame = filterFrameArgb();
-	ScummVmPictureFilter scaler;
-	std::vector<std::uint32_t> output{1, 2, 3};
-	check(ScummVmPictureFilter::factor("off") == 0 && !scaler.apply("off", frame.data(), 320, 200, output) &&
-		!scaler.apply("hq2x", nullptr, 320, 200, output) && output.size() == 3, "off and invalid frames are not filtered");
-	for (const auto &c : filterCases) {
-		const auto name = pictureFilterName(c.filter);
-		check(ScummVmPictureFilter::factor(name) == c.factor, std::string(name) + " factor");
-		check(scaler.apply(name, frame.data(), 320, 200, output) && output.size() == std::size_t(64000 * c.factor * c.factor),
-			std::string(name) + " output size");
-		check(fnv(output) == c.digest, std::string(name) + " digest");
-	}
-	// A fresh scaler gives the same picture as one that switched filters.
-	ScummVmPictureFilter fresh;
-	check(fresh.apply("hq2x", frame.data(), 320, 200, output) && fnv(output) == filterCases[3].digest, "fresh scaler digest");
-	std::cout << "Picture filter digests passed\n";
-}
-
 // Runs the production loop on the software renderer; `inspect` reads the
 // picture every second cycle (after a full redraw) and returns false to quit.
 void readbackLoop(const std::string &title, const IndexedFrame &frame,
@@ -455,24 +422,6 @@ std::vector<Uint32> readViewport(SDL_Renderer *renderer, int width, int height) 
 		"software renderer readback unavailable");
 	return output;
 }
-void pushEvent(Uint32 type) { SDL_Event event{}; event.type = type; check(SDL_PushEvent(&event) == 1, "push event"); }
-// Frame pixels whose 5x5 neighbourhood is one colour keep it in every filter.
-std::vector<std::pair<int, int>> uniformPixels() {
-	std::vector<std::pair<int, int>> points;
-	for (int y = 2; y < 198; ++y) for (int x = 2; x < 318; ++x) {
-		bool uniform = true;
-		for (int dy = -2; dy <= 2 && uniform; ++dy) for (int dx = -2; dx <= 2; ++dx)
-			if (filterIndex(x + dx, y + dy) != filterIndex(x, y)) { uniform = false; break; }
-		if (uniform) points.push_back({x, y});
-	}
-	check(points.size() > 500, "uniform sample pixels");
-	return points;
-}
-bool near(Uint32 a, Uint32 b, int tolerance) {
-	for (int s = 0; s < 24; s += 8) if (std::abs(int((a >> s) & 255) - int((b >> s) & 255)) > tolerance) return false;
-	return true;
-}
-
 void squareOffReadback() {
 	const auto directory = scratchDirectory("square-off");
 	const auto file = directory / "window.ini";
@@ -491,84 +440,34 @@ void squareOffReadback() {
 	std::cout << "Square picture without a filter passed\n";
 }
 
-void filteredReadback() {
-	const auto directory = scratchDirectory("filters");
-	const auto file = directory / "window.ini";
-	const auto frame = filterFrameIndexed();
-	const auto argb = filterFrameArgb();
-	const auto uniform = uniformPixels();
-	ScummVmPictureFilter scaler;
-	for (const auto &c : filterCases) {
-		const auto name = std::string(pictureFilterName(c.filter));
-		std::vector<std::uint32_t> expected;
-		check(scaler.apply(name, argb.data(), 320, 200, expected), name + " expected");
-		// A square window of the filter's own size shows its output exactly; 4x is halved.
-		const int width = c.factor == 3 ? 960 : 640, height = c.factor == 3 ? 600 : 400, fw = 320 * c.factor;
-		WindowPlacement settings{false, width, height, PictureAspect::Square};
-		settings.filter = c.filter;
-		check(writeWindowPlacement(file, settings), name + " settings");
-		SdlWindow::rememberPlacement(file);
-		readbackLoop("Square " + name, frame, [&](SDL_Window *window, SDL_Renderer *renderer, int step) {
-			int ow = 0, oh = 0;
-			check(SDL_GetRendererOutputSize(renderer, &ow, &oh) == 0, name + " output size");
-			if (step == 3) {
-				// Output size change: a 2x filter in a 3x window is enlarged
-				// evenly, then fitted, so uniform areas keep their colour.
-				check(ow == 960 && oh == 600, name + " resized output");
-				const auto output = readViewport(renderer, 960, 600);
-				for (const auto &p : uniform)
-					check(near(output[(p.second * 3 + 1) * 960 + p.first * 3 + 1], argb[p.second * 320 + p.first], 2),
-						name + " resized uniform colour");
-				return false;
-			}
-			check(ow == width && oh == height, name + " output");
-			const auto output = readViewport(renderer, width, height);
-			for (int y = 0; y < height; ++y) for (int x = 0; x < width; ++x) {
-				const auto actual = output[y * width + x] & 0xffffffu;
-				if (c.factor < 4) check(actual == (expected[y * fw + x] & 0xffffffu), name + " square picture is the filter output");
-				else {
-					int sum[3] = {};
-					for (int dy = 0; dy < 2; ++dy) for (int dx = 0; dx < 2; ++dx)
-						for (int s = 0; s < 3; ++s) sum[s] += (expected[(2 * y + dy) * fw + 2 * x + dx] >> (8 * s)) & 255;
-					const Uint32 average = Uint32((sum[2] + 2) / 4) << 16 | Uint32((sum[1] + 2) / 4) << 8 | Uint32((sum[0] + 2) / 4);
-					check(near(actual, average, 2), name + " halved square picture");
-				}
-			}
-			// Each renderer reset is followed by the same picture.
-			if (step == 0) pushEvent(SDL_RENDER_TARGETS_RESET);
-			else if (step == 1) pushEvent(SDL_RENDER_DEVICE_RESET);
-			else if (c.factor != 2) return false;
-			else SDL_SetWindowSize(window, 960, 600);
-			return true;
-		});
-	}
-	// 4:3: the same borders and picture rectangle as without a filter.
-	std::vector<Uint32> unfiltered;
-	for (const auto filter : {PictureFilter::Off, PictureFilter::Hq2x, PictureFilter::AdvMame3x}) {
-		const auto name = std::string(pictureFilterName(filter));
-		WindowPlacement settings{false, 1000, 700};
-		settings.filter = filter;
-		check(writeWindowPlacement(file, settings), name + " 4:3 settings");
-		SdlWindow::rememberPlacement(file);
-		readbackLoop("4:3 " + name, frame, [&](SDL_Window *, SDL_Renderer *renderer, int step) {
-			const auto output = readViewport(renderer, 1000, 700);
-			const auto picture = pictureRect(1000, 700, 320, 200, PictureAspect::FourThree);
-			for (int y = 0; y < 700; ++y) for (int x = 0; x < 1000; ++x)
-				if (x < picture.x || x >= picture.x + picture.width)
-					check((output[y * 1000 + x] & 0xffffffu) == 0, name + " black 4:3 borders");
-			for (const auto &p : uniform) {
-				const int x = picture.x + int((p.first + 0.5) * picture.width / 320), y = int((p.second + 0.5) * picture.height / 200);
-				check(near(output[y * 1000 + x], argb[p.second * 320 + p.first], 2), name + " 4:3 uniform colour");
-			}
-			if (filter == PictureFilter::Off) unfiltered = output;
-			else check(output != unfiltered, name + " 4:3 picture is filtered");
-			if (step == 0) pushEvent(SDL_RENDER_TARGETS_RESET);
-			else if (step == 1) pushEvent(SDL_RENDER_DEVICE_RESET);
-			return step < 2;
-		});
-	}
-	SdlWindow::rememberPlacement(std::nullopt); removeScratch(directory);
-	std::cout << "Filtered pictures, renderer resets and output size changes passed\n";
+// Dummy SDL has no OpenGL context. Both requested CRT profiles must fall
+// back to identical Off pixels once the on-screen explanation expires.
+void fallbackReadback() {
+    const auto directory = scratchDirectory("crt-fallback");
+    const auto file = directory / "window.ini";
+    const auto frame = filterFrameIndexed();
+    for (auto aspect : {PictureAspect::Square, PictureAspect::FourThree}) {
+        std::vector<Uint32> reference;
+        for (auto filter : {PictureFilter::Off, PictureFilter::CrtVga, PictureFilter::CrtPhosphor}) {
+            WindowPlacement settings{false, 960, 600, aspect};
+            settings.filter = filter;
+            check(writeWindowPlacement(file, settings), "fallback placement");
+            SdlWindow::rememberPlacement(file);
+            std::uint64_t clock = 0;
+            SdlWindow::FrameUpdateHandler handler;
+            handler.presentationClock = [&] { return clock; };
+            readbackLoop("CRT fallback", frame, [&](SDL_Window *, SDL_Renderer *renderer, int step) {
+                const auto output = readViewport(renderer, 960, 600);
+                if (filter == PictureFilter::Off) reference = output;
+                else if (step == 0) check(output != reference, "fallback explains unavailable CRT");
+                else check(output == reference, "unavailable CRT draws exact Off picture");
+                clock += 3000000000ULL;
+                return step == 0;
+            }, handler);
+        }
+    }
+    SdlWindow::rememberPlacement(std::nullopt);
+    removeScratch(directory);
 }
 
 void filterKey() {
@@ -587,7 +486,7 @@ void filterKey() {
 			WindowRun::key(SDLK_F11, 0, SDL_KEYUP);
 			break;
 		case 1:
-			check(stored.filter == PictureFilter::AdvMame2x && SdlWindow::pictureFilterSetting() == PictureFilter::AdvMame2x,
+			check(stored.filter == PictureFilter::CrtVga && SdlWindow::pictureFilterSetting() == PictureFilter::CrtVga,
 				"F11 selects and saves the next filter; its repeat does nothing");
 			check(stored.controller && stored.width == 800 && !stored.fullscreen, "F11 keeps the other settings");
 			check(r.actions == 0, "F11 reached the game");
@@ -595,8 +494,8 @@ void filterKey() {
 			WindowRun::key(SDLK_F11, KMOD_LSHIFT, SDL_KEYUP);
 			break;
 		case 2:
-			check(stored.filter == PictureFilter::AdvMame3x && r.actions == 0, "Shift+F11 selects the next filter");
-			for (int i = 0; i < 10; ++i) { WindowRun::key(SDLK_F11); WindowRun::key(SDLK_F11, 0, SDL_KEYUP); }
+			check(stored.filter == PictureFilter::CrtPhosphor && r.actions == 0, "Shift+F11 selects the next filter");
+			WindowRun::key(SDLK_F11); WindowRun::key(SDLK_F11, 0, SDL_KEYUP);
 			break;
 		case 3:
 			check(stored.filter == PictureFilter::Off && SdlWindow::pictureFilterSetting() == PictureFilter::Off,
@@ -613,16 +512,16 @@ void filterKey() {
 	});
 	// Developer entries read the filter but never save it.
 	WindowPlacement developer{false, 800, 600, PictureAspect::Square};
-	developer.filter = PictureFilter::Hq2x;
+	developer.filter = PictureFilter::CrtVga;
 	check(writeWindowPlacement(file, developer), "developer filter settings");
 	SdlWindow::rememberPlacement(std::nullopt); SdlWindow::useAspectSetting(file);
 	WindowRun developerRun;
 	developerRun.run("developer filter", [](WindowRun &r) {
 		if (r.stage == 0) {
-			check(SdlWindow::pictureFilterSetting() == PictureFilter::Hq2x, "developer reads the filter");
+			check(SdlWindow::pictureFilterSetting() == PictureFilter::CrtVga, "developer reads the filter");
 			WindowRun::key(SDLK_F11);
 		} else if (r.stage == 1) {
-			check(SdlWindow::pictureFilterSetting() == PictureFilter::Hq3x && r.actions == 0, "developer F11 switches");
+			check(SdlWindow::pictureFilterSetting() == PictureFilter::CrtPhosphor && r.actions == 0, "developer F11 switches");
 			WindowRun::quit();
 		}
 	});
@@ -641,11 +540,8 @@ void filterLabel() {
 	const auto frame = filterFrameIndexed();
 	struct LabelCase { PictureAspect aspect; PictureFilter from, to; };
 	const LabelCase cases[] = {
-		{PictureAspect::FourThree, PictureFilter::Off, PictureFilter::AdvMame2x},
-		{PictureAspect::FourThree, PictureFilter::Pm2x, PictureFilter::Off},
-		{PictureAspect::Square, PictureFilter::Off, PictureFilter::AdvMame2x},
-		{PictureAspect::Square, PictureFilter::Hq2x, PictureFilter::Hq3x},
-		{PictureAspect::Square, PictureFilter::Pm2x, PictureFilter::Off}};
+        {PictureAspect::FourThree, PictureFilter::CrtPhosphor, PictureFilter::Off},
+        {PictureAspect::Square, PictureFilter::CrtPhosphor, PictureFilter::Off}};
 	for (const auto &c : cases) {
 		const bool square = c.aspect == PictureAspect::Square;
 		const int width = square ? 960 : 1000, height = square ? 600 : 700;
@@ -727,9 +623,9 @@ int main() {
 		persistedPlacement();
         developerAspect();
         softwarePresentation();
-        filterDigests();
+
         squareOffReadback();
-        filteredReadback();
+        fallbackReadback();
         filterKey();
         filterLabel();
 	} catch (const std::exception &error) {

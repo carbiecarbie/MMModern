@@ -121,11 +121,11 @@ button of its own. The [controller layout][controller] lists every button.
 
 ### Picture filters
 
-The picture can be softened with one of ScummVM's classic pixel-art filters
-(AdvMame, HQ, Edge, SaI and others). The original has none, so it is off until
-you choose one: the **Picture filter** list in the Windows launcher, the
-setup screen row on Linux, or `filter=` in `window.ini`. F11 switches to the
-next filter while you play. The [player guide][guide-filters] lists them.
+Two optional CRT profiles simulate a VGA monitor. **CRT VGA** keeps small
+letters sharp. **CRT Phosphor** shows a stronger phosphor texture. Both
+ship with the game and work with either picture shape. Choose one from
+**Picture filter** in the Windows launcher or Linux setup, or press F11
+during play. The default is **Off**. See the [player guide][guide-filters].
 
 ## More for players
 

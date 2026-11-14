@@ -1018,25 +1018,16 @@ stays documented here and in the plan that implements it.
   [M99 plan](milestone-99-plan.md). **ScummVM:** the pin also corrects the
   aspect ratio by default (`base/commandLine.cpp:311`, `aspect_ratio` true)
   and lets the player turn the correction off.
-- <a id="dev-picture-filter"></a> **Picture filters are an opt-in presentation**
-  (maintainer, 2026-11-10). The original draws its 320x200 picture in VGA
-  mode 13h with no filter, so there is no DOS behavior to reproduce. With the
-  host setting `filter=` in `window.ini` (default `off`; never game state)
-  the window softens the picture with one of the pin's classic scalers
-  (AdvMame 2x/3x/4x, HQ 2x/3x, Edge 2x/3x, 2xSaI, Super2xSaI, SuperEagle,
-  PM 2x) before the existing picture shape fits it to the window; the
-  original cursor is drawn after the filter. F11 selects the next filter and
-  shows its name over the picture for about two seconds, drawn by the window
-  and never into the game's frame; the game never receives F11: it produces
-  no code in the original ([controls](controls.md)). MMModern: `ScummVmPictureFilter`,
-  `SdlWindow` (present path), `WindowPlacement`.
-  [M116 plan](milestone-116-plan.md). **ScummVM:** the pin offers the same
-  scalers as its `scaler` option (`base/commandLine.cpp:127..128` lists
-  normal, hq, edge, advmame, sai, supersai, supereagle, pm, dotmatrix and
-  tv2x, with a separate `--scale-factor` at `:129`); its default is `normal`
-  (`backends/graphics/surfacesdl/surfacesdl-graphics.cpp:656..657`). MMModern
-  names each filter with its factor and leaves out Normal, dotmatrix and
-  tv2x.
+- <a id="dev-picture-filter"></a> **Optional CRT presentation.** DOS displays
+  a 320x200 VGA mode 13h frame. The maintainer approved optional filtering
+  in M116 and replaced the eleven classic scalers with two CRT profiles in
+  [M117](milestone-117-plan.md). `SdlCrtFilter` applies an adaptation of
+  zfast_crt to the displayed picture at output resolution. The original
+  cursor and F11 label are drawn afterwards. The default is Off. The choice
+  belongs to the host's `window.ini`. F11 produces no code in the original
+  ([controls](controls.md)). **ScummVM:** the pin offers its own `scaler` and
+  `scale-factor` options (`base/commandLine.cpp:127..129`). MMModern
+  offers CRT VGA and CRT Phosphor through its own window presentation.
 - <a id="dev-controller"></a> **Game controllers are an opt-in input**
   (maintainer, 2026-11-09). The original has no joystick or gamepad support,
   so there is no DOS behavior to reproduce. With the host setting

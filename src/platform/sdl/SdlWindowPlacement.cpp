@@ -18,12 +18,10 @@ namespace mmodern {
 namespace {
 
 constexpr int maximumWindowExtent = 32768;
-constexpr std::string_view filterNames[] = {"off", "advmame2x", "advmame3x", "advmame4x", "hq2x", "hq3x", "edge2x",
-	"edge3x", "sai2x", "supersai2x", "supereagle2x", "pm2x"};
+constexpr std::string_view filterNames[] = {"off", "crt-vga", "crt-phosphor"};
 constexpr int filterCount = static_cast<int>(sizeof filterNames / sizeof filterNames[0]);
-static_assert(filterCount == static_cast<int>(PictureFilter::Pm2x) + 1, "every picture filter has a name");
-constexpr std::string_view filterLabels[] = {"off", "AdvMame 2x", "AdvMame 3x", "AdvMame 4x", "HQ 2x", "HQ 3x", "Edge 2x",
-	"Edge 3x", "2xSaI", "Super2xSaI", "SuperEagle", "PM 2x"};
+static_assert(filterCount == static_cast<int>(PictureFilter::CrtPhosphor) + 1, "every picture filter has a name");
+constexpr std::string_view filterLabels[] = {"off", "CRT VGA", "CRT Phosphor"};
 static_assert(sizeof filterLabels / sizeof filterLabels[0] == filterCount, "every picture filter has a label");
 
 PictureFilter parsePictureFilter(std::string_view value) {
@@ -78,8 +76,7 @@ std::string formatWindowPlacement(const WindowPlacement &placement) {
         << "aspect=" << (placement.aspect == PictureAspect::Square ? "square" : "4:3") << '\n'
 		<< "# Game controller: controller=off (default) or controller=on.\n"
 		<< "controller=" << (placement.controller ? "on" : "off") << '\n'
-		<< "# Picture filter, F11 switches it: filter=off (default), advmame2x, advmame3x,\n"
-		<< "# advmame4x, hq2x, hq3x, edge2x, edge3x, sai2x, supersai2x, supereagle2x or pm2x.\n"
+		<< "# Picture filter, F11 switches it: filter=off (default), crt-vga or crt-phosphor.\n"
 		<< "filter=" << pictureFilterName(placement.filter) << '\n'
 		<< "fullscreen=" << (placement.fullscreen ? 1 : 0) << '\n';
 	if (placement.width > 0 && placement.height > 0)

@@ -14,10 +14,8 @@ namespace mmodern {
 // fullscreen and the windowed client size, remembered between runs, and the
 // host input option for game controllers.
 enum class PictureAspect { FourThree, Square };
-// M116 opt-in picture filter (approved deviation dev-picture-filter): the
-// ScummVM scalers in F11 order; Off is the default and wraps around.
-enum class PictureFilter { Off, AdvMame2x, AdvMame3x, AdvMame4x, Hq2x, Hq3x, Edge2x, Edge3x, Sai2x, SuperSai2x,
-	SuperEagle2x, Pm2x };
+// Host-only CRT profiles in F11 order (dev-picture-filter).
+enum class PictureFilter { Off, CrtVga, CrtPhosphor };
 
 struct WindowPlacement {
 	bool fullscreen = false;
@@ -63,9 +61,9 @@ std::optional<std::pair<int, int>> frameToWindow(int x, int y, int windowWidth, 
 // Alt+Enter (main or keypad Enter) toggles fullscreen. The game never receives it.
 bool fullscreenToggleKey(std::int32_t keycode, std::uint16_t modifiers);
 
-// The window.ini name ("off", "advmame2x" ...) and the next filter of the F11 order.
+// The window.ini name ("off", "crt-vga" ...) and the next filter of the F11 order.
 std::string_view pictureFilterName(PictureFilter filter);
-// The readable name the setup screen and the F11 label show ("off", "HQ 3x" ...).
+// The readable name the setup screen and the F11 label show ("off", "CRT VGA" ...).
 std::string_view pictureFilterLabel(PictureFilter filter);
 PictureFilter nextPictureFilter(PictureFilter filter);
 // F11, with any modifiers, selects the next picture filter. The game never receives it.

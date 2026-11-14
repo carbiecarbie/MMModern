@@ -155,6 +155,8 @@ image="$out/MMModern-$version-x86_64.AppImage"
 {
     echo "MMModern $version AppImage (x86-64)"
     echo 'MMModern: GPL-3.0-or-later; see LICENSE.txt.'
+    echo 'CRT shader adapted from zfast_crt_standard, copyright 2017 Greg Hogan (SoltanGris42), GPL-2.0-or-later.'
+    echo 'Shader source: https://github.com/libretro/glsl-shaders/blob/a35069864b4bf30f8c8e740d57206543fb7e745e/crt/shaders/zfast_crt.glsl'
     echo "Complete MMModern source: https://github.com/carbiecarbie/MMModern/tree/$commit"
     echo "MMModern commit: $commit (local builds may contain uncommitted changes)"
     echo "ScummVM source: https://github.com/scummvm/scummvm/tree/$(git -C "$scummvm_source" rev-parse HEAD)"
